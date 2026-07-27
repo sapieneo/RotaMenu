@@ -6,15 +6,40 @@ type Props = {
   email: string | null;
   isAnonymous: boolean;
   contactPhone: string | null;
+  contactPhoneVerifiedAt: string | null;
+  phoneVerificationConfigured: boolean;
 };
 
 type Status = { name: 'idle' } | { name: 'saving' } | { name: 'sent' } | { name: 'error'; message: string };
 
-export function AccountCard({ email, isAnonymous, contactPhone }: Props) {
+export function AccountCard({
+  email,
+  isAnonymous,
+  contactPhone,
+  contactPhoneVerifiedAt,
+  phoneVerificationConfigured,
+}: Props) {
   const [emailInput, setEmailInput] = useState('');
   const [phone, setPhone] = useState(contactPhone ?? '');
   const [status, setStatus] = useState<Status>({ name: 'idle' });
   const [banner, setBanner] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [phoneVerified, setPhoneVerified] = useState(Boolean(contactPhoneVerifiedAt));
+  const [verifyBusy, setVerifyBusy] = useState(false);
+
+  async function verifyPhoneBypass() {
+    setVerifyBusy(true);
+    try {
+      const res = await fetch('/api/account/dev-verify-phone', { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? 'Doğrulanamadı.');
+      setPhoneVerified(true);
+      setBanner({ kind: 'ok', text: 'Telefon doğrulandı (geliştirme bypass).' });
+    } catch (err) {
+      setBanner({ kind: 'error', text: err instanceof Error ? err.message : 'Beklenmeyen hata.' });
+    } finally {
+      setVerifyBusy(false);
+    }
+  }
 
   // /auth/callback dönüşünü yakala (?auth_ok / ?auth_error).
   useEffect(() => {
@@ -50,6 +75,7 @@ export function AccountCard({ email, isAnonymous, contactPhone }: Props) {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? 'İşlem başarısız.');
       setStatus(body.emailSent ? { name: 'sent' } : { name: 'idle' });
+      if (payload.phone) setPhoneVerified(false); // yeni numara — doğrulama sıfırlanır
       if (!body.emailSent && body.phoneSaved) {
         setBanner({ kind: 'ok', text: 'Telefon numarası kaydedildi.' });
       }
@@ -61,8 +87,12 @@ export function AccountCard({ email, isAnonymous, contactPhone }: Props) {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <header className="mb-6">
-        <p className="text-sm font-medium text-brand-600">Hesap</p>
-        <h1 className="mt-1 text-2xl font-bold">Hesabını güvene al</h1>
+        <p className="text-sm font-medium text-brand-600">Ücretsiz Plan</p>
+        <h1 className="mt-1 text-2xl font-bold">Ücretsiz menü için kaydol</h1>
+        <p className="mt-1 text-sm text-stone-500">
+          Menünü yayınlayabilmen için e-postanı ve bir iletişim telefonunu ekle — ikisi de ücretsiz
+          plana kayıt şartı.
+        </p>
       </header>
 
       {banner && (
@@ -81,9 +111,9 @@ export function AccountCard({ email, isAnonymous, contactPhone }: Props) {
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
-              GÜVENDE
+              KAYITLI
             </span>
-            <h2 className="text-base font-bold text-stone-800">Hesabın bir e-postaya bağlı</h2>
+            <h2 className="text-base font-bold text-stone-800">Ücretsiz plana kayıtlısın</h2>
           </div>
           <p className="mt-1 text-sm text-stone-600">
             Menün <strong>{email}</strong> adresine bağlı. Farklı bir cihazdan bu e-posta ile
@@ -94,14 +124,13 @@ export function AccountCard({ email, isAnonymous, contactPhone }: Props) {
         <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-semibold text-white">
-              GEÇİCİ
+              KAYIT GEREKLİ
             </span>
-            <h2 className="text-base font-bold text-stone-800">Hesabın henüz geçici</h2>
+            <h2 className="text-base font-bold text-stone-800">Ücretsiz plana henüz kaydolmadın</h2>
           </div>
           <p className="mt-1 max-w-lg text-sm text-stone-600">
-            Menün şu an yalnız bu tarayıcıya bağlı. Tarayıcı verisini temizlersen ya da başka
-            cihaza geçersen <strong>menüne erişemezsin</strong>. E-postanı ekle; sana bir
-            doğrulama bağlantısı gönderelim.
+            Menün şu an yalnız bu tarayıcıya bağlı ve <strong>yayınlanamaz</strong>. Ücretsiz
+            plana kaydolmak için e-postanı ekle; sana bir doğrulama bağlantısı gönderelim.
           </p>
 
           <label className="mt-4 block">
@@ -128,9 +157,16 @@ export function AccountCard({ email, isAnonymous, contactPhone }: Props) {
       )}
 
       <section className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-stone-400">
-          İletişim telefonu
-        </h2>
+        <div className="mb-1 flex items-center gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-stone-400">
+            İletişim telefonu
+          </h2>
+          {phoneVerified && (
+            <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+              DOĞRULANDI
+            </span>
+          )}
+        </div>
         <p className="mb-3 text-sm text-stone-500">
           Hesabınla ilgili iletişim için. Misafir menüsünde gösterilmez — o numara
           <a href="/studyo/ayarlar" className="text-brand-700 underline"> işletme ayarlarında</a>.
@@ -147,6 +183,24 @@ export function AccountCard({ email, isAnonymous, contactPhone }: Props) {
             className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500"
           />
         </label>
+
+        {!phoneVerified && contactPhone && !phoneVerificationConfigured && (
+          <div className="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+              Geliştirme modu — SMS bağlanınca kaldırılacak
+            </p>
+            <p className="mt-1 text-sm text-amber-800">
+              Kod göndermeden bu telefonu doğrulanmış işaretle (test amaçlı).
+            </p>
+            <button
+              onClick={verifyPhoneBypass}
+              disabled={verifyBusy}
+              className="mt-3 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-amber-700 disabled:opacity-50"
+            >
+              {verifyBusy ? 'Doğrulanıyor…' : 'Telefonu doğrula (bypass)'}
+            </button>
+          </div>
+        )}
       </section>
 
       {status.name === 'error' && (
@@ -161,7 +215,7 @@ export function AccountCard({ email, isAnonymous, contactPhone }: Props) {
           disabled={status.name === 'saving'}
           className="rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow transition hover:bg-brand-700 disabled:opacity-50"
         >
-          {status.name === 'saving' ? 'Kaydediliyor…' : isAnonymous ? 'Doğrulama gönder / kaydet' : 'Kaydet'}
+          {status.name === 'saving' ? 'Kaydediliyor…' : isAnonymous ? 'Ücretsiz kaydol' : 'Kaydet'}
         </button>
       </div>
     </main>

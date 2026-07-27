@@ -67,8 +67,8 @@ export function Dashboard({ data }: { data: DashboardData }) {
       {data.isAnonymous && (
         <Banner
           tone="amber"
-          text="Hesabın geçici — menün yalnız bu tarayıcıya bağlı. E-postanı ekleyerek güvene al."
-          cta={{ href: '/studyo/hesap', label: 'Hesabı güvene al' }}
+          text="Menünü yayınlamak için ücretsiz plana kaydolman gerekiyor — hesabın şu an geçici."
+          cta={{ href: '/studyo/hesap', label: 'Ücretsiz kaydol' }}
         />
       )}
       {!data.isPublished && (
@@ -168,7 +168,7 @@ function PlanCard({ plan, itemCount }: { plan: PlanInfo; itemCount: number }) {
   // Ücretsiz planda yayın için eksik şartlar (üyelik + telefon).
   const missing: string[] = [];
   if (isFree && plan.requiresVerifiedAccount) {
-    if (!plan.accountSecured) missing.push('E-posta ile hesabı güvene al');
+    if (!plan.accountSecured) missing.push('Ücretsiz plana kaydol (e-posta ekle)');
     if (!plan.hasPhone) missing.push('İletişim telefonu ekle');
   }
 

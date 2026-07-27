@@ -53,7 +53,7 @@ export async function POST() {
   // Venue var mı?
   const { data: venue } = await admin
     .from('venues')
-    .select('id, slug')
+    .select('id, slug, name')
     .eq('org_id', orgId)
     .order('created_at', { ascending: true })
     .limit(1)
@@ -71,6 +71,7 @@ export async function POST() {
       orgId,
       venueId: venue.id,
       slug: venue.slug,
+      name: venue.name,
       hasMenu: Boolean(someCat),
     });
   }

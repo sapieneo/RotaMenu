@@ -79,6 +79,19 @@ Sağlayıcı: **iyzico** (TR). Resmi `iyzipay` Node SDK'sı + abonelik Checkout 
 ### C-faturalama · opsiyonel sonraki
 - `current_period_end`'i retrieve/webhook'tan kesin doldurma (şu an null; iptal/expire webhook'u yeterli). Yıllık plan seçeneği. Fatura/makbuz e-postası.
 
+### C-kayıt akışı + telefon doğrulama ✅ TAMAMLANDI (2026-07-20, kısmen geçici)
+- **Hesap sayfası yeniden çerçevelendi:** `/studyo/hesap` artık "ücretsiz plan kaydı" olarak sunuluyor ("Ücretsiz menü için kaydol", "KAYIT GEREKLİ" / "KAYITLI" rozetleri). Fonksiyon aynı (`updateUser({email})`, `user.id` korunur). `/studyo` ve pano'daki bantlar da aynı dile çekildi.
+- **⚠️ Telefon doğrulama bypass (GEÇİCİ).** Gerçek SMS OTP akışı henüz yok. `src/lib/sms.ts` → `isPhoneVerificationConfigured()` (şimdilik hep `false`, `SMS_PROVIDER_API_KEY` yoksa). `/api/account/dev-verify-phone` telefonu kod göndermeden `contact_phone_verified_at`'ı doldurur. Hesap sayfasında telefon alanı doluysa ve doğrulanmamışsa amber "Geliştirme modu" kutusunda "Telefonu doğrula (bypass)" düğmesi çıkar. **Otomatik kilit:** `SMS_PROVIDER_API_KEY` eklenince rota 403 döner, düğme kaybolur — iyzico bypass ile birebir aynı desen. **UNUTMA:** Google girişi eklendiğinde ("Google ile üye olunca telefon koduyla onay isteriz") bu, gerçek SMS OTP + `/api/account/verify-phone` (gönder/doğrula iki adım) ile değiştirilecek; `contact_phone_verified_at` şu an publish gate'e BAĞLI DEĞİL (yalnız `contact_phone` doluluğu kontrol ediliyor, bkz. plans.ts) — ileride "gerçekten doğrulanmış" şartına sıkılaştırılabilir.
+- **`/studyo` menü listesi:** kullanıcının menüsü varsa artık "Menülerin" başlıklı bir kart altında venue adı + `/m/{slug}` + "Panoya git" düğmesiyle listeleniyor (önceden yalnız genel bir bant vardı). `/api/bootstrap` yanıtına `name` eklendi.
+
+### C-süper-admin kontrol paneli ✅ TAMAMLANDI (2026-07-20)
+Platform sahibi (biz) için tüm kiracıları gören ayrı, şifreli panel — normal kullanıcı auth'undan bağımsız.
+- **`src/lib/admin-auth.ts`** — tek paylaşılan şifre (`ADMIN_PASSWORD` env) + imzalı (HMAC-SHA256, aynı şifre anahtar), süreli (12 saat) httpOnly çerez (`ros_admin`). `ADMIN_PASSWORD` boşsa panel tamamen kapalı (varsayılan kapalı).
+- **`/admin`** — şifre giriş formu → `/api/admin/login` (yanlış şifrede 400ms gecikme, kaba kuvvete karşı). **`/api/admin/logout`** çerezi temizler.
+- **`/admin/panel`** — `requireAdmin()` korumalı, service-role ile TÜM venue'ları listeler (işletme adı, `/m/{slug}` linki, sahibin e-postası — `auth.admin.getUserById` ile, plan rozeti, CANLI/TASLAK durumu, oluşturulma tarihi) + her satırda **"Panoya git"**.
+- **`/admin/venue/[id]`** — salt-okunur işletme panosu (plan, ürün sayısı, aktif QR, son 30 gün tarama/görüntüleme, telefon + doğrulama durumu, ilk yayın tarihi). `/studyo/pano` ile aynı ruhta ama venueId URL'den gelir ve YAZMA yoktur.
+- Doğrulama: `tsc --noEmit` temiz. **Canlıda kurulum:** Netlify'a `ADMIN_PASSWORD` env'i eklenmeden `/admin` 501 döner (güvenli varsayılan).
+
 ## Faz D — Sipariş sistemi + analitik (v2)
 - Misafir menüden **sipariş** verebilir.
 - Her restoranın sipariş **veritabanı**; tüm siparişler kaydedilir.

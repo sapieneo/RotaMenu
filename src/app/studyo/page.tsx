@@ -24,6 +24,7 @@ export default function StudyoPage() {
   const [dragOver, setDragOver] = useState(false);
   const [isAnon, setIsAnon] = useState(false);
   const [hasMenu, setHasMenu] = useState(false);
+  const [venueInfo, setVenueInfo] = useState<{ name: string; slug: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const bootstrapped = useRef(false);
 
@@ -48,6 +49,9 @@ export default function StudyoPage() {
         const u = userData.user as { is_anonymous?: boolean; email?: string } | null;
         setIsAnon(Boolean(u && (u.is_anonymous ?? !u.email)));
         setHasMenu(Boolean(body.hasMenu));
+        if (body.hasMenu && body.slug) {
+          setVenueInfo({ name: body.name || 'İşletmem', slug: body.slug });
+        }
         setPhase({ name: 'hazir', orgId: body.orgId, venueId: body.venueId });
       } catch (err) {
         setPhase({
@@ -129,27 +133,35 @@ export default function StudyoPage() {
       </div>
 
       {hasMenu && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
-          <span>Menün hazır. Yayın durumu, QR ve ziyaretçi istatistiklerini panondan yönet.</span>
-          <a
-            href="/studyo/pano"
-            className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 font-semibold text-white transition hover:bg-brand-700"
-          >
-            Panoya git
-          </a>
+        <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">
+            Menülerin
+          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-brand-50 px-4 py-3">
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-stone-800">{venueInfo?.name ?? 'İşletmem'}</p>
+              {venueInfo?.slug && <p className="text-xs text-stone-500">/m/{venueInfo.slug}</p>}
+            </div>
+            <a
+              href="/studyo/pano"
+              className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-700"
+            >
+              Panoya git
+            </a>
+          </div>
         </div>
       )}
 
       {isAnon && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <span>
-            Hesabın geçici — menün yalnız bu tarayıcıya bağlı. E-postanı ekle ki kaybetmeyesin.
+            Menünü yayınlamak için ücretsiz plana kaydolman gerekiyor — hesabın şu an geçici.
           </span>
           <a
             href="/studyo/hesap"
             className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 font-semibold text-white transition hover:bg-amber-700"
           >
-            Hesabını güvene al
+            Ücretsiz kaydol
           </a>
         </div>
       )}
