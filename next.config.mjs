@@ -6,7 +6,9 @@ const nextConfig = {
   experimental: {
     // pdfkit'i webpack ile paketleme; node_modules'tan çalışma anında yüklensin
     // (aksi halde kendi .afm font veri dosyalarını bulamayıp 500 verir).
-    serverComponentsExternalPackages: ['pdfkit'],
+    // iyzipay da çalışma anında resources/ dizinini fs.readdirSync ile okur →
+    // bundle edilirse kaynakları bulamaz; harici bırakılır.
+    serverComponentsExternalPackages: ['pdfkit', 'iyzipay'],
     // PDF uyum raporu, TTF fontları çalışma anında fs ile okur; serverless
     // bundle'ına dahil edilmeleri için izlenecek dosyalara eklenir.
     outputFileTracingIncludes: {

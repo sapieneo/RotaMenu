@@ -1,5 +1,17 @@
 export type DayBucket = { date: string; scans: number; views: number };
 
+export type PlanInfo = {
+  tier: 'free' | 'pro' | 'enterprise';
+  label: string;
+  /** null = sınırsız */
+  itemLimit: number | null;
+  images: boolean;
+  removeBadge: boolean;
+  requiresVerifiedAccount: boolean;
+  accountSecured: boolean;
+  hasPhone: boolean;
+};
+
 export type DashboardData = {
   venueName: string;
   slug: string;
@@ -9,6 +21,7 @@ export type DashboardData = {
   itemCount: number;
   pendingCount: number;
   qrActive: number;
+  plan: PlanInfo;
   stats: {
     scans: number;
     menuViews: number;
@@ -85,6 +98,9 @@ export function Dashboard({ data }: { data: DashboardData }) {
         <StatCard label="30 gün tarama" value={data.stats.scans} />
       </section>
 
+      {/* Plan & kullanım */}
+      <PlanCard plan={data.plan} itemCount={data.itemCount} />
+
       {/* Analitik */}
       <section className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
@@ -135,8 +151,109 @@ export function Dashboard({ data }: { data: DashboardData }) {
         <QuickLink href="/studyo/qr" icon="🔳" label="QR kodları" />
         <QuickLink href="/studyo/ayarlar" icon="⚙️" label="Ayarlar" />
         <QuickLink href="/studyo/hesap" icon="👤" label="Hesap" />
+        <QuickLink href="/studyo/plan" icon="💎" label="Plan / yükselt" />
       </section>
     </main>
+  );
+}
+
+/** Plan + kullanım kartı (Faz C freemium). */
+function PlanCard({ plan, itemCount }: { plan: PlanInfo; itemCount: number }) {
+  const isFree = plan.tier === 'free';
+  const limit = plan.itemLimit;
+  const pct = limit ? Math.min(100, Math.round((itemCount / limit) * 100)) : 0;
+  const nearLimit = limit != null && itemCount >= limit * 0.8;
+  const atLimit = limit != null && itemCount >= limit;
+
+  // Ücretsiz planda yayın için eksik şartlar (üyelik + telefon).
+  const missing: string[] = [];
+  if (isFree && plan.requiresVerifiedAccount) {
+    if (!plan.accountSecured) missing.push('E-posta ile hesabı güvene al');
+    if (!plan.hasPhone) missing.push('İletişim telefonu ekle');
+  }
+
+  return (
+    <section className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-stone-400">Plan</h2>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              isFree ? 'bg-stone-200 text-stone-700' : 'bg-brand-600 text-white'
+            }`}
+          >
+            {plan.label}
+          </span>
+        </div>
+        {isFree && (
+          <a
+            href="/studyo/plan"
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-brand-700"
+          >
+            Pro’ya yükselt
+          </a>
+        )}
+      </div>
+
+      {/* Ürün kullanımı */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-medium text-stone-700">Ürün</span>
+          <span className={atLimit ? 'font-semibold text-red-600' : 'text-stone-500'}>
+            {itemCount}
+            {limit != null ? ` / ${limit}` : ' · sınırsız'}
+          </span>
+        </div>
+        {limit != null && (
+          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-stone-100">
+            <div
+              className={`h-full rounded-full ${
+                atLimit ? 'bg-red-500' : nearLimit ? 'bg-amber-500' : 'bg-brand-600'
+              }`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        )}
+        {atLimit && (
+          <p className="mt-1.5 text-xs text-red-600">
+            Ürün limitine ulaştın. Yeni ürün eklemek için Pro’ya yükselt.
+          </p>
+        )}
+      </div>
+
+      {/* Özellik satırları */}
+      <dl className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <FeatureRow label="Ürün / kategori görselleri" on={plan.images} />
+        <FeatureRow label="RestaurantOS rozeti kaldırma" on={plan.removeBadge} />
+      </dl>
+
+      {/* Ücretsiz plan yayın şartları */}
+      {missing.length > 0 && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-medium">Yayınlamak için gerekenler:</p>
+          <ul className="mt-1 list-disc pl-5">
+            {missing.map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
+          <a href="/studyo/hesap" className="mt-2 inline-block font-semibold underline underline-offset-2">
+            Hesap sayfasına git
+          </a>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function FeatureRow({ label, on }: { label: string; on: boolean }) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-stone-50 px-3 py-2 text-sm">
+      <span className={on ? 'text-emerald-600' : 'text-stone-400'} aria-hidden>
+        {on ? '✓' : '🔒'}
+      </span>
+      <span className="text-stone-700">{label}</span>
+      {!on && <span className="ml-auto text-xs font-medium text-brand-600">Pro</span>}
+    </div>
   );
 }
 

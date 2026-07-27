@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { recordEvent } from '@/lib/analytics';
+import { showRestaurantBadge } from '@/lib/plans';
 import { CODE_BY_ID } from '@/lib/allergens';
 import { DIETARY_CODE_BY_ID } from '@/lib/dietary';
 import { GuestMenu, type GuestCategory, type GuestVenue } from './guest-menu';
@@ -50,6 +51,14 @@ export default async function GuestMenuPage({ params }: { params: { slug: string
     .maybeSingle();
 
   if (!venue) notFound();
+
+  // Plan → misafir menüsünde "RestaurantOS" rozeti yalnız ücretsiz planda görünür.
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('plan')
+    .eq('id', venue.org_id)
+    .maybeSingle();
+  const showBadge = showRestaurantBadge(org?.plan);
 
   // Venue'nun aktif menü(leri) → tek menü modeli olsa da genel davranıyoruz.
   const { data: menus } = await supabase
@@ -136,6 +145,7 @@ export default async function GuestMenuPage({ params }: { params: { slug: string
     wifiSsid: venue.wifi_ssid ?? null,
     openingHours: venue.opening_hours ?? null,
     isPublished: Boolean(venue.is_published),
+    showBadge,
   };
 
   // 'menu_view' — yalnız YAYINDAKİ menüde sayılır. Sahibin önizlemesi

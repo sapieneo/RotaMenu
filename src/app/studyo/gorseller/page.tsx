@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { planLimits } from '@/lib/plans';
 import { ImageManager, type ImgCategory } from './image-manager';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,41 @@ export default async function ImagesPage() {
         <a href="/studyo" className="mt-2 rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow">
           Menü oluştur
         </a>
+      </main>
+    );
+  }
+
+  // Plan kapısı: görseller Pro+ özelliğidir. Ücretsiz planda yükseltme ekranı.
+  const { data: orgRow } = await supabase
+    .from('organizations')
+    .select('plan')
+    .eq('id', venue.org_id)
+    .maybeSingle();
+  if (!planLimits(orgRow?.plan).images) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
+        <span className="text-4xl" aria-hidden>
+          🎨
+        </span>
+        <h1 className="text-xl font-semibold">Görseller Pro’ya özel</h1>
+        <p className="text-stone-600">
+          AI ürün görselleri ve kategori arka planları Pro planda açılır. Ücretsiz planda menün
+          görselsiz, temiz bir listeyle yayınlanır.
+        </p>
+        <div className="mt-2 flex gap-3">
+          <a
+            href="/studyo/plan"
+            className="rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow transition hover:bg-brand-700"
+          >
+            Pro’ya yükselt
+          </a>
+          <a
+            href="/studyo/pano"
+            className="rounded-xl border border-stone-300 px-6 py-3 font-semibold text-stone-700 transition hover:bg-stone-50"
+          >
+            Panoya dön
+          </a>
+        </div>
       </main>
     );
   }

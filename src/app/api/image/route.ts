@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { planLimits, UPGRADE_MESSAGES } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 
@@ -63,6 +64,22 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle();
   if (!mem || !EDITOR_ROLES.includes(mem.role)) {
     return NextResponse.json({ error: 'Bu işlem için yetkiniz yok.' }, { status: 403 });
+  }
+
+  // Plan kapısı: görsel BAĞLAMA yalnız Pro+ planlarda. Kaldırma (null) her
+  // planda serbest — plan düşse bile mevcut görsel temizlenebilmeli.
+  if (imageUrl !== null) {
+    const { data: orgRow } = await admin
+      .from('organizations')
+      .select('plan')
+      .eq('id', row.org_id)
+      .maybeSingle();
+    if (!planLimits(orgRow?.plan).images) {
+      return NextResponse.json(
+        { error: UPGRADE_MESSAGES.images, code: 'upgrade_required' },
+        { status: 402 }
+      );
+    }
   }
 
   const { error } = await admin.from(table).update({ [column]: imageUrl }).eq('id', id);

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { planLimits, normalizePlan } from '@/lib/plans';
 import { Dashboard, type DashboardData, type DayBucket } from './dashboard';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,7 @@ export default async function DashboardPage() {
   }
 
   const isAnonymous = (user as { is_anonymous?: boolean }).is_anonymous ?? !user.email;
+  const accountSecured = !isAnonymous && Boolean(user.email);
 
   const { data: venue } = await supabase
     .from('venues')
@@ -45,6 +47,15 @@ export default async function DashboardPage() {
       </main>
     );
   }
+
+  // --- Plan + iletişim telefonu (Faz C freemium) ---
+  const { data: orgRow } = await supabase
+    .from('organizations')
+    .select('plan, contact_phone')
+    .eq('id', venue.org_id)
+    .maybeSingle();
+  const planTier = normalizePlan(orgRow?.plan);
+  const limits = planLimits(planTier);
 
   // --- Ürün + bekleyen alerjen onayı sayısı (ayarlar ekranıyla aynı mantık) ---
   const { data: menus } = await supabase
@@ -128,6 +139,16 @@ export default async function DashboardPage() {
     itemCount,
     pendingCount,
     qrActive: qrActive ?? 0,
+    plan: {
+      tier: planTier,
+      label: limits.label,
+      itemLimit: Number.isFinite(limits.maxItems) ? limits.maxItems : null,
+      images: limits.images,
+      removeBadge: limits.removeBadge,
+      requiresVerifiedAccount: limits.requiresVerifiedAccount,
+      accountSecured,
+      hasPhone: Boolean(orgRow?.contact_phone),
+    },
     stats: {
       scans,
       menuViews,

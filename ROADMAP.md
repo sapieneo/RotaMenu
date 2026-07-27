@@ -41,6 +41,39 @@ Kabul: taslak editöründe para birimi/kalori/içindekiler/rozet düzenlenip ona
 - **Pro**: sınırsız/yüksek ürün, tüm diller, ürün + kategori görselleri, rozet kaldırma, öncelikli işleme.
 - Ödeme: TR **iyzico**, global **Stripe/Paddle** (karar M5'te netleşir).
 
+### C-çekirdek · Plan zorlaması ✅ TAMAMLANDI (2026-07-20, sağlayıcıdan bağımsız)
+Migration GEREKMEDİ — `organizations.plan` (plan_tier enum) zaten mevcut; `contact_phone` 0009'da eklenmişti.
+- **`src/lib/plans.ts`** — tek kaynak: plan limitleri (`maxVenues/maxItems/maxLocales/images/removeBadge/requiresVerifiedAccount`) + yardımcılar (`planLimits`, `normalizePlan`, `showRestaurantBadge`, `loadOrgPlanUsage`, `UPGRADE_MESSAGES`). Bilinmeyen plan → güvenli `free`.
+- **Görsel kilidi (A7/A8).** `/api/image/generate`, `/api/image/enhance`, `/api/image` (PATCH, yalnız BAĞLAMA; kaldırma=null her planda serbest) free planda **402 `upgrade_required`**. UI: `/studyo/gorseller` free planda tam yükseltme ekranı gösterir (manager render edilmez).
+- **Ürün limiti.** `/api/ingest/[id]/approve` yıkıcı işlemlerden ÖNCE toplamı hesaplar: (diğer yüklemelerin ürünleri) + (taslak ürünleri) > limit ise **402**. Yeniden onayda kendi ürünlerini çift saymaz.
+- **Yayın şartı.** `/api/venue` PATCH `isPublished=true`: free planda hesap **güvende (anonim değil + e-posta)** ve **contact_phone dolu** değilse **403 `account_required`**.
+- **Rozet.** `/m/[slug]` "RestaurantOS ile hazırlandı" artık plana bağlı (`showRestaurantBadge`); Pro/Enterprise'da gizli.
+- **Plan kartı.** `/studyo/pano` — plan rozeti, ürün kullanım çubuğu (X/50, %80'de amber, dolunca kırmızı), özellik satırları (görsel/rozet kilit durumu), free planda yayın şartları checklist'i + "Pro'ya yükselt" CTA (şimdilik `/studyo/hesap`'a).
+- Doğrulama: `tsc --noEmit` temiz. Tam `next build` deploy öncesi Windows'ta koşulacak (sandbox ağ/CPU kısıtı).
+
+### C-faturalama · iyzico abonelik ✅ KOD TAMAMLANDI (2026-07-20) — kurulum + sandbox testi bekliyor
+Sağlayıcı: **iyzico** (TR). Resmi `iyzipay` Node SDK'sı + abonelik Checkout Form. Fiyat/periyot iyzico panelindeki **pricing plan**'da tanımlı; kodda tutulmaz (yalnız `IYZICO_PRO_PRICING_PLAN_REF`).
+- **Migration `0010_subscriptions.sql`** — `subscriptions` tablosu (iyzico refs, status, current_period_end, raw). RLS: org üyesi okur, yazma yalnız service-role. `organizations.plan` yetki anahtarı olmaya devam eder.
+- **`src/lib/iyzico.ts`** — SDK sarmalayıcı (promisified init/retrieve/cancel/retrieveSubscription). SDK'da eksik olan `subscriptionCheckoutForm.retrieve` çalışma anında güvenle bağlanıyor. `src/types/iyzipay.d.ts` tip shim (paket tipsiz). `next.config` → iyzipay serverExternalPackages (fs.readdirSync bundle sorunu).
+- **`/api/billing/checkout`** — owner fatura formuyla abonelik Checkout Form başlatır, `checkoutFormContent` döner; bekleyen `subscriptions` satırı token ile kaydedilir.
+- **`/api/billing/callback`** — iyzico dönüşü: token → retrieve (sonucu KULLANICIDAN değil iyzico'dan okur) → `organizations.plan='pro'` + satır güncelle → `/studyo/plan?upgrade=success`.
+- **`/api/billing/webhook`** — yenileme/iptal/expire: ref'i alır, durumu iyzico'dan doğrular (sahte webhook etkisiz), ACTIVE→pro / CANCELED·EXPIRED·UNPAID→free.
+- **`/api/billing/cancel`** — owner iptali; dönem sonuna kadar Pro kalır (status=CANCELED), expire webhook'u free'e çeker.
+- **`/studyo/plan`** — plan karşılaştırma + fatura formu + iyzico form enjeksiyonu; Pro'da durum + iptal. Pano/görseller "Pro'ya yükselt" CTA'ları buraya bağlandı.
+- Doğrulama: `tsc --noEmit` temiz. **Sandbox testi + kurulum kullanıcıda** (aşağıdaki runbook).
+
+#### Faturalama kurulum runbook (kullanıcı)
+1. `npm install` (yeni bağımlılık: `iyzipay`).
+2. Supabase'de **0010_subscriptions.sql**'i uygula (Windows, service_role).
+3. iyzico panelinde: Abonelik ürünü + **Pro pricing plan** oluştur (aylık, TL, fiyat) → referans kodunu al.
+4. Env (yerel `.env.local` + Netlify): `IYZICO_URI` (önce sandbox), `IYZICO_API_KEY`, `IYZICO_SECRET_KEY`, `IYZICO_PRO_PRICING_PLAN_REF`. `NEXT_PUBLIC_SITE_URL` zaten var (callback bundan türer).
+5. iyzico panelinde **webhook URL**'i ayarla: `https://<alan>/api/billing/webhook`.
+6. Sandbox test kartıyla (`5528790000000008`) uçtan uca dene: /studyo/plan → öde → callback → plan pro → iptal → webhook free.
+7. Doğrulandıktan sonra `IYZICO_URI`'yi prod'a çevir (`https://api.iyzipay.com`) + prod anahtarlar.
+
+### C-faturalama · opsiyonel sonraki
+- `current_period_end`'i retrieve/webhook'tan kesin doldurma (şu an null; iptal/expire webhook'u yeterli). Yıllık plan seçeneği. Fatura/makbuz e-postası.
+
 ## Faz D — Sipariş sistemi + analitik (v2)
 - Misafir menüden **sipariş** verebilir.
 - Her restoranın sipariş **veritabanı**; tüm siparişler kaydedilir.
@@ -61,4 +94,4 @@ Karar: uygulama şu an yalnız yerelde çalışıyor (hosting/alan adı yok). De
 ## Açık teknik notlar
 - **RLS/oturum doğrulaması:** Anonim kullanıcının `organizations` INSERT'i user-client + RLS ile 42501 verdi; bootstrap provizyonu güvenli şekilde service-role + `created_by = user.id` ile yapılıyor (route kullanıcıyı doğruluyor). User-client RLS **okuma** çalışıyor (taslak görüntülendi). M2 confirm (user RPC) ve approve (user-client yazma) canlıda test edilecek; sorun çıkarsa kritik yazımlar SECURITY DEFINER RPC'ye taşınır.
 - **Görsel üretimi maliyeti** (A7/A8) Faz C fiyatlandırmasına bağlanacak.
-- **⚠️ /api/scan rate limit serverless'te ÇALIŞMIYOR.** Bellek içi kayan pencere (Map) tek uzun-ömürlü süreç varsayıyor; Netlify Functions örnekler arası paylaşmıyor → canlı testte 70 istekte 0× 429. Etki DÜŞÜK (yalnız analitik şişirme; venue-yayında + ürün-org doğrulaması yerinde, veri bozulmuyor). Kalıcı çözüm gerekirse: (a) session_key+item_id başına gün/gün DB tekilliği (upsert), veya (b) Upstash/Netlify rate-limit. Şimdilik dokümante edildi.
+- **✅ /api/scan rate limit — KALICI ÇÖZÜM UYGULANDI (2026-07-20, migration 0011).** Eski durum: bellek içi Map serverless'te örnekler arası paylaşılmıyordu (70 istekte 0×429). Çözüm: `scan_events.occurred_on` (üretilmiş UTC günü) + `(event_type, session_key, item_id, occurred_on)` TAM unique index; `recordEvent` artık `upsert(ignoreDuplicates)` — aynı ziyaretçi+ürün+gün için tek `item_view`, mükerrer istek DB'de sessizce düşer. `scan`/`menu_view`'da item_id NULL (NULLS DISTINCT) → ham sayımlar etkilenmez. Kısmi index bilerek KULLANILMADI (PostgREST ON CONFLICT kısmi index çözemez). Bellek içi pencere en-iyi-çaba fren olarak duruyor. Kabul edilen sınır: salt örnek-başına → çok örnekli dağıtımda ziyaretçi başına en çok ~örnek sayısı satır (sınırsız şişirme bitti). Migration 0011 canlıda uygulanınca aktif; index oluşturmadan önce mevcut mükerrerleri temizler.

@@ -38,6 +38,8 @@ export type GuestVenue = {
   wifiSsid: string | null;
   openingHours: string | null;
   isPublished: boolean;
+  /** Ücretsiz planda "RestaurantOS ile hazırlandı" rozeti gösterilir. */
+  showBadge: boolean;
 };
 
 export function GuestMenu({
@@ -459,9 +461,11 @@ function ContactFooter({ venue }: { venue: GuestVenue }) {
           ))}
         </dl>
       )}
-      <p className="mt-6 text-center text-xs text-stone-300">
-        RestaurantOS ile hazırlandı
-      </p>
+      {venue.showBadge && (
+        <p className="mt-6 text-center text-xs text-stone-300">
+          RestaurantOS ile hazırlandı
+        </p>
+      )}
     </footer>
   );
 }

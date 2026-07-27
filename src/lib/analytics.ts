@@ -111,23 +111,36 @@ export type RecordEventInput = {
  * Neden service-role: scan_events'te INSERT policy YOK (0001, bilinçli karar —
  * istemciden sahte olay yazılamasın diye). Yazma yalnız sunucudan yapılır.
  *
+ * Yazım upsert'tir (0011): (event_type, session_key, item_id, occurred_on)
+ * unique index'ine çakışan satır SESSİZCE yok sayılır. Pratikte bu yalnız
+ * 'item_view'u tekiller — 'scan'/'menu_view'da item_id NULL olduğundan
+ * (NULLS DISTINCT) hiçbir zaman çakışmaz, ham sayımları değişmez. Böylece
+ * /api/scan sayaç şişirmesi serverless'te de DB seviyesinde engellenir
+ * (bellek içi rate limit örnekler arası paylaşılmıyordu).
+ *
  * ASLA throw etmez: analitik, misafir menüsünün render'ını bozmamalı.
  */
 export async function recordEvent(input: RecordEventInput): Promise<void> {
   try {
     if (isBot(input.headers)) return;
     const admin = createAdminClient();
-    await admin.from('scan_events').insert({
-      org_id: input.orgId,
-      venue_id: input.venueId,
-      qr_code_id: input.qrCodeId ?? null,
-      item_id: input.itemId ?? null,
-      event_type: input.eventType,
-      locale: input.locale ?? null,
-      device_type: deviceType(input.headers),
-      country: countryOf(input.headers),
-      session_key: sessionKey(input.headers),
-    });
+    await admin.from('scan_events').upsert(
+      {
+        org_id: input.orgId,
+        venue_id: input.venueId,
+        qr_code_id: input.qrCodeId ?? null,
+        item_id: input.itemId ?? null,
+        event_type: input.eventType,
+        locale: input.locale ?? null,
+        device_type: deviceType(input.headers),
+        country: countryOf(input.headers),
+        session_key: sessionKey(input.headers),
+      },
+      {
+        onConflict: 'event_type,session_key,item_id,occurred_on',
+        ignoreDuplicates: true,
+      }
+    );
   } catch {
     // sessiz geç — sayaç kaybı sayfayı bozmaktan iyidir
   }

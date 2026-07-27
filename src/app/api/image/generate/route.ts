@@ -10,6 +10,7 @@ import {
   ImageError,
   isImageConfigured,
 } from '@/lib/ai/image';
+import { planLimits, UPGRADE_MESSAGES } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -103,6 +104,19 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
   if (!mem || !EDITOR_ROLES.includes(mem.role)) {
     return NextResponse.json({ error: 'Bu işlem için yetkiniz yok.' }, { status: 403 });
+  }
+
+  // Plan kapısı: görsel üretimi yalnız görsele izin veren planlarda (Pro+).
+  const { data: orgRow } = await admin
+    .from('organizations')
+    .select('plan')
+    .eq('id', orgId)
+    .maybeSingle();
+  if (!planLimits(orgRow?.plan).images) {
+    return NextResponse.json(
+      { error: UPGRADE_MESSAGES.images, code: 'upgrade_required' },
+      { status: 402 }
+    );
   }
 
   try {

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { planLimits, UPGRADE_MESSAGES } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 
@@ -86,14 +87,34 @@ export async function PATCH(request: NextRequest) {
   if (b.isPublished !== undefined) {
     patch.is_published = b.isPublished;
     if (b.isPublished) {
-      // İlk yayın tarihini bir kez yaz; yayından kaldırınca SİLME —
-      // published_at arşiv bilgisidir, is_published anahtardır.
-      const { data: current } = await supabase
+      // ── Ücretsiz plan yayın şartı: üyelik (güvene alınmış e-posta) + telefon ──
+      // Plan görsel/rozet gibi limitlerle aynı kaynaktan (plans.ts) okunur.
+      const { data: venueRow } = await supabase
         .from('venues')
-        .select('published_at')
+        .select('published_at, org_id')
         .eq('id', b.venueId)
         .maybeSingle();
-      if (!current?.published_at) patch.published_at = new Date().toISOString();
+      if (!venueRow) {
+        return NextResponse.json({ error: 'İşletme bulunamadı veya yetkin yok.' }, { status: 403 });
+      }
+      const { data: orgRow } = await supabase
+        .from('organizations')
+        .select('plan, contact_phone')
+        .eq('id', venueRow.org_id)
+        .maybeSingle();
+      if (planLimits(orgRow?.plan).requiresVerifiedAccount) {
+        const secured = !user.is_anonymous && Boolean(user.email);
+        const hasPhone = Boolean(orgRow?.contact_phone);
+        if (!secured || !hasPhone) {
+          return NextResponse.json(
+            { error: UPGRADE_MESSAGES.publishAccount, code: 'account_required' },
+            { status: 403 }
+          );
+        }
+      }
+      // İlk yayın tarihini bir kez yaz; yayından kaldırınca SİLME —
+      // published_at arşiv bilgisidir, is_published anahtardır.
+      if (!venueRow.published_at) patch.published_at = new Date().toISOString();
     }
   }
 

@@ -9,10 +9,14 @@ export const runtime = 'nodejs';
  * POST /api/scan — istemciden tetiklenen misafir olayları (şimdilik item_view).
  *
  * 'scan' ve 'menu_view' sunucu tarafında (/q ve /m render'ında) yazılır; onlar
- * için bu uç kullanılmaz. Burası PUBLIC olduğu için üç koruma var:
+ * için bu uç kullanılmaz. Burası PUBLIC olduğu için korumalar:
  *   1) venue gerçekten YAYINDA mı (yayınlanmamış venue'ya olay yazılamaz),
  *   2) ürün gerçekten o venue'nun org'una mı ait,
- *   3) IP başına kayan pencere sınırı (sayaç şişirme koruması).
+ *   3) ASIL koruma — DB günlük tekilliği (0011): aynı ziyaretçi+ürün+gün için
+ *      tek 'item_view' satırı; mükerrer istek upsert'te sessizce yok sayılır.
+ *      Serverless'te de çalışır (bellek gerektirmez).
+ *   4) IP başına bellek içi kayan pencere: örnek-başına en-iyi-çaba ek fren
+ *      (gereksiz DB gidiş-dönüşünü kırpar; tek başına güvenlik sınırı DEĞİL).
  */
 
 const bodySchema = z.object({
@@ -22,8 +26,9 @@ const bodySchema = z.object({
   locale: z.string().max(12).nullish(),
 });
 
-// Basit bellek içi kayan pencere. Tek süreç varsayımı — çok örnekli
-// dağıtımda üst sınır örnek sayısıyla çarpılır; yeterli caydırıcılık.
+// Basit bellek içi kayan pencere — örnek-başına en-iyi-çaba fren. Kalıcı
+// koruma DB tekilliğidir (0011); bu yalnız sıcak örnekte gereksiz DB
+// çağrılarını kısar.
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 60;
 const hits = new Map<string, number[]>();

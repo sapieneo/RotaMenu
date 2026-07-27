@@ -1,0 +1,81 @@
+import { createClient } from '@/lib/supabase/server';
+import { planLimits, normalizePlan } from '@/lib/plans';
+import { isIyzicoConfigured } from '@/lib/iyzico';
+import { PlanClient, type PlanClientData } from './plan-client';
+
+export const dynamic = 'force-dynamic';
+
+/**
+ * Plan & yükseltme ekranı (Faz C · Faturalama).
+ * Ücretsiz planda: fatura bilgi formu → iyzico abonelik Checkout Form.
+ * Pro planda: durum + iptal. Fiyat/periyot iyzico pricing plan'da tanımlıdır.
+ */
+export default async function PlanPage() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
+        <h1 className="text-xl font-semibold">Oturum bulunamadı</h1>
+        <a href="/studyo" className="mt-2 rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow">
+          Studyoya git
+        </a>
+      </main>
+    );
+  }
+
+  const { data: membership } = await supabase
+    .from('organization_members')
+    .select('org_id, role')
+    .eq('user_id', user.id)
+    .limit(1)
+    .maybeSingle();
+
+  let plan = 'free';
+  let contactPhone: string | null = null;
+  let orgName = '';
+  let subStatus: string | null = null;
+  let periodEnd: string | null = null;
+
+  if (membership) {
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('plan, contact_phone, name')
+      .eq('id', membership.org_id)
+      .maybeSingle();
+    plan = normalizePlan(org?.plan);
+    contactPhone = (org?.contact_phone as string | null) ?? null;
+    orgName = (org?.name as string | null) ?? '';
+
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('status, current_period_end')
+      .eq('org_id', membership.org_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    subStatus = (sub?.status as string | null) ?? null;
+    periodEnd = (sub?.current_period_end as string | null) ?? null;
+  }
+
+  const isOwner = membership?.role === 'owner' || membership?.role === 'admin';
+
+  const data: PlanClientData = {
+    plan: plan as 'free' | 'pro' | 'enterprise',
+    planLabel: planLimits(plan).label,
+    isOwner,
+    billingConfigured: isIyzicoConfigured(),
+    subStatus,
+    periodEnd,
+    prefill: {
+      email: user.email ?? '',
+      gsmNumber: contactPhone ?? '',
+      name: orgName,
+    },
+  };
+
+  return <PlanClient data={data} />;
+}
