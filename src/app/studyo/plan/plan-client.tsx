@@ -160,7 +160,7 @@ export function PlanClient({ data }: { data: PlanClientData }) {
             Durum: <strong>{data.subStatus ?? 'ACTIVE'}</strong>
             {data.periodEnd ? ` · Dönem sonu: ${new Date(data.periodEnd).toLocaleDateString('tr-TR')}` : ''}
           </p>
-          {data.isOwner && data.subStatus === 'ACTIVE' && (
+          {data.billingConfigured && data.isOwner && data.subStatus === 'ACTIVE' && (
             <button
               onClick={cancel}
               disabled={status === 'canceling'}
@@ -169,10 +169,12 @@ export function PlanClient({ data }: { data: PlanClientData }) {
               {status === 'canceling' ? 'İptal ediliyor…' : 'Aboneliği iptal et'}
             </button>
           )}
+          {!data.billingConfigured && data.isOwner && <DevBypass mode="downgrade" />}
         </section>
       ) : !data.billingConfigured ? (
         <section className="rounded-2xl border border-stone-200 bg-stone-50 p-5 text-sm text-stone-600 shadow-sm">
-          Ödeme altyapısı henüz etkin değil. Pro’ya yükseltme çok yakında açılacak.
+          <p>Ödeme altyapısı henüz etkin değil. Pro’ya yükseltme çok yakında açılacak.</p>
+          {data.isOwner && <DevBypass mode="upgrade" />}
         </section>
       ) : !data.isOwner ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800 shadow-sm">
@@ -235,6 +237,57 @@ export function PlanClient({ data }: { data: PlanClientData }) {
         </section>
       )}
     </main>
+  );
+}
+
+/**
+ * ⚠️ GEÇİCİ / YALNIZ GELİŞTİRME — iyzico bağlanana kadar ödemesiz plan
+ * değişimi. `data.billingConfigured` false olduğu sürece görünür; iyzico env
+ * değişkenleri eklenince hem bu bileşen hem de çağırdığı API rotaları
+ * (`/api/billing/dev-upgrade`, `/api/billing/dev-downgrade`) devre dışı kalır
+ * (rotalar 403 döner). KALDIRMA: bu bileşeni + iki route dosyasını sil.
+ */
+function DevBypass({ mode }: { mode: 'upgrade' | 'downgrade' }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function run() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/billing/dev-${mode}`, { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? 'İşlem başarısız.');
+      window.location.reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Beklenmeyen hata.');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+        Geliştirme modu — iyzico bağlanınca kaldırılacak
+      </p>
+      <p className="mt-1 text-sm text-amber-800">
+        {mode === 'upgrade'
+          ? 'Ödeme atlanarak bu işletme Pro’ya geçirilir (test amaçlı).'
+          : 'Bu işletme test amaçlı tekrar Ücretsiz plana döndürülür.'}
+      </p>
+      {err && <p className="mt-2 text-sm text-red-700">{err}</p>}
+      <button
+        onClick={run}
+        disabled={busy}
+        className="mt-3 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-amber-700 disabled:opacity-50"
+      >
+        {busy
+          ? 'İşleniyor…'
+          : mode === 'upgrade'
+            ? 'Pro’ya geç (iyzico bypass)'
+            : 'Ücretsize dön (test)'}
+      </button>
+    </div>
   );
 }
 
