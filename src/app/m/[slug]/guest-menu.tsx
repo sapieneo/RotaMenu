@@ -128,7 +128,10 @@ export function GuestMenu({
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-lg bg-white pb-16 shadow-sm sm:my-4 sm:rounded-2xl sm:overflow-hidden">
+    <div className="mx-auto min-h-screen max-w-lg bg-white pb-16 shadow-sm sm:my-4 sm:rounded-2xl">
+      {/* DİKKAT: dış kapsayıcıda overflow-hidden OLMAMALI — position:sticky'nin
+          "en yakın scroll ata"sını buraya sabitler ve nav'ı kırar. Yuvarlak
+          köşe kırpma bunun yerine header/footer'ın kendi üzerinde yapılır. */}
       {!venue.isPublished && (
         <div className="bg-amber-100 px-4 py-2 text-center text-xs font-medium text-amber-800">
           Önizleme — bu menü henüz yayınlanmadı. Yalnızca siz görüyorsunuz.
@@ -138,7 +141,7 @@ export function GuestMenu({
       {/* Hero */}
       <header className="relative">
         <div
-          className="h-40 w-full bg-gradient-to-br from-brand-500 to-brand-700 bg-cover bg-center"
+          className="h-40 w-full bg-gradient-to-br from-brand-500 to-brand-700 bg-cover bg-center sm:rounded-t-2xl"
           style={venue.coverUrl ? { backgroundImage: `url(${venue.coverUrl})` } : undefined}
         />
         <div className="px-5 pb-4">
@@ -243,6 +246,61 @@ export function GuestMenu({
             </ul>
           );
 
+          /** Hero: her ürün fotoğrafın üzerine kendi gri/şeffaf camsı kartıyla
+           * biner — kartlar arasında boşluk bırakılır ki fotoğraf aralardan
+           * görünsün (tek bir düz beyaz panel DEĞİL). Fotoğraf sabit yükseklikte
+           * ve mutlak konumlu; ürünler normal akışta üstüne yığılır, taşan
+           * ürünler fotoğrafın altında düz sayfa üzerinde devam eder. */
+          const heroList = (
+            <ul className="relative space-y-2 px-0.5 pb-1">
+              {c.items.map((it) => (
+                <li key={it.id}>
+                  <button
+                    onClick={() => openItem(it)}
+                    className="flex w-full items-start gap-3 rounded-2xl bg-stone-900/45 px-3.5 py-3 text-left shadow-sm backdrop-blur-[3px] transition active:bg-stone-900/60"
+                  >
+                    {it.imageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={it.imageUrl}
+                        alt={it.name}
+                        className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <h3 className="font-semibold text-white">{it.name}</h3>
+                        {it.price != null && (
+                          <span className="shrink-0 font-semibold text-white">
+                            {formatPrice(it.price, venue.currency)}
+                          </span>
+                        )}
+                      </div>
+                      {it.description && (
+                        <p className="mt-0.5 line-clamp-2 text-sm text-white/75">
+                          {it.description}
+                        </p>
+                      )}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {it.dietaryCodes.map((code) => (
+                          <DietaryChip key={code} code={code} />
+                        ))}
+                        {it.calories != null && (
+                          <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-white/80">
+                            {it.calories} kcal
+                          </span>
+                        )}
+                        {it.allergenCodes.map((code) => (
+                          <AllergenChip key={code} code={code} />
+                        ))}
+                      </div>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          );
+
           return (
             <section
               key={c.id}
@@ -253,25 +311,24 @@ export function GuestMenu({
               className="scroll-mt-16 pt-6"
             >
               {isHero ? (
-                <>
-                  {/* Büyük arka plan: fotoğraf + başlık, ürün listesi üzerine
-                      yarı saydam kart olarak biner (negatif margin ile). */}
-                  <div className="relative h-64 overflow-hidden rounded-2xl sm:h-72">
+                <div className="relative">
+                  <div className="absolute inset-x-0 top-0 h-72 overflow-hidden rounded-2xl sm:h-80">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={c.backgroundUrl!}
                       alt=""
                       className="absolute inset-0 h-full w-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/20 to-black/55" />
-                    <h2 className="absolute inset-x-0 top-8 text-center text-2xl font-bold uppercase tracking-wide text-white drop-shadow-lg">
+                    <div className="absolute inset-0 bg-black/30" />
+                  </div>
+                  <div className="relative px-1 pb-3 pt-8 text-center">
+                    <h2 className="text-xl font-bold uppercase tracking-wide text-white drop-shadow-lg sm:text-2xl">
                       {c.name}
                     </h2>
+                    <span className="mx-auto mt-1.5 block h-0.5 w-10 bg-white/70" />
                   </div>
-                  <div className="relative -mt-16 rounded-t-3xl bg-white/90 px-1 pb-1 pt-4 shadow-[0_-8px_24px_-8px_rgba(0,0,0,0.15)] backdrop-blur-md">
-                    {itemList}
-                  </div>
-                </>
+                  {heroList}
+                </div>
               ) : c.backgroundUrl ? (
                 <>
                   <div className="relative mb-3 h-28 overflow-hidden rounded-2xl">
