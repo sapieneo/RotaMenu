@@ -312,7 +312,17 @@ export function GuestMenu({
             >
               {isHero ? (
                 <div className="relative">
-                  <div className="absolute inset-x-0 top-0 h-72 overflow-hidden rounded-2xl sm:h-80">
+                  {/* Sabit (sticky) arka plan: bu kategorinin ürünleri kaydırılırken
+                      foto ekranda SABİT kalır (top-14 = nav'ın hemen altı). Kendi
+                      bölümünün akışa kattığı yükseklik negatif margin ile sıfırlandığı
+                      için, ürünler bitince bir sonraki kategorinin fotoğrafı devreye
+                      girer. `active` (scroll-spy) state'i üzerinden opacity geçişiyle
+                      iki foto arasında yumuşak (crossfade) bir el değiştirme olur. */}
+                  <div
+                    className={`sticky top-14 z-0 -mb-72 h-72 overflow-hidden rounded-2xl transition-opacity duration-700 ease-in-out sm:-mb-80 sm:h-80 ${
+                      c.id === active ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={c.backgroundUrl!}
@@ -321,13 +331,15 @@ export function GuestMenu({
                     />
                     <div className="absolute inset-0 bg-black/30" />
                   </div>
-                  <div className="relative px-1 pb-3 pt-8 text-center">
-                    <h2 className="text-xl font-bold uppercase tracking-wide text-white drop-shadow-lg sm:text-2xl">
-                      {c.name}
-                    </h2>
-                    <span className="mx-auto mt-1.5 block h-0.5 w-10 bg-white/70" />
+                  <div className="relative z-10">
+                    <div className="px-1 pb-3 pt-8 text-center">
+                      <h2 className="text-xl font-bold uppercase tracking-wide text-white drop-shadow-lg sm:text-2xl">
+                        {c.name}
+                      </h2>
+                      <span className="mx-auto mt-1.5 block h-0.5 w-10 bg-white/70" />
+                    </div>
+                    {heroList}
                   </div>
-                  {heroList}
                 </div>
               ) : c.backgroundUrl ? (
                 <>
