@@ -21,6 +21,9 @@ export type GuestCategory = {
   id: string;
   name: string;
   backgroundUrl: string | null;
+  /** 'strip' = küçük şerit banner (varsayılan). 'hero' = tam boy arka plan;
+   *  ürün listesi üzerine yarı saydam kart olarak biner. */
+  backgroundStyle: 'strip' | 'hero';
   items: GuestItem[];
 };
 
@@ -188,32 +191,10 @@ export function GuestMenu({
 
       {/* Kategoriler + ürünler */}
       <main className="px-4">
-        {categories.map((c) => (
-          <section
-            key={c.id}
-            id={`cat-${c.id}`}
-            ref={(el) => {
-              sectionRefs.current[c.id] = el;
-            }}
-            className="scroll-mt-16 pt-6"
-          >
-            {c.backgroundUrl ? (
-              <div className="relative mb-3 h-28 overflow-hidden rounded-2xl">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={c.backgroundUrl}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                <h2 className="absolute bottom-2 left-3 text-xl font-bold text-white drop-shadow-md">
-                  {c.name}
-                </h2>
-              </div>
-            ) : (
-              <h2 className="mb-2 px-1 text-lg font-bold text-stone-800">{c.name}</h2>
-            )}
-            <ul className="divide-y divide-stone-100">
+        {categories.map((c) => {
+          const isHero = Boolean(c.backgroundUrl) && c.backgroundStyle === 'hero';
+          const itemList = (
+            <ul className="divide-y divide-stone-100/80">
               {c.items.map((it) => (
                 <li key={it.id}>
                   <button
@@ -260,8 +241,62 @@ export function GuestMenu({
                 </li>
               ))}
             </ul>
-          </section>
-        ))}
+          );
+
+          return (
+            <section
+              key={c.id}
+              id={`cat-${c.id}`}
+              ref={(el) => {
+                sectionRefs.current[c.id] = el;
+              }}
+              className="scroll-mt-16 pt-6"
+            >
+              {isHero ? (
+                <>
+                  {/* Büyük arka plan: fotoğraf + başlık, ürün listesi üzerine
+                      yarı saydam kart olarak biner (negatif margin ile). */}
+                  <div className="relative h-64 overflow-hidden rounded-2xl sm:h-72">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={c.backgroundUrl!}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/20 to-black/55" />
+                    <h2 className="absolute inset-x-0 top-8 text-center text-2xl font-bold uppercase tracking-wide text-white drop-shadow-lg">
+                      {c.name}
+                    </h2>
+                  </div>
+                  <div className="relative -mt-16 rounded-t-3xl bg-white/90 px-1 pb-1 pt-4 shadow-[0_-8px_24px_-8px_rgba(0,0,0,0.15)] backdrop-blur-md">
+                    {itemList}
+                  </div>
+                </>
+              ) : c.backgroundUrl ? (
+                <>
+                  <div className="relative mb-3 h-28 overflow-hidden rounded-2xl">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={c.backgroundUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                    <h2 className="absolute bottom-2 left-3 text-xl font-bold text-white drop-shadow-md">
+                      {c.name}
+                    </h2>
+                  </div>
+                  {itemList}
+                </>
+              ) : (
+                <>
+                  <h2 className="mb-2 px-1 text-lg font-bold text-stone-800">{c.name}</h2>
+                  {itemList}
+                </>
+              )}
+            </section>
+          );
+        })}
       </main>
 
       <ContactFooter venue={venue} />

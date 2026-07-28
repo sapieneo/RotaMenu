@@ -4,10 +4,12 @@ import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 export type ImgItem = { id: string; name: string; imageUrl: string | null };
+export type BackgroundStyle = 'strip' | 'hero';
 export type ImgCategory = {
   id: string;
   name: string;
   backgroundUrl: string | null;
+  backgroundStyle: BackgroundStyle;
   items: ImgItem[];
 };
 
@@ -46,6 +48,23 @@ export function ImageManager({
   const mark = (id: string, b: Busy) => setBusy((s) => ({ ...s, [id]: b }));
   const fail = (id: string, m: string | null) => setErr((s) => ({ ...s, [id]: m }));
   const bodyId = (kind: Kind, id: string) => (kind === 'item' ? { itemId: id } : { categoryId: id });
+
+  async function setStyle(categoryId: string, style: BackgroundStyle) {
+    // İyimser güncelle; başarısız olursa eski değere geri dön.
+    const prev = cats.find((c) => c.id === categoryId)?.backgroundStyle ?? 'strip';
+    setCats((cs) => cs.map((c) => (c.id === categoryId ? { ...c, backgroundStyle: style } : c)));
+    try {
+      const res = await fetch('/api/category/background-style', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryId, style }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setCats((cs) => cs.map((c) => (c.id === categoryId ? { ...c, backgroundStyle: prev } : c)));
+      fail(categoryId, 'Görünüm kaydedilemedi.');
+    }
+  }
 
   async function generate(kind: Kind, id: string) {
     mark(id, 'gen');
@@ -273,6 +292,30 @@ export function ImageManager({
                 Kategori arka planı
               </p>
               <Controls kind="category" id={c.id} hasImage={Boolean(c.backgroundUrl)} />
+              {c.backgroundUrl && (
+                <div className="mt-2 inline-flex rounded-lg border border-stone-200 p-0.5 text-xs">
+                  <button
+                    onClick={() => setStyle(c.id, 'strip')}
+                    className={`rounded-md px-2.5 py-1 font-medium transition ${
+                      c.backgroundStyle === 'strip'
+                        ? 'bg-stone-900 text-white'
+                        : 'text-stone-500 hover:bg-stone-50'
+                    }`}
+                  >
+                    Şerit
+                  </button>
+                  <button
+                    onClick={() => setStyle(c.id, 'hero')}
+                    className={`rounded-md px-2.5 py-1 font-medium transition ${
+                      c.backgroundStyle === 'hero'
+                        ? 'bg-stone-900 text-white'
+                        : 'text-stone-500 hover:bg-stone-50'
+                    }`}
+                  >
+                    Arka plan (büyük)
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Ürünler */}

@@ -91,11 +91,19 @@ export default async function GuestMenuPage({ params }: { params: { slug: string
   const { data: categories } = menuIds.length
     ? await supabase
         .from('categories')
-        .select('id, name, sort_order, background_url')
+        .select('id, name, sort_order, background_url, background_style')
         .in('menu_id', menuIds)
         .eq('is_active', true)
         .order('sort_order')
-    : { data: [] as { id: string; name: string; sort_order: number; background_url: string | null }[] };
+    : {
+        data: [] as {
+          id: string;
+          name: string;
+          sort_order: number;
+          background_url: string | null;
+          background_style: string | null;
+        }[],
+      };
   const catIds = (categories ?? []).map((c) => c.id);
 
   const { data: itemRows } = catIds.length
@@ -146,6 +154,7 @@ export default async function GuestMenuPage({ params }: { params: { slug: string
       id: c.id,
       name: c.name,
       backgroundUrl: c.background_url ?? null,
+      backgroundStyle: (c.background_style as 'strip' | 'hero' | null) ?? 'strip',
       items: byCat.get(c.id) ?? [],
     }))
     .filter((c) => c.items.length > 0);

@@ -84,6 +84,13 @@ Sağlayıcı: **iyzico** (TR). Resmi `iyzipay` Node SDK'sı + abonelik Checkout 
 - **⚠️ Telefon doğrulama bypass (GEÇİCİ).** Gerçek SMS OTP akışı henüz yok. `src/lib/sms.ts` → `isPhoneVerificationConfigured()` (şimdilik hep `false`, `SMS_PROVIDER_API_KEY` yoksa). `/api/account/dev-verify-phone` telefonu kod göndermeden `contact_phone_verified_at`'ı doldurur. Hesap sayfasında telefon alanı doluysa ve doğrulanmamışsa amber "Geliştirme modu" kutusunda "Telefonu doğrula (bypass)" düğmesi çıkar. **Otomatik kilit:** `SMS_PROVIDER_API_KEY` eklenince rota 403 döner, düğme kaybolur — iyzico bypass ile birebir aynı desen. **UNUTMA:** Google girişi eklendiğinde ("Google ile üye olunca telefon koduyla onay isteriz") bu, gerçek SMS OTP + `/api/account/verify-phone` (gönder/doğrula iki adım) ile değiştirilecek; `contact_phone_verified_at` şu an publish gate'e BAĞLI DEĞİL (yalnız `contact_phone` doluluğu kontrol ediliyor, bkz. plans.ts) — ileride "gerçekten doğrulanmış" şartına sıkılaştırılabilir.
 - **`/studyo` menü listesi:** kullanıcının menüsü varsa artık "Menülerin" başlıklı bir kart altında venue adı + `/m/{slug}` + "Panoya git" düğmesiyle listeleniyor (önceden yalnız genel bir bant vardı). `/api/bootstrap` yanıtına `name` eklendi.
 
+### A8 revizyonu · Kategori arka planı: şerit / büyük ✅ TAMAMLANDI (2026-07-20)
+- **Migration `0012_category_background_style.sql`** — `categories.background_style` (`'strip'` varsayılan | `'hero'`). Görsel URL'inden bağımsız tercih; görsel silinse de tercih kalır.
+- **`/api/category/background-style`** PATCH — editor+ yetkisi, tek alan günceller.
+- **`/studyo/gorseller`** — her kategoride görsel varsa küçük "Şerit / Arka plan (büyük)" toggle'ı (iyimser güncelleme, hata olursa geri alır).
+- **Misafir menüsü (`guest-menu.tsx`):** `hero` seçiliyse kategori görseli tam genişlikte büyük bir bölüm (h-64/72) olarak gösterilir, başlık ortalanmış büyük harfle üstte; ürün listesi bunun üzerine `-mt-16` ile yarı saydam (`bg-white/90 backdrop-blur-md`) bir kart olarak biner — kullanıcının referans gösterdiği tasarıma yakın "glassy" görünüm. `strip` (varsayılan) eski küçük banner davranışını korur. Sticky kategori sekmeleri + aktif sekmeyi yatayda ortalama zaten mevcuttu (dokunulmadı).
+- Doğrulama: `tsc --noEmit` temiz.
+
 ### C-pano iyileştirmeleri ✅ TAMAMLANDI (2026-07-20)
 - **Ana sayfa yönlendirmesi:** `/` artık server component. Oturumu olan VE en az bir kategorisi (menüsü) oluşmuş dönen kullanıcı pazarlama sayfasını görmeden direkt `/studyo/pano`'ya düşer (`redirect()`). Yeni ziyaretçide (oturum çerezi yok) hiçbir oturum açılmaz, pazarlama sayfası normal render edilir.
 - **Hızlı link ismi:** "Menü / yükle" → "Menüye resim yükle" (`/studyo/pano`).
