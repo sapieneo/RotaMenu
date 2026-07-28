@@ -52,6 +52,25 @@ export default async function GuestMenuPage({ params }: { params: { slug: string
 
   if (!venue) notFound();
 
+  // Sahibin önizlemesi (örn. /studyo/pano'daki canlı telefon önizlemesi veya
+  // "Menüyü gör" linki) analitiği ŞİŞİRMEMELİ. Org üyesiyse sayaç atlanır.
+  let isOwnerViewing = false;
+  {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('org_id')
+        .eq('org_id', venue.org_id)
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+      isOwnerViewing = Boolean(membership);
+    }
+  }
+
   // Plan → misafir menüsünde "RestaurantOS" rozeti yalnız ücretsiz planda görünür.
   const { data: org } = await supabase
     .from('organizations')
@@ -149,8 +168,8 @@ export default async function GuestMenuPage({ params }: { params: { slug: string
   };
 
   // 'menu_view' — yalnız YAYINDAKİ menüde sayılır. Sahibin önizlemesi
-  // sayaçları şişirmemeli.
-  if (venue.is_published) {
+  // (ör. pano'daki canlı telefon önizlemesi) sayaçları şişirmemeli.
+  if (venue.is_published && !isOwnerViewing) {
     await recordEvent({
       orgId: venue.org_id,
       venueId: venue.id,

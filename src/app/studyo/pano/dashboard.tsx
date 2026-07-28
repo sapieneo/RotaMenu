@@ -36,7 +36,9 @@ export function Dashboard({ data }: { data: DashboardData }) {
   const hasAnalytics = data.stats.totalEvents > 0;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
+      <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-brand-600">Pano</p>
@@ -145,7 +147,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
 
       {/* Hızlı eylemler */}
       <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <QuickLink href="/studyo" icon="📸" label="Menü / yükle" />
+        <QuickLink href="/studyo" icon="📸" label="Menüye resim yükle" />
         <QuickLink href="/studyo/uyum" icon="✅" label="Alerjen / uyum" />
         <QuickLink href="/studyo/gorseller" icon="🎨" label="Görseller" />
         <QuickLink href="/studyo/qr" icon="🔳" label="QR kodları" />
@@ -153,7 +155,35 @@ export function Dashboard({ data }: { data: DashboardData }) {
         <QuickLink href="/studyo/hesap" icon="👤" label="Hesap" />
         <QuickLink href="/studyo/plan" icon="💎" label="Plan / yükselt" />
       </section>
+      </div>
+
+      <PhonePreview slug={data.slug} />
+      </div>
     </main>
+  );
+}
+
+/** Sağ kolon: telefon çerçeveli canlı menü önizlemesi (aynı /m/{slug} sayfası). */
+function PhonePreview({ slug }: { slug: string }) {
+  return (
+    <div className="lg:sticky lg:top-8">
+      <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-stone-400">
+        Canlı önizleme
+      </p>
+      <div className="mx-auto w-[280px] rounded-[2.5rem] border-[10px] border-stone-900 bg-stone-900 shadow-xl">
+        <div className="relative h-[580px] w-full overflow-hidden rounded-[1.75rem] bg-white">
+          <div className="pointer-events-none absolute left-1/2 top-0 z-10 h-5 w-28 -translate-x-1/2 rounded-b-xl bg-stone-900" />
+          <iframe
+            src={`/m/${slug}`}
+            title="Menü canlı önizleme"
+            className="h-full w-full border-0"
+          />
+        </div>
+      </div>
+      <p className="mt-3 text-center text-xs text-stone-400">
+        Değişiklik yapınca sayfayı yenile — burada da güncellenir.
+      </p>
+    </div>
   );
 }
 
