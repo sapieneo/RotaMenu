@@ -14,6 +14,9 @@ export type NutritionEntry = {
   kcalPer100g: number;
   /** Eşleştirme için ek anahtar kelimeler (küçük harf, aksansız). */
   aliases?: string[];
+  /** Bir porsiyonda tipik gram (hesaplayıcıda otomatik dolar). Yoksa
+      kcal yoğunluğundan makul bir değer türetilir. */
+  g?: number;
 };
 
 /** Anahtar = normalize edilmiş ana ad. */
@@ -143,9 +146,9 @@ export const NUTRITION_DB: Record<string, NutritionEntry> = {
   'şurup': { label: 'Şurup', kcalPer100g: 260, aliases: ['surup', 'kaymak şurubu', 'sıvı şeker'] },
 
   // — Yumurta & diğer —
-  'yumurta': { label: 'Yumurta', kcalPer100g: 155, aliases: ['haşlanmış yumurta', 'çırpılmış yumurta'] },
-  'mayonez': { label: 'Mayonez', kcalPer100g: 680, aliases: [] },
-  'ketçap': { label: 'Ketçap', kcalPer100g: 112, aliases: ['ketcap'] },
+  'yumurta': { label: 'Yumurta', kcalPer100g: 155, aliases: ['haşlanmış yumurta', 'çırpılmış yumurta'], g: 60 },
+  'mayonez': { label: 'Mayonez', kcalPer100g: 680, aliases: [], g: 15 },
+  'ketçap': { label: 'Ketçap', kcalPer100g: 112, aliases: ['ketcap'], g: 15 },
   'hardal sos': { label: 'Hardal', kcalPer100g: 66, aliases: ['hardal'] },
   'soya sosu': { label: 'Soya sosu', kcalPer100g: 53, aliases: ['soya'] },
   'maya': { label: 'Maya', kcalPer100g: 105, aliases: ['kabartma tozu', 'karbonat'] },
@@ -210,3 +213,22 @@ export function matchNutrition(ingredientName: string): NutritionEntry | null {
 export function kcalForGrams(kcalPer100g: number, grams: number): number {
   return Math.round((grams / 100) * kcalPer100g);
 }
+
+/**
+ * Bir malzeme için tipik porsiyon gramı öner (hesaplayıcıda otomatik dolar).
+ * Öncelik: tabloda tanımlı `g` → yoksa kcal yoğunluğuna göre makul tahmin.
+ * Mantık: kalorisi yüksek/yoğun malzemeden az kullanılır (yağ, baharat),
+ * hafif olandan çok (sebze, meyve). Amaç kullanıcıya makul bir başlangıç vermek.
+ */
+export function suggestGrams(entry: NutritionEntry): number {
+  if (entry.g != null) return entry.g;
+  const k = entry.kcalPer100g;
+  if (k <= 5) return 200;   // su, çay, tuz gibi — içecek/eser miktar
+  if (k >= 800) return 10;  // saf yağ — bir kaşık civarı
+  if (k >= 500) return 20;  // kuruyemiş, çikolata, mayonez — az
+  if (k >= 300) return 40;  // peynir, sucuk, şeker, un — orta-az
+  if (k >= 150) return 100; // et, tavuk, makarna — bir porsiyon
+  if (k >= 60) return 120;  // pilav, patates, meyve — dolu porsiyon
+  return 80;                // sulu sebzeler — orta
+}
+

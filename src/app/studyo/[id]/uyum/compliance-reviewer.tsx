@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { ALLERGENS, type AllergenCode } from '@/lib/allergens';
 import { DIETARY, type DietaryCode } from '@/lib/dietary';
 import { ALLERGEN_CODES, DIETARY_CODES } from '@/lib/schemas/menu';
-import { matchNutrition, kcalForGrams } from '@/lib/nutrition';
+import { matchNutrition, kcalForGrams, suggestGrams } from '@/lib/nutrition';
 
 export type ReviewItem = {
   id: string;
@@ -560,11 +560,19 @@ function CalorieCalculator({
   item: ItemState;
   patch: (id: string, fn: (s: ItemState) => ItemState) => void;
 }) {
-  // Malzeme başına gramaj ve (eşleşmezse) elle kcal/100g — yerel state.
-  const [grams, setGrams] = useState<Record<number, string>>({});
-  const [manualKcal, setManualKcal] = useState<Record<number, string>>({});
-
   const tokens = item.ingredientTokens;
+
+  // Gram state'i eşleşen malzemeler için önden dolar (kullanıcı yalnız
+  // farklıysa değiştirir). Eşleşmeyen malzeme boş kalır.
+  const [grams, setGrams] = useState<Record<number, string>>(() => {
+    const init: Record<number, string> = {};
+    tokens.forEach((tok, idx) => {
+      const m = matchNutrition(tok);
+      if (m) init[idx] = String(suggestGrams(m));
+    });
+    return init;
+  });
+  const [manualKcal, setManualKcal] = useState<Record<number, string>>({});
 
   const rows = tokens.map((tok, idx) => {
     const match = matchNutrition(tok);
@@ -593,7 +601,7 @@ function CalorieCalculator({
   return (
     <div className="mt-2 rounded-xl border border-brand-200 bg-brand-50/50 p-3">
       <p className="mb-2 text-xs font-semibold text-brand-700">
-        🧮 Kalori hesaplayıcı — her malzemenin gramını gir
+        🧮 Kalori hesaplayıcı — gramlar tahminî dolduruldu, farklıysa düzelt
       </p>
       <div className="space-y-1.5">
         {rows.map((r) => (
