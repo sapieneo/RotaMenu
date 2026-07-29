@@ -173,10 +173,20 @@ function PhonePreview({ slug }: { slug: string }) {
       <div className="mx-auto w-[280px] rounded-[2.5rem] border-[10px] border-stone-900 bg-stone-900 shadow-xl">
         <div className="relative h-[580px] w-full overflow-hidden rounded-[1.75rem] bg-white">
           <div className="pointer-events-none absolute left-1/2 top-0 z-10 h-5 w-28 -translate-x-1/2 rounded-b-xl bg-stone-900" />
+          {/* iframe gerçek telefon genişliğinde (390px) render edilir, sonra
+              çerçeveye sığması için ölçeklenir. Böylece menü sayfası "gerçek
+              telefondayım" diye render eder; font boyları ve resim oranları
+              birebir mobildeki gibi olur. Ölçek = 260 / 390 = 0.6667 */}
           <iframe
             src={`/m/${slug}`}
             title="Menü canlı önizleme"
-            className="h-full w-full border-0"
+            className="border-0"
+            style={{
+              width: '390px',
+              height: '870px',
+              transform: 'scale(0.6667)',
+              transformOrigin: 'top left',
+            }}
           />
         </div>
       </div>
