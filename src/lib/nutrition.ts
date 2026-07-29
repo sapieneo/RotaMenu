@@ -60,7 +60,8 @@ export const NUTRITION_DB: Record<string, NutritionEntry> = {
   'tulum peyniri': { label: 'Tulum peyniri', kcalPer100g: 380, aliases: ['tulum'] },
   'mozzarella': { label: 'Mozzarella', kcalPer100g: 280, aliases: ['mozarella'] },
   'labne': { label: 'Labne', kcalPer100g: 235, aliases: ['krem peynir', 'cream cheese'] },
-  'yoğurt': { label: 'Yoğurt', kcalPer100g: 61, aliases: ['yogurt', 'süzme yoğurt', 'ayran'] },
+  'yoğurt': { label: 'Yoğurt', kcalPer100g: 61, aliases: ['yogurt', 'süzme yoğurt'] },
+  'ayran': { label: 'Ayran', kcalPer100g: 37, aliases: [], g: 200 },
   'süt': { label: 'Süt', kcalPer100g: 64, aliases: ['sut', 'tam yağlı süt', 'yarım yağlı süt'] },
   'kaymak': { label: 'Kaymak', kcalPer100g: 400, aliases: [] },
   'tereyağı': { label: 'Tereyağı', kcalPer100g: 717, aliases: ['tereyagi', 'tereyağ', 'tereyag'] },
@@ -102,7 +103,7 @@ export const NUTRITION_DB: Record<string, NutritionEntry> = {
   'kabak': { label: 'Kabak', kcalPer100g: 17, aliases: ['sakız kabağı', 'balkabağı', 'bal kabağı'] },
   'salatalık': { label: 'Salatalık', kcalPer100g: 15, aliases: ['salatalik', 'hıyar', 'hiyar'] },
   'marul': { label: 'Marul', kcalPer100g: 15, aliases: ['kıvırcık', 'göbek marul', 'yeşillik', 'yesillik'] },
-  'roka': { label: 'Roka', kcalPer100g: 25, aliases: ['tere', 'maydanoz', 'dereotu', 'nane taze', 'ıspanak', 'ispanak', 'pazı', 'semizotu'] },
+  'roka': { label: 'Roka', kcalPer100g: 25, aliases: ['tere', 'maydanoz', 'dereotu', 'nane taze', 'semizotu'] },
   'lahana': { label: 'Lahana', kcalPer100g: 25, aliases: ['beyaz lahana', 'kırmızı lahana', 'karnabahar', 'brokoli'] },
   'mantar': { label: 'Mantar', kcalPer100g: 22, aliases: ['kültür mantarı', 'kayın mantarı'] },
   'mısır': { label: 'Mısır', kcalPer100g: 86, aliases: ['misir', 'haşlanmış mısır', 'mısır tanesi'] },
@@ -152,7 +153,51 @@ export const NUTRITION_DB: Record<string, NutritionEntry> = {
   'hardal sos': { label: 'Hardal', kcalPer100g: 66, aliases: ['hardal'] },
   'soya sosu': { label: 'Soya sosu', kcalPer100g: 53, aliases: ['soya'] },
   'maya': { label: 'Maya', kcalPer100g: 105, aliases: ['kabartma tozu', 'karbonat'] },
+
+  // — İçecekler (gazlı / meyveli) —
+  'kola': { label: 'Kola', kcalPer100g: 42, aliases: ['coca cola', 'pepsi', 'gazoz', 'gazlı içecek', 'meşrubat', 'mesrubat'], g: 330 },
+  'meyve suyu': { label: 'Meyve suyu', kcalPer100g: 45, aliases: ['portakal suyu', 'vişne suyu', 'elma suyu', 'şeftali suyu', 'meyveli içecek'], g: 250 },
+  'limonata': { label: 'Limonata', kcalPer100g: 40, aliases: ['ev limonatası'], g: 250 },
+  'şalgam': { label: 'Şalgam suyu', kcalPer100g: 6, aliases: ['salgam', 'şalgam suyu'], g: 250 },
+  'enerji içeceği': { label: 'Enerji içeceği', kcalPer100g: 45, aliases: ['red bull', 'enerji icecegi'], g: 250 },
+  'bira': { label: 'Bira', kcalPer100g: 43, aliases: [], g: 330 },
+  'şarap': { label: 'Şarap', kcalPer100g: 83, aliases: ['sarap', 'kırmızı şarap', 'beyaz şarap'], g: 150 },
+  'rakı': { label: 'Rakı', kcalPer100g: 231, aliases: ['raki', 'votka', 'viski', 'cin', 'likör'], g: 50 },
+
+  // — Ek sebzeler —
+  'pırasa': { label: 'Pırasa', kcalPer100g: 61, aliases: ['pirasa'] },
+  'ıspanak': { label: 'Ispanak', kcalPer100g: 23, aliases: ['ispanak', 'pazı', 'pazi'] },
+  'kereviz': { label: 'Kereviz', kcalPer100g: 42, aliases: ['kereviz sapı', 'kök kereviz'] },
+  'enginar': { label: 'Enginar', kcalPer100g: 47, aliases: [] },
+  'bamya': { label: 'Bamya', kcalPer100g: 33, aliases: [] },
+  'bakla': { label: 'Bakla', kcalPer100g: 88, aliases: ['iç bakla'] },
+  'şalgam turp': { label: 'Turp', kcalPer100g: 16, aliases: ['turp', 'kırmızı turp'] },
+  'kabak çekirdeği ezmesi': { label: 'Pancar', kcalPer100g: 43, aliases: ['pancar', 'kırmızı pancar'] },
+  'brüksel lahanası': { label: 'Brüksel lahanası', kcalPer100g: 43, aliases: ['bruksel lahanasi'] },
+  'kuşkonmaz': { label: 'Kuşkonmaz', kcalPer100g: 20, aliases: ['kuskonmaz'] },
+
+  // — Ek meyveler / kurutulmuş —
+  'kiraz': { label: 'Kiraz', kcalPer100g: 63, aliases: ['vişne', 'visne'] },
+  'erik': { label: 'Erik', kcalPer100g: 46, aliases: ['can eriği', 'kuru erik'] },
+  'armut': { label: 'Armut', kcalPer100g: 57, aliases: [] },
+  'ayva': { label: 'Ayva', kcalPer100g: 57, aliases: [] },
+  'kayısı': { label: 'Kayısı', kcalPer100g: 48, aliases: ['kayisi', 'kuru kayısı', 'zerdali'] },
+  'mango': { label: 'Mango', kcalPer100g: 60, aliases: [] },
+  'kivi': { label: 'Kivi', kcalPer100g: 61, aliases: [] },
+  'hindistan cevizi': { label: 'Hindistan cevizi', kcalPer100g: 354, aliases: ['hindistancevizi', 'coconut'] },
+
+  // — Ek tahıl / hamur —
+  'irmik': { label: 'İrmik', kcalPer100g: 360, aliases: [] },
+  'galeta unu': { label: 'Galeta unu', kcalPer100g: 395, aliases: ['galeta', 'ekmek kırıntısı'] },
+  'tarhana': { label: 'Tarhana', kcalPer100g: 340, aliases: ['tarhana çorbası'] },
+  'mısır gevreği': { label: 'Mısır gevreği', kcalPer100g: 378, aliases: ['misir gevregi', 'gevrek', 'cornflakes'] },
+  'kraker': { label: 'Kraker', kcalPer100g: 430, aliases: ['tuzlu kraker', 'grissini'] },
+  'bisküvi': { label: 'Bisküvi', kcalPer100g: 460, aliases: ['biskuvi', 'petit beurre'] },
+
+  // — Çorba / suları —
+  'et suyu': { label: 'Et suyu', kcalPer100g: 15, aliases: ['tavuk suyu', 'kemik suyu', 'bulyon'], g: 200 },
 };
+
 
 /** Türkçe metni eşleştirme için normalize et (küçük harf, aksan sadeleştir, boşluk kırp). */
 export function normalizeTr(s: string): string {
