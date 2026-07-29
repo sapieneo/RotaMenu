@@ -312,14 +312,17 @@ export function GuestMenu({
             >
               {isHero ? (
                 <div className="relative">
-                  {/* Sabit (sticky) arka plan: bu kategorinin ürünleri kaydırılırken
-                      foto ekranda SABİT kalır (top-14 = nav'ın hemen altı). Kendi
-                      bölümünün akışa kattığı yükseklik negatif margin ile sıfırlandığı
-                      için, ürünler bitince bir sonraki kategorinin fotoğrafı devreye
-                      girer. `active` (scroll-spy) state'i üzerinden opacity geçişiyle
-                      iki foto arasında yumuşak (crossfade) bir el değiştirme olur. */}
+                  {/* Sabit (sticky) arka plan. ÖNEMLİ: resmin kendi kutusu normal
+                      akışta KALIR (negatif margin YOK) — sticky'nin "durabileceği"
+                      alanı, aşağıdaki içerik bloğunun kendi yüksekliğinden gelir.
+                      İçerik bloğu negatif üst-margin ile fotoğrafın üzerine biner;
+                      böylece resim, bu kategorinin ürünleri kaydırılırken ekranda
+                      GERÇEKTEN sabit kalır (nav'ın hemen altında, top-14) ve ancak
+                      bu bölümün sonuna gelinince bırakılır. `active` (scroll-spy)
+                      state'i üzerinden opacity geçişiyle bir sonraki kategorinin
+                      fotoğrafına yumuşak (crossfade) geçilir. */}
                   <div
-                    className={`sticky top-14 z-0 -mb-72 h-72 overflow-hidden rounded-2xl transition-opacity duration-700 ease-in-out sm:-mb-80 sm:h-80 ${
+                    className={`sticky top-14 z-0 h-72 overflow-hidden rounded-2xl transition-opacity duration-700 ease-in-out sm:h-80 ${
                       c.id === active ? 'opacity-100' : 'opacity-0'
                     }`}
                   >
@@ -331,7 +334,7 @@ export function GuestMenu({
                     />
                     <div className="absolute inset-0 bg-black/30" />
                   </div>
-                  <div className="relative z-10">
+                  <div className="relative z-10 -mt-72 sm:-mt-80">
                     <div className="px-1 pb-3 pt-8 text-center">
                       <h2 className="text-xl font-bold uppercase tracking-wide text-white drop-shadow-lg sm:text-2xl">
                         {c.name}
