@@ -177,7 +177,7 @@ function PhonePreview({ slug }: { slug: string }) {
           <div className="absolute inset-x-0 top-0 z-20 flex h-7 items-center justify-between bg-white px-4 text-[11px] font-semibold text-stone-900">
             <span>9:41</span>
             {/* Ortadaki çentik */}
-            <div className="pointer-events-none absolute left-1/2 top-0 h-5 w-28 -translate-x-1/2 rounded-b-xl bg-stone-900" />
+            <div className="pointer-events-none absolute left-1/2 top-0 h-5 w-20 -translate-x-1/2 rounded-b-xl bg-stone-900" />
             <span className="flex items-center gap-1">
               {/* Sinyal */}
               <svg width="16" height="11" viewBox="0 0 16 11" fill="none" aria-hidden>
