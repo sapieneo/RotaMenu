@@ -12,6 +12,10 @@ const bodySchema = z.object({
   /** Onaylanan diyet rozetleri (Helal/Alkolsüz/Vegan/Vejetaryen). */
   dietaryCodes: z.array(z.enum(DIETARY_CODES)).default([]),
   caloriesOk: z.boolean().default(false),
+  /** Düzenlenmiş kalori (kcal). null → değiştirme. */
+  calories: z.number().int().min(0).max(100000).nullable().default(null),
+  /** Düzenlenmiş içindekiler metni. null → değiştirme. */
+  ingredients: z.string().max(2000).nullable().default(null),
   /** true → onayı geri al (düzenlemeye dön). */
   revert: z.boolean().default(false),
 });
@@ -34,7 +38,8 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 });
   }
-  const { itemId, allergenCodes, dietaryCodes, caloriesOk, revert } = parsed.data;
+  const { itemId, allergenCodes, dietaryCodes, caloriesOk, calories, ingredients, revert } =
+    parsed.data;
 
   const { error } = revert
     ? await supabase.rpc('unconfirm_item_compliance', { p_item: itemId })
@@ -43,6 +48,8 @@ export async function POST(request: NextRequest) {
         p_allergen_codes: allergenCodes,
         p_dietary_codes: dietaryCodes,
         p_calories_ok: caloriesOk,
+        p_calories: calories,
+        p_ingredients: ingredients,
       });
 
   if (error) {
