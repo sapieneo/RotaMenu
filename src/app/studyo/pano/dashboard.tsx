@@ -184,7 +184,9 @@ function PhonePreview({ slug }: { slug: string }) {
             style={{
               width: '390px',
               height: '870px',
-              transform: 'scale(0.6667)',
+              // Menüyü çentiğin (20px) altından başlat: ölçeklenmeden önce
+              // 30px aşağı it (30 * 0.6667 ≈ 20px görünür boşluk).
+              transform: 'scale(0.6667) translateY(30px)',
               transformOrigin: 'top left',
             }}
           />
