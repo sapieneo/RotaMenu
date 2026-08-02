@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/server';
 import { planLimits } from '@/lib/plans';
@@ -5,143 +6,223 @@ import { LogoutButton } from '../logout-button';
 
 export const dynamic = 'force-dynamic';
 
-type OrgEmbed = {
+type OrganizationEmbed = {
   name: string;
   plan: string;
   created_by: string;
   contact_phone: string | null;
 };
 
-type VenueRow = {
+type VenueEmbed = {
   id: string;
   name: string;
   slug: string;
   is_published: boolean;
-  created_at: string;
   org_id: string;
-  organizations: OrgEmbed | OrgEmbed[] | null;
+  organizations: OrganizationEmbed | OrganizationEmbed[] | null;
 };
 
-/** PostgREST embed'i bazen dizi bazen tekil obje döner; ikisini de tolere et. */
-function orgOf(raw: VenueRow['organizations']): OrgEmbed | null {
-  if (!raw) return null;
-  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
+type MenuRow = {
+  id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  venue_id: string;
+  venues: VenueEmbed | VenueEmbed[] | null;
+};
+
+function one<T>(value: T | T[] | null): T | null {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
 /**
- * Süper-admin kontrol paneli — tüm işletmelerin (venue) listesi. Yalnız
- * ADMIN_PASSWORD ile giren görebilir (requireAdmin). Service-role ile RLS
- * atlanır: normal kullanıcı hiçbir zaman bu görünümü elde edemez.
+ * Süper-admin menü listesi. Service-role sorgusu yalnızca imzalı admin
+ * oturumundan sonra çalışır; normal kullanıcılar başka işletmelerin verisini
+ * göremez.
  */
 export default async function AdminPanelPage() {
   requireAdmin();
   const admin = createAdminClient();
 
-  const { data: venues } = await admin
-    .from('venues')
-    .select('id, name, slug, is_published, created_at, org_id, organizations(name, plan, created_by, contact_phone)')
+  const { data: menuData, error: menuError } = await admin
+    .from('menus')
+    .select(
+      'id, name, is_active, created_at, updated_at, venue_id, venues!inner(id, name, slug, is_published, org_id, organizations!inner(name, plan, created_by, contact_phone))'
+    )
     .order('created_at', { ascending: false });
 
-  const rows = (venues ?? []) as unknown as VenueRow[];
+  if (menuError) throw new Error('Menü listesi yüklenemedi.');
 
-  // Sahip e-postalarını topla (dedup) — auth.users PostgREST'ten görünmez,
-  // GoTrue admin API ile (service-role) tek tek çekilir.
+  const menus = (menuData ?? []) as unknown as MenuRow[];
+  const menuIds = menus.map((menu) => menu.id);
+
+  const { data: categoryData } = menuIds.length
+    ? await admin.from('categories').select('id, menu_id').in('menu_id', menuIds).eq('is_active', true)
+    : { data: [] as { id: string; menu_id: string }[] };
+  const categories = (categoryData ?? []) as { id: string; menu_id: string }[];
+  const categoryIds = categories.map((category) => category.id);
+
+  const { data: itemData } = categoryIds.length
+    ? await admin.from('items').select('id, category_id').in('category_id', categoryIds)
+    : { data: [] as { id: string; category_id: string }[] };
+  const items = (itemData ?? []) as { id: string; category_id: string }[];
+
+  const menuIdByCategoryId = new Map(categories.map((category) => [category.id, category.menu_id]));
+  const categoryCountByMenuId = new Map<string, number>();
+  const itemCountByMenuId = new Map<string, number>();
+
+  for (const category of categories) {
+    categoryCountByMenuId.set(
+      category.menu_id,
+      (categoryCountByMenuId.get(category.menu_id) ?? 0) + 1
+    );
+  }
+  for (const item of items) {
+    const menuId = menuIdByCategoryId.get(item.category_id);
+    if (menuId) itemCountByMenuId.set(menuId, (itemCountByMenuId.get(menuId) ?? 0) + 1);
+  }
+
   const ownerIds = Array.from(
-    new Set(rows.map((r) => orgOf(r.organizations)?.created_by).filter((x): x is string => Boolean(x)))
+    new Set(
+      menus
+        .map((menu) => one(one(menu.venues)?.organizations)?.created_by)
+        .filter((id): id is string => Boolean(id))
+    )
   );
   const emailById = new Map<string, string>();
   await Promise.all(
     ownerIds.map(async (id) => {
       try {
         const { data } = await admin.auth.admin.getUserById(id);
-        if (data?.user?.email) emailById.set(id, data.user.email);
+        if (data.user?.email) emailById.set(id, data.user.email);
       } catch {
-        // sessiz geç — e-posta bulunamazsa '—' gösterilir
+        // Anonim veya silinmiş hesaplarda e-posta yerine kısa kullanıcı kimliği gösterilir.
       }
     })
   );
 
+  const publishedCount = menus.filter((menu) => {
+    const venue = one(menu.venues);
+    return menu.is_active && venue?.is_published;
+  }).length;
+
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <main className="mx-auto max-w-7xl px-4 py-8">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-brand-600">RestaurantOS</p>
-          <h1 className="mt-1 text-2xl font-bold">Kontrol paneli</h1>
-          <p className="mt-1 text-sm text-stone-500">{rows.length} işletme</p>
+          <p className="text-sm font-medium text-brand-600">RestaurantOS Yönetim</p>
+          <h1 className="mt-1 text-2xl font-bold text-stone-900">Tüm menüler</h1>
+          <p className="mt-1 text-sm text-stone-500">
+            Kullanıcıların oluşturduğu bütün menüleri tek ekrandan görüntüleyin.
+          </p>
         </div>
         <LogoutButton />
       </header>
 
+      <section className="mb-5 grid grid-cols-2 gap-3 sm:max-w-xl sm:grid-cols-3">
+        <SummaryCard label="Toplam menü" value={menus.length} />
+        <SummaryCard label="Canlı menü" value={publishedCount} />
+        <SummaryCard label="Toplam ürün" value={items.length} />
+      </section>
+
       <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
+        <table className="w-full min-w-[960px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
-              <th className="px-4 py-3 font-semibold">İşletme</th>
-              <th className="px-4 py-3 font-semibold">Sahip</th>
+              <th className="px-4 py-3 font-semibold">Menü / İşletme</th>
+              <th className="px-4 py-3 font-semibold">Kullanıcı</th>
               <th className="px-4 py-3 font-semibold">Plan</th>
+              <th className="px-4 py-3 font-semibold">İçerik</th>
               <th className="px-4 py-3 font-semibold">Durum</th>
               <th className="px-4 py-3 font-semibold">Oluşturulma</th>
-              <th className="px-4 py-3" />
+              <th className="px-4 py-3 text-right font-semibold">İşlemler</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((v) => {
-              const org = orgOf(v.organizations);
-              const ownerEmail = org?.created_by ? emailById.get(org.created_by) : undefined;
+            {menus.map((menu) => {
+              const venue = one(menu.venues);
+              const organization = one(venue?.organizations ?? null);
+              const ownerEmail = organization?.created_by
+                ? emailById.get(organization.created_by)
+                : undefined;
+              const isPublished = Boolean(menu.is_active && venue?.is_published);
+
               return (
-                <tr key={v.id} className="border-b border-stone-100 last:border-0">
+                <tr key={menu.id} className="border-b border-stone-100 last:border-0 hover:bg-stone-50/70">
                   <td className="px-4 py-3">
-                    <div className="font-medium text-stone-800">{v.name || org?.name || 'İsimsiz'}</div>
-                    <a
-                      href={`/m/${v.slug}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-brand-600 underline underline-offset-2"
-                    >
-                      /m/{v.slug}
-                    </a>
+                    <div className="font-semibold text-stone-900">{menu.name || 'İsimsiz menü'}</div>
+                    <div className="mt-0.5 text-xs text-stone-500">
+                      {venue?.name || organization?.name || 'İsimsiz işletme'}
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-stone-600">{ownerEmail ?? '—'}</td>
+                  <td className="px-4 py-3 text-stone-600">
+                    <div>{ownerEmail ?? 'Anonim kullanıcı'}</div>
+                    {organization?.contact_phone && (
+                      <div className="mt-0.5 text-xs text-stone-400">{organization.contact_phone}</div>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                        (org?.plan ?? 'free') === 'free'
+                        (organization?.plan ?? 'free') === 'free'
                           ? 'bg-stone-200 text-stone-700'
                           : 'bg-brand-600 text-white'
                       }`}
                     >
-                      {planLimits(org?.plan).label}
+                      {planLimits(organization?.plan).label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-stone-600">
+                    <span className="font-medium text-stone-800">
+                      {itemCountByMenuId.get(menu.id) ?? 0} ürün
+                    </span>
+                    <span className="ml-2 text-xs text-stone-400">
+                      {categoryCountByMenuId.get(menu.id) ?? 0} kategori
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {v.is_published ? (
-                      <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
-                        CANLI
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white">
-                        TASLAK
-                      </span>
-                    )}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-semibold text-white ${
+                        isPublished ? 'bg-emerald-600' : 'bg-amber-500'
+                      }`}
+                    >
+                      {isPublished ? 'CANLI' : 'TASLAK'}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-stone-500">
-                    {new Date(v.created_at).toLocaleDateString('tr-TR')}
+                    {new Date(menu.created_at).toLocaleDateString('tr-TR')}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <a
-                      href={`/admin/venue/${v.id}`}
-                      className="rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-stone-800"
-                    >
-                      Panoya git
-                    </a>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      {venue && (
+                        <Link
+                          href={`/admin/venue/${venue.id}`}
+                          className="rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-stone-800"
+                        >
+                          Detay
+                        </Link>
+                      )}
+                      {venue?.slug && (
+                        <a
+                          href={`/m/${venue.slug}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-700 transition hover:bg-stone-100"
+                        >
+                          Menüyü aç
+                        </a>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
             })}
-            {rows.length === 0 && (
+            {menus.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-stone-400">
-                  Henüz işletme yok.
+                <td colSpan={7} className="px-4 py-12 text-center text-stone-400">
+                  Henüz oluşturulmuş bir menü yok.
                 </td>
               </tr>
             )}
@@ -149,5 +230,14 @@ export default async function AdminPanelPage() {
         </table>
       </div>
     </main>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wide text-stone-400">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-stone-900">{value}</p>
+    </div>
   );
 }
