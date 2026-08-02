@@ -31,32 +31,35 @@ export default async function menuIngestBackground(request: Request, _context: C
   if (!claimed) return new Response(null, { status: 202 });
 
   try {
-    const [{ createClient }, { processMenuIngestion }] = await Promise.all([
-      import('@supabase/supabase-js'),
-      import('../../src/lib/ai/process-menu-ingestion'),
+    if (payload.pages.some((page) => !page.storagePath.startsWith(`${claimed.org_id}/`))) {
+      throw new Error('Invalid storage path');
+    }
+
+    const [{ extractMenuFromFiles }, menuPages] = await Promise.all([
+      import('../../src/lib/ai/extract'),
+      downloadPages(supabaseUrl, serviceRoleKey, payload.pages),
     ]);
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
+    const { extracted, model } = await extractMenuFromFiles(menuPages, {
+      apiKey: requireEnv('OPENAI_API_KEY'),
+      model: Netlify.env.get('OPENAI_MENU_MODEL'),
     });
-    await processMenuIngestion({
-      admin,
-      ingestionId: payload.ingestionId,
-      pages: payload.pages,
-      claimedOrgId: claimed.org_id,
-      openAI: {
-        apiKey: requireEnv('OPENAI_API_KEY'),
-        model: Netlify.env.get('OPENAI_MENU_MODEL'),
-      },
+    await markReview(supabaseUrl, serviceRoleKey, payload.ingestionId, {
+      extracted,
+      created_menu_id: null,
+      model,
+      extracted_at: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Background ingestion worker failed to start', {
+    console.error('Background ingestion worker failed', {
       type: error instanceof Error ? error.name : 'unknown',
     });
     await markFailed(
       supabaseUrl,
       serviceRoleKey,
       payload.ingestionId,
-      'Arka plan menü işleyicisi başlatılamadı. Lütfen tekrar deneyin.'
+      error instanceof Error && error.name === 'MenuExtractionError'
+        ? error.message
+        : 'Menü çıkarma servisi geçici olarak yanıt veremedi. Lütfen tekrar deneyin.'
     );
   }
 
@@ -116,6 +119,42 @@ async function claimIngestion(
   if (!response.ok) throw new Error(`Ingestion claim failed (${response.status})`);
   const rows = (await response.json()) as Array<{ id: string; org_id: string }>;
   return rows[0] ?? null;
+}
+
+async function downloadPages(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  pages: Payload['pages']
+): Promise<Array<{ buffer: Buffer; mimeType: string }>> {
+  return Promise.all(
+    pages.map(async (page) => {
+      const storagePath = page.storagePath.split('/').map(encodeURIComponent).join('/');
+      const response = await fetch(
+        `${supabaseUrl}/storage/v1/object/authenticated/menu-uploads/${storagePath}`,
+        { headers: adminHeaders(serviceRoleKey) }
+      );
+      if (!response.ok) throw new Error(`Storage download failed (${response.status})`);
+      return {
+        buffer: Buffer.from(await response.arrayBuffer()),
+        mimeType: page.mimeType,
+      };
+    })
+  );
+}
+
+async function markReview(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  ingestionId: string,
+  rawResult: unknown
+) {
+  const query = new URLSearchParams({ id: `eq.${ingestionId}`, status: 'eq.processing' });
+  const response = await fetch(`${supabaseUrl}/rest/v1/menu_ingestions?${query}`, {
+    method: 'PATCH',
+    headers: adminHeaders(serviceRoleKey),
+    body: JSON.stringify({ status: 'review', raw_result: rawResult, error_message: null }),
+  });
+  if (!response.ok) throw new Error(`Ingestion update failed (${response.status})`);
 }
 
 async function markFailed(
