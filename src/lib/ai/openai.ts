@@ -1,5 +1,3 @@
-import 'server-only';
-
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 
 type OpenAIOutputContent = {
