@@ -115,6 +115,12 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message =
       err instanceof MenuExtractionError ? err.message : 'Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.';
+    console.error(
+      'Menu extraction failed',
+      err instanceof MenuExtractionError
+        ? (err.diagnostic ?? { type: err.name })
+        : { type: err instanceof Error ? err.name : 'unknown' }
+    );
     await supabase
       .from('menu_ingestions')
       .update({ status: 'failed', error_message: message })

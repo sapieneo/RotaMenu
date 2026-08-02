@@ -1,4 +1,4 @@
-import { createOpenAIResponse, getOpenAIOutputText } from '@/lib/ai/openai';
+import { createOpenAIResponse, getOpenAIOutputText, OpenAIRequestError } from '@/lib/ai/openai';
 import { extractedMenuSchema, ALLERGEN_CODES, DIETARY_CODES, type ExtractedMenu } from '@/lib/schemas/menu';
 
 const MODEL = process.env.OPENAI_MENU_MODEL ?? 'gpt-5.6-terra';
@@ -121,11 +121,64 @@ type OpenAIInputContent =
   | { type: 'input_image'; image_url: string; detail: 'high' }
   | { type: 'input_file'; filename: string; file_data: string };
 
+export type MenuExtractionDiagnostic = {
+  provider: 'openai';
+  status?: number;
+  code?: string;
+  requestId?: string;
+};
+
 export class MenuExtractionError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+    public readonly diagnostic?: MenuExtractionDiagnostic
+  ) {
     super(message);
     this.name = 'MenuExtractionError';
   }
+}
+
+function openAIErrorMessage(error: OpenAIRequestError): string {
+  if (error.status === 401) {
+    return 'OpenAI API anahtarı geçersiz veya iptal edilmiş. Lütfen API anahtarını kontrol edin.';
+  }
+  if (error.status === 403) {
+    return 'OpenAI projesinin seçilen modele erişimi yok. Lütfen proje ve model yetkisini kontrol edin.';
+  }
+  if (error.status === 404) {
+    return `OpenAI modeli bulunamadı veya kullanılamıyor: ${MODEL}.`;
+  }
+  if (error.status === 429) {
+    return error.code?.toLowerCase().includes('quota')
+      ? 'OpenAI API bakiyesi veya harcama limiti yetersiz. Lütfen OpenAI faturalandırmasını kontrol edin.'
+      : 'OpenAI kullanım limiti aşıldı. Lütfen kısa süre sonra tekrar deneyin.';
+  }
+  if (error.status === 400) {
+    return `OpenAI isteği reddetti (${error.code ?? 'invalid_request'}).`;
+  }
+  if (error.message.includes('OPENAI_API_KEY')) {
+    return 'OpenAI API anahtarı sunucu ortamında kullanılamıyor.';
+  }
+  if (error.message.includes('zaman aşımına')) {
+    return 'OpenAI isteği zaman aşımına uğradı. Lütfen tekrar deneyin.';
+  }
+  if (error.status) {
+    return `OpenAI servisi hata verdi (HTTP ${error.status}${error.code ? `, ${error.code}` : ''}).`;
+  }
+  return 'OpenAI servisine ulaşılamadı. Lütfen tekrar deneyin.';
+}
+
+function asMenuExtractionError(error: unknown): MenuExtractionError {
+  if (error instanceof OpenAIRequestError) {
+    return new MenuExtractionError(openAIErrorMessage(error), error, {
+      provider: 'openai',
+      status: error.status,
+      code: error.code,
+      requestId: error.requestId,
+    });
+  }
+  return new MenuExtractionError('AI servisi yanıt vermedi. Lütfen tekrar deneyin.', error);
 }
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -194,7 +247,7 @@ export async function extractMenuFromFiles(
     );
     outputText = getOpenAIOutputText(response);
   } catch (error) {
-    throw new MenuExtractionError('AI servisi yanıt vermedi. Lütfen tekrar deneyin.', error);
+    throw asMenuExtractionError(error);
   }
 
   if (!outputText) {

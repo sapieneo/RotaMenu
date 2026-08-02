@@ -69,6 +69,12 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message =
       err instanceof MenuExtractionError ? err.message : 'Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.';
+    console.error(
+      'Menu page extraction failed',
+      err instanceof MenuExtractionError
+        ? (err.diagnostic ?? { type: err.name })
+        : { type: err instanceof Error ? err.name : 'unknown' }
+    );
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }
