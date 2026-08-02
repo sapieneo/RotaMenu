@@ -191,7 +191,7 @@ function toInputContent(page: MenuPage, index: number): OpenAIInputContent {
     return {
       type: 'input_file',
       filename: `menu-${index + 1}.pdf`,
-      file_data: base64,
+      file_data: `data:application/pdf;base64,${base64}`,
     };
   }
   if (IMAGE_TYPES.has(page.mimeType)) {
