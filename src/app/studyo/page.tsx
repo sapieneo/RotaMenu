@@ -106,8 +106,15 @@ export default function StudyoPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ venueId, pages }),
         });
-        const body = await res.json();
+        const contentType = res.headers.get('content-type') ?? '';
+        const body = contentType.includes('application/json')
+          ? ((await res.json()) as { id?: string; error?: string })
+          : null;
+        if (!body) {
+          throw new Error('Menü çıkarma servisi geçici olarak yanıt veremedi. Lütfen tekrar deneyin.');
+        }
         if (!res.ok) throw new Error(body.error ?? 'Menü çıkarılamadı.');
+        if (!body.id) throw new Error('Menü çıkarma işi başlatılamadı.');
         router.push(`/studyo/${body.id}`);
       } catch (err) {
         setPhase({

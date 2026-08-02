@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { extractMenuFromFiles, MenuExtractionError, type MenuPage } from '@/lib/ai/extract';
-import type { RawResult } from '@/lib/schemas/menu';
+import type { MenuPage } from '@/lib/ai/extract';
+import { signBackgroundPayload } from '@/lib/ai/background-auth';
+import { processMenuIngestion, type StoredMenuPage } from '@/lib/ai/process-menu-ingestion';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120; // AI çıkarma 60 sn'yi bulabilir
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       source_type: pages.some((p) => p.sourceType === 'pdf') ? 'pdf' : 'image',
       storage_path: pages[0].storagePath,
       input_hash: inputHash,
-      status: 'processing',
+      status: 'uploaded',
     })
     .select('id')
     .single();
@@ -99,32 +100,61 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'İçe aktarma başlatılamadı.' }, { status: 500 });
   }
 
+  const storedPages = pages as StoredMenuPage[];
+  if (isNetlifyRuntime()) {
+    const queued = await enqueueBackgroundIngestion(request, ingestion.id, storedPages);
+    if (!queued) {
+      const message = 'Menü çıkarma işi başlatılamadı. Lütfen tekrar deneyin.';
+      await admin
+        .from('menu_ingestions')
+        .update({ status: 'failed', error_message: message })
+        .eq('id', ingestion.id);
+      return NextResponse.json({ id: ingestion.id, status: 'failed', error: message }, { status: 502 });
+    }
+    return NextResponse.json({ id: ingestion.id, status: 'processing' }, { status: 202 });
+  }
+
+  const result = await processMenuIngestion({
+    admin,
+    ingestionId: ingestion.id,
+    pages: storedPages,
+    preloadedPages: menuPages,
+  });
+  return NextResponse.json(
+    { id: ingestion.id, ...result },
+    { status: result.status === 'failed' ? 502 : 200 }
+  );
+}
+
+function isNetlifyRuntime(): boolean {
+  return process.env.NETLIFY === 'true' || Boolean(process.env.DEPLOY_ID);
+}
+
+async function enqueueBackgroundIngestion(
+  request: NextRequest,
+  ingestionId: string,
+  pages: StoredMenuPage[]
+): Promise<boolean> {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) return false;
+
+  const payload = JSON.stringify({ ingestionId, pages });
+  const signature = signBackgroundPayload(payload, secret);
+  const origin = process.env.DEPLOY_PRIME_URL ?? process.env.URL ?? request.nextUrl.origin;
   try {
-    const { extracted, model } = await extractMenuFromFiles(menuPages);
-    const rawResult: RawResult = {
-      extracted,
-      created_menu_id: null,
-      model,
-      extracted_at: new Date().toISOString(),
-    };
-    await supabase
-      .from('menu_ingestions')
-      .update({ status: 'review', raw_result: rawResult, error_message: null })
-      .eq('id', ingestion.id);
-    return NextResponse.json({ id: ingestion.id, status: 'review' });
-  } catch (err) {
-    const message =
-      err instanceof MenuExtractionError ? err.message : 'Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.';
-    console.error(
-      'Menu extraction failed',
-      err instanceof MenuExtractionError
-        ? (err.diagnostic ?? { type: err.name })
-        : { type: err instanceof Error ? err.name : 'unknown' }
-    );
-    await supabase
-      .from('menu_ingestions')
-      .update({ status: 'failed', error_message: message })
-      .eq('id', ingestion.id);
-    return NextResponse.json({ id: ingestion.id, status: 'failed', error: message }, { status: 502 });
+    const response = await fetch(`${origin}/.netlify/functions/menu-ingest-background`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-RestaurantOS-Signature': signature,
+      },
+      body: payload,
+    });
+    return response.status === 202;
+  } catch (error) {
+    console.error('Background ingestion enqueue failed', {
+      type: error instanceof Error ? error.name : 'unknown',
+    });
+    return false;
   }
 }

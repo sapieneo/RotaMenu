@@ -46,9 +46,9 @@ export class OpenAIRequestError extends Error {
  */
 export async function createOpenAIResponse(
   body: Record<string, unknown>,
-  options?: { timeoutMs?: number }
+  options?: { timeoutMs?: number; apiKey?: string }
 ): Promise<OpenAIResponse> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = options?.apiKey ?? process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new OpenAIRequestError('OpenAI API yapılandırılmamış: OPENAI_API_KEY eksik.');
   }

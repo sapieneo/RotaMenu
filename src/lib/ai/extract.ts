@@ -1,7 +1,7 @@
 import { createOpenAIResponse, getOpenAIOutputText, OpenAIRequestError } from '@/lib/ai/openai';
 import { extractedMenuSchema, ALLERGEN_CODES, DIETARY_CODES, type ExtractedMenu } from '@/lib/schemas/menu';
 
-const MODEL = process.env.OPENAI_MENU_MODEL ?? 'gpt-5.6-terra';
+const DEFAULT_MODEL = 'gpt-5.6-terra';
 
 const SYSTEM_PROMPT = `Sen bir restoran menüsü sayısallaştırma uzmanısın.
 Sana bir menünün fotoğrafı veya PDF'i verilecek. Görevin:
@@ -139,7 +139,7 @@ export class MenuExtractionError extends Error {
   }
 }
 
-function openAIErrorMessage(error: OpenAIRequestError): string {
+function openAIErrorMessage(error: OpenAIRequestError, model: string): string {
   if (error.status === 401) {
     return 'OpenAI API anahtarı geçersiz veya iptal edilmiş. Lütfen API anahtarını kontrol edin.';
   }
@@ -147,7 +147,7 @@ function openAIErrorMessage(error: OpenAIRequestError): string {
     return 'OpenAI projesinin seçilen modele erişimi yok. Lütfen proje ve model yetkisini kontrol edin.';
   }
   if (error.status === 404) {
-    return `OpenAI modeli bulunamadı veya kullanılamıyor: ${MODEL}.`;
+    return `OpenAI modeli bulunamadı veya kullanılamıyor: ${model}.`;
   }
   if (error.status === 429) {
     return error.code?.toLowerCase().includes('quota')
@@ -169,9 +169,9 @@ function openAIErrorMessage(error: OpenAIRequestError): string {
   return 'OpenAI servisine ulaşılamadı. Lütfen tekrar deneyin.';
 }
 
-function asMenuExtractionError(error: unknown): MenuExtractionError {
+function asMenuExtractionError(error: unknown, model: string): MenuExtractionError {
   if (error instanceof OpenAIRequestError) {
-    return new MenuExtractionError(openAIErrorMessage(error), error, {
+    return new MenuExtractionError(openAIErrorMessage(error, model), error, {
       provider: 'openai',
       status: error.status,
       code: error.code,
@@ -210,9 +210,11 @@ function toInputContent(page: MenuPage, index: number): OpenAIInputContent {
  * ikinci kez doğrulanır.
  */
 export async function extractMenuFromFiles(
-  pages: MenuPage[]
+  pages: MenuPage[],
+  options?: { apiKey?: string; model?: string }
 ): Promise<{ extracted: ExtractedMenu; model: string }> {
   if (pages.length === 0) throw new MenuExtractionError('Hiç sayfa verilmedi.');
+  const model = options?.model ?? process.env.OPENAI_MENU_MODEL ?? DEFAULT_MODEL;
 
   const content: OpenAIInputContent[] = pages.map(toInputContent);
   content.push({
@@ -227,7 +229,7 @@ export async function extractMenuFromFiles(
   try {
     const response = await createOpenAIResponse(
       {
-        model: MODEL,
+        model,
         instructions: SYSTEM_PROMPT,
         input: [{ role: 'user', content }],
         reasoning: { effort: 'low' },
@@ -243,11 +245,11 @@ export async function extractMenuFromFiles(
           },
         },
       },
-      { timeoutMs: 120_000 }
+      { timeoutMs: 120_000, apiKey: options?.apiKey }
     );
     outputText = getOpenAIOutputText(response);
   } catch (error) {
-    throw asMenuExtractionError(error);
+    throw asMenuExtractionError(error, model);
   }
 
   if (!outputText) {
@@ -269,5 +271,5 @@ export async function extractMenuFromFiles(
     );
   }
 
-  return { extracted: parsed.data, model: MODEL };
+  return { extracted: parsed.data, model };
 }
