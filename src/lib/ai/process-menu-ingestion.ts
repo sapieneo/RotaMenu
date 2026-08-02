@@ -17,18 +17,28 @@ export async function processMenuIngestion(options: {
   admin: SupabaseClient;
   ingestionId: string;
   pages: StoredMenuPage[];
+  claimedOrgId?: string;
   preloadedPages?: MenuPage[];
   openAI?: { apiKey?: string; model?: string };
 }): Promise<ProcessingResult> {
   const { admin, ingestionId, pages } = options;
 
-  const { data: claimed, error: claimError } = await admin
-    .from('menu_ingestions')
-    .update({ status: 'processing', error_message: null })
-    .eq('id', ingestionId)
-    .eq('status', 'uploaded')
-    .select('id, org_id')
-    .maybeSingle();
+  let claimed: { id: string; org_id: string } | null = options.claimedOrgId
+    ? { id: ingestionId, org_id: options.claimedOrgId }
+    : null;
+  let claimError: unknown = null;
+
+  if (!claimed) {
+    const claim = await admin
+      .from('menu_ingestions')
+      .update({ status: 'processing', error_message: null })
+      .eq('id', ingestionId)
+      .eq('status', 'uploaded')
+      .select('id, org_id')
+      .maybeSingle();
+    claimed = claim.data;
+    claimError = claim.error;
+  }
 
   if (claimError) {
     return fail(admin, ingestionId, 'İçe aktarma işi başlatılamadı.', claimError);
