@@ -43,6 +43,7 @@ export default async function menuTranslateBackground(request: Request, _context
     console.error('Background translation worker failed', {
       jobId: job.id,
       type: error instanceof Error ? error.name : 'unknown',
+      message: error instanceof Error ? error.message : 'unknown',
     });
     await updateJob(supabaseUrl, serviceRoleKey, job.id, {
       status: 'failed',
@@ -87,7 +88,7 @@ async function processJob(supabaseUrl: string, key: string, job: Job) {
     await updateJob(supabaseUrl, key, job.id, { total_items: missing.length });
     for (let index = 0; index < missing.length; index += 25) {
       const chunk = missing.slice(index, index + 25);
-      const result = await ai.generateMenuDescriptions(chunk, options);
+      const result = await withRetry(() => ai.generateMenuDescriptions(chunk, options));
       await Promise.all(
         result.items.map((item) =>
           restPatch(supabaseUrl, key, 'items', { id: `eq.${item.id}` }, { description: item.description })
@@ -102,9 +103,22 @@ async function processJob(supabaseUrl: string, key: string, job: Job) {
     const { MENU_LANGUAGE_BY_CODE } = await import('../../src/lib/languages');
     const language = MENU_LANGUAGE_BY_CODE.get(job.locale);
     if (!language) throw new Error('Unsupported locale');
-    await updateJob(supabaseUrl, key, job.id, { total_items: items.length });
+    const existingTranslations = await restGet<Array<{ item_id: string }>>(
+      supabaseUrl,
+      key,
+      'item_translations',
+      { org_id: `eq.${job.org_id}`, locale: `eq.${job.locale}`, select: 'item_id' }
+    );
+    const translatedItemIds = new Set(existingTranslations.map((translation) => translation.item_id));
+    const remainingItems = inputItems.filter((item) => !translatedItemIds.has(item.id));
+    await updateJob(supabaseUrl, key, job.id, {
+      total_items: items.length,
+      progress: progress(inputItems.length - remainingItems.length, inputItems.length),
+    });
 
-    const translatedCategories = await ai.translateMenuContent(language.nativeName, categories, [], options);
+    const translatedCategories = await withRetry(() =>
+      ai.translateMenuContent(language.nativeName, categories, [], options)
+    );
     await restUpsert(
       supabaseUrl,
       key,
@@ -119,9 +133,12 @@ async function processJob(supabaseUrl: string, key: string, job: Job) {
       }))
     );
 
-    for (let index = 0; index < inputItems.length; index += 25) {
-      const chunk = inputItems.slice(index, index + 25);
-      const result = await ai.translateMenuContent(language.nativeName, [], chunk, options);
+    const alreadyTranslated = inputItems.length - remainingItems.length;
+    for (let index = 0; index < remainingItems.length; index += 25) {
+      const chunk = remainingItems.slice(index, index + 25);
+      const result = await withRetry(() =>
+        ai.translateMenuContent(language.nativeName, [], chunk, options)
+      );
       await restUpsert(
         supabaseUrl,
         key,
@@ -138,7 +155,7 @@ async function processJob(supabaseUrl: string, key: string, job: Job) {
         }))
       );
       await updateJob(supabaseUrl, key, job.id, {
-        progress: progress(index + chunk.length, inputItems.length),
+        progress: progress(alreadyTranslated + index + chunk.length, inputItems.length),
         model: result.model,
       });
     }
@@ -149,6 +166,19 @@ async function processJob(supabaseUrl: string, key: string, job: Job) {
     progress: 100,
     error_message: null,
   });
+}
+
+async function withRetry<T>(operation: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+    }
+  }
+  throw lastError;
 }
 
 async function verifySignature(body: string, signature: string, secret: string) {

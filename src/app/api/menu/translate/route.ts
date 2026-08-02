@@ -56,7 +56,18 @@ export async function POST(request: NextRequest) {
     : { data: [] as { id: string; description: string | null }[] };
   const missingDescriptionCount = (items ?? []).filter((item) => !item.description?.trim()).length;
 
-  const translationRows = parsed.data.locales.map((locale) => ({
+  const { data: existingJobs } = await supabase
+    .from('menu_translation_jobs')
+    .select('locale, status')
+    .eq('menu_id', menu.id)
+    .eq('job_type', 'translation')
+    .in('locale', parsed.data.locales);
+  const completedLocales = new Set(
+    (existingJobs ?? []).filter((job) => job.status === 'completed').map((job) => job.locale)
+  );
+  const localesToRun = parsed.data.locales.filter((locale) => !completedLocales.has(locale));
+
+  const translationRows = localesToRun.map((locale) => ({
     org_id: venue.org_id,
     menu_id: menu.id,
     job_type: 'translation',
@@ -68,17 +79,24 @@ export async function POST(request: NextRequest) {
     error_message: null,
     requested_by: user.id,
   }));
-  const { data: translationJobs, error: translationError } = await supabase
-    .from('menu_translation_jobs')
-    .upsert(translationRows, { onConflict: 'menu_id,job_type,locale' })
-    .select('id');
-  if (translationError || !translationJobs) {
+  const translationResult = translationRows.length
+    ? await supabase
+        .from('menu_translation_jobs')
+        .upsert(translationRows, { onConflict: 'menu_id,job_type,locale' })
+        .select('id')
+    : { data: [] as { id: string }[], error: null };
+  const translationJobs = translationResult.data;
+  if (translationResult.error || !translationJobs) {
     return NextResponse.json({ error: 'Çeviri işleri oluşturulamadı.' }, { status: 500 });
   }
 
   const origin = getNetlifyOrigin();
   if (!origin) return NextResponse.json({ error: 'Arka plan servisi yapılandırılmamış.' }, { status: 503 });
   const followupJobIds = translationJobs.map((job) => job.id);
+
+  if (!followupJobIds.length && missingDescriptionCount === 0) {
+    return NextResponse.json({ jobs: 0, descriptions: 0, alreadyCompleted: true });
+  }
 
   if (missingDescriptionCount > 0) {
     const { data: descriptionJob, error } = await supabase
