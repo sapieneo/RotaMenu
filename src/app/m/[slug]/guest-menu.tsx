@@ -49,10 +49,14 @@ export function GuestMenu({
   venue,
   categories,
   venueId,
+  availableLocales,
+  currentLocale,
 }: {
   venue: GuestVenue;
   categories: GuestCategory[];
   venueId: string;
+  availableLocales: { code: string; name: string }[];
+  currentLocale: string;
 }) {
   const [active, setActive] = useState(categories[0]?.id ?? '');
   const [selected, setSelected] = useState<GuestItem | null>(null);
@@ -160,6 +164,27 @@ export function GuestMenu({
           <h1 className="mt-3 text-2xl font-bold tracking-tight">{venue.name}</h1>
           {venue.description && (
             <p className="mt-1 text-sm text-stone-500">{venue.description}</p>
+          )}
+          {availableLocales.length > 1 && (
+            <label className="mt-4 inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-700 shadow-sm">
+              <span aria-hidden>🌐</span>
+              <span className="sr-only">Menü dili</span>
+              <select
+                value={currentLocale}
+                onChange={(event) => {
+                  const url = new URL(window.location.href);
+                  if (event.target.value === 'tr') url.searchParams.delete('lang');
+                  else url.searchParams.set('lang', event.target.value);
+                  window.location.assign(url.toString());
+                }}
+                className="bg-transparent pr-1 font-medium outline-none"
+                aria-label="Menü dili"
+              >
+                {availableLocales.map((language) => (
+                  <option key={language.code} value={language.code}>{language.name}</option>
+                ))}
+              </select>
+            </label>
           )}
         </div>
       </header>

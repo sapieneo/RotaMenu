@@ -6,6 +6,7 @@ import { recordEvent } from '@/lib/analytics';
 import { showRestaurantBadge } from '@/lib/plans';
 import { CODE_BY_ID } from '@/lib/allergens';
 import { DIETARY_CODE_BY_ID } from '@/lib/dietary';
+import { MENU_LANGUAGE_BY_CODE, SOURCE_LANGUAGE } from '@/lib/languages';
 import { GuestMenu, type GuestCategory, type GuestVenue } from './guest-menu';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +42,13 @@ export async function generateMetadata({
   };
 }
 
-export default async function GuestMenuPage({ params }: { params: { slug: string } }) {
+export default async function GuestMenuPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams?: { lang?: string };
+}) {
   const supabase = createClient();
 
   const { data: venue } = await supabase
@@ -121,6 +128,33 @@ export default async function GuestMenuPage({ params }: { params: { slug: string
 
   const rows = (itemRows ?? []) as unknown as Record<string, unknown>[];
 
+  const itemIds = rows.map((item) => item.id as string);
+  const [{ data: categoryTranslations }, { data: itemTranslations }] = await Promise.all([
+    catIds.length
+      ? supabase.from('category_translations').select('category_id, locale, name').in('category_id', catIds)
+      : Promise.resolve({ data: [] as { category_id: string; locale: string; name: string }[] }),
+    itemIds.length
+      ? supabase.from('item_translations').select('item_id, locale, name, description, ingredients').in('item_id', itemIds)
+      : Promise.resolve({ data: [] as { item_id: string; locale: string; name: string; description: string | null; ingredients: string | null }[] }),
+  ]);
+  const categoryLocaleCounts = countLocales(categoryTranslations ?? [], 'category_id');
+  const itemLocaleCounts = countLocales(itemTranslations ?? [], 'item_id');
+  const availableLocaleCodes = [...MENU_LANGUAGE_BY_CODE.keys()].filter(
+    (locale) => categoryLocaleCounts.get(locale) === catIds.length && itemLocaleCounts.get(locale) === itemIds.length
+  );
+  const requestedLocale = searchParams?.lang ?? SOURCE_LANGUAGE.code;
+  const currentLocale = availableLocaleCodes.includes(requestedLocale) ? requestedLocale : SOURCE_LANGUAGE.code;
+  const categoryTranslationMap = new Map(
+    (categoryTranslations ?? [])
+      .filter((row) => row.locale === currentLocale)
+      .map((row) => [row.category_id, row.name])
+  );
+  const itemTranslationMap = new Map(
+    (itemTranslations ?? [])
+      .filter((row) => row.locale === currentLocale)
+      .map((row) => [row.item_id, row])
+  );
+
   // Ürünleri kategoriye grupla
   const byCat = new Map<string, GuestCategory['items']>();
   for (const it of rows) {
@@ -134,12 +168,13 @@ export default async function GuestMenuPage({ params }: { params: { slug: string
       .map((r) => DIETARY_CODE_BY_ID[r.tag_id])
       .filter(Boolean) as string[];
     const priceRaw = it.price as number | string | null;
+    const translation = itemTranslationMap.get(it.id as string);
     const list = byCat.get(catId) ?? [];
     list.push({
       id: it.id as string,
-      name: it.name as string,
-      description: (it.description as string | null) ?? null,
-      ingredients: (it.ingredients as string | null) ?? null,
+      name: translation?.name ?? (it.name as string),
+      description: translation?.description ?? (it.description as string | null) ?? null,
+      ingredients: translation?.ingredients ?? (it.ingredients as string | null) ?? null,
       price: priceRaw == null ? null : Number(priceRaw),
       calories: (it.calories_kcal as number | null) ?? null,
       imageUrl: (it.image_url as string | null) ?? null,
@@ -152,7 +187,7 @@ export default async function GuestMenuPage({ params }: { params: { slug: string
   const guestCategories: GuestCategory[] = (categories ?? [])
     .map((c) => ({
       id: c.id,
-      name: c.name,
+      name: categoryTranslationMap.get(c.id) ?? c.name,
       backgroundUrl: c.background_url ?? null,
       backgroundStyle: (c.background_style as 'strip' | 'hero' | null) ?? 'strip',
       items: byCat.get(c.id) ?? [],
@@ -187,5 +222,29 @@ export default async function GuestMenuPage({ params }: { params: { slug: string
     });
   }
 
-  return <GuestMenu venue={guestVenue} categories={guestCategories} venueId={venue.id} />;
+  const availableLocales = [
+    SOURCE_LANGUAGE,
+    ...availableLocaleCodes.map((code) => MENU_LANGUAGE_BY_CODE.get(code)).filter(Boolean),
+  ].map((language) => ({ code: language!.code, name: language!.nativeName }));
+
+  return (
+    <GuestMenu
+      venue={guestVenue}
+      categories={guestCategories}
+      venueId={venue.id}
+      availableLocales={availableLocales}
+      currentLocale={currentLocale}
+    />
+  );
+}
+
+function countLocales(rows: Record<string, unknown>[], idKey: string) {
+  const unique = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const locale = row.locale as string;
+    const ids = unique.get(locale) ?? new Set<string>();
+    ids.add(row[idKey] as string);
+    unique.set(locale, ids);
+  }
+  return new Map([...unique].map(([locale, ids]) => [locale, ids.size]));
 }

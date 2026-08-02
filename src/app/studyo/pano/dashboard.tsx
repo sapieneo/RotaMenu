@@ -150,6 +150,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
         <QuickLink href="/studyo" icon="📸" label="Menüye resim yükle" />
         <QuickLink href="/studyo/uyum" icon="✅" label="Alerjen / uyum" />
         <QuickLink href="/studyo/gorseller" icon="🎨" label="Görseller" />
+        <QuickLink href="/studyo/diller" icon="🌍" label="Diller / çeviri" />
         <QuickLink href="/studyo/qr" icon="🔳" label="QR kodları" />
         <QuickLink href="/studyo/ayarlar" icon="⚙️" label="Ayarlar" />
         <QuickLink href="/studyo/hesap" icon="👤" label="Hesap" />
