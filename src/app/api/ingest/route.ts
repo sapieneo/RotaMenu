@@ -101,8 +101,9 @@ export async function POST(request: NextRequest) {
   }
 
   const storedPages = pages as StoredMenuPage[];
-  if (isNetlifyRuntime()) {
-    const queued = await enqueueBackgroundIngestion(request, ingestion.id, storedPages);
+  const netlifyOrigin = getNetlifyOrigin();
+  if (netlifyOrigin) {
+    const queued = await enqueueBackgroundIngestion(netlifyOrigin, ingestion.id, storedPages);
     if (!queued) {
       const message = 'Menü çıkarma işi başlatılamadı. Lütfen tekrar deneyin.';
       await admin
@@ -126,21 +127,30 @@ export async function POST(request: NextRequest) {
   );
 }
 
-function isNetlifyRuntime(): boolean {
-  return process.env.NETLIFY === 'true' || Boolean(process.env.DEPLOY_ID);
+type NetlifyRuntimeGlobal = typeof globalThis & {
+  Netlify?: { env: { get(name: string): string | undefined } };
+};
+
+function getNetlifyEnv(name: string): string | undefined {
+  return (globalThis as NetlifyRuntimeGlobal).Netlify?.env.get(name) ?? process.env[name];
+}
+
+function getNetlifyOrigin(): string | null {
+  const siteId = getNetlifyEnv('SITE_ID');
+  const origin = getNetlifyEnv('DEPLOY_PRIME_URL') ?? getNetlifyEnv('URL');
+  return siteId && origin ? origin : null;
 }
 
 async function enqueueBackgroundIngestion(
-  request: NextRequest,
+  origin: string,
   ingestionId: string,
   pages: StoredMenuPage[]
 ): Promise<boolean> {
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secret = getNetlifyEnv('SUPABASE_SERVICE_ROLE_KEY');
   if (!secret) return false;
 
   const payload = JSON.stringify({ ingestionId, pages });
   const signature = signBackgroundPayload(payload, secret);
-  const origin = process.env.DEPLOY_PRIME_URL ?? process.env.URL ?? request.nextUrl.origin;
   try {
     const response = await fetch(`${origin}/.netlify/functions/menu-ingest-background`, {
       method: 'POST',
