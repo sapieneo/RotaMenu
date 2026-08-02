@@ -13,6 +13,7 @@ export type PlanInfo = {
 };
 
 export type DashboardData = {
+  venueId: string;
   venueName: string;
   slug: string;
   isPublished: boolean;
@@ -101,7 +102,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
       </section>
 
       {/* Plan & kullanım */}
-      <PlanCard plan={data.plan} itemCount={data.itemCount} />
+      <PlanCard plan={data.plan} itemCount={data.itemCount} venueId={data.venueId} />
 
       {/* Analitik */}
       <section className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -154,7 +155,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
         <QuickLink href="/studyo/qr" icon="🔳" label="QR kodları" />
         <QuickLink href="/studyo/ayarlar" icon="⚙️" label="Ayarlar" />
         <QuickLink href="/studyo/hesap" icon="👤" label="Hesap" />
-        <QuickLink href="/studyo/plan" icon="💎" label="Plan / yükselt" />
+        <QuickLink href={`/studyo/plan?venue=${encodeURIComponent(data.venueId)}`} icon="💎" label="Plan / yükselt" />
       </section>
       </div>
 
@@ -228,7 +229,7 @@ function PhonePreview({ slug }: { slug: string }) {
 }
 
 /** Plan + kullanım kartı (Faz C freemium). */
-function PlanCard({ plan, itemCount }: { plan: PlanInfo; itemCount: number }) {
+function PlanCard({ plan, itemCount, venueId }: { plan: PlanInfo; itemCount: number; venueId: string }) {
   const isFree = plan.tier === 'free';
   const limit = plan.itemLimit;
   const pct = limit ? Math.min(100, Math.round((itemCount / limit) * 100)) : 0;
@@ -257,7 +258,7 @@ function PlanCard({ plan, itemCount }: { plan: PlanInfo; itemCount: number }) {
         </div>
         {isFree && (
           <a
-            href="/studyo/plan"
+            href={`/studyo/plan?venue=${encodeURIComponent(venueId)}`}
             className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-brand-700"
           >
             Pro’ya yükselt

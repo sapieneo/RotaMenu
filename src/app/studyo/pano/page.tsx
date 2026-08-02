@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
  * yayın durumu, QR, uyum, hesap ve son 30 günün çerezsiz tarama analitiği.
  * Tüm okumalar user-client + RLS ile (org üyesi kendi verisini görür).
  */
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
   const {
     data: { user },
@@ -29,12 +29,19 @@ export default async function DashboardPage() {
   const isAnonymous = (user as { is_anonymous?: boolean }).is_anonymous ?? !user.email;
   const accountSecured = !isAnonymous && Boolean(user.email);
 
-  const { data: venue } = await supabase
-    .from('venues')
-    .select('id, org_id, slug, name, is_published, published_at')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const venueSelection = searchParams?.venue
+    ? await supabase
+        .from('venues')
+        .select('id, org_id, slug, name, is_published, published_at')
+        .eq('id', searchParams.venue)
+        .maybeSingle()
+    : await supabase
+        .from('venues')
+        .select('id, org_id, slug, name, is_published, published_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+  const venue = venueSelection.data;
 
   if (!venue) {
     return (
@@ -131,6 +138,7 @@ export default async function DashboardPage() {
   }
 
   const data: DashboardData = {
+    venueId: venue.id,
     venueName: venue.name,
     slug: venue.slug,
     isPublished: Boolean(venue.is_published),

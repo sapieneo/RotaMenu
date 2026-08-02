@@ -25,14 +25,24 @@ export async function POST() {
   const admin = createAdminClient();
 
   // Mevcut üyelik? (RLS-bağımsız, kesin sonuç)
-  const { data: membership } = await admin
+  const { data: memberships } = await admin
     .from('organization_members')
     .select('org_id')
     .eq('user_id', user.id)
-    .limit(1)
-    .maybeSingle();
+    .order('created_at', { ascending: false });
 
-  let orgId = membership?.org_id as string | undefined;
+  const memberOrgIds = (memberships ?? []).map((membership) => membership.org_id as string);
+  const { data: latestVenue } = memberOrgIds.length
+    ? await admin
+        .from('venues')
+        .select('id, org_id, slug, name')
+        .in('org_id', memberOrgIds)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+
+  let orgId = (latestVenue?.org_id ?? memberOrgIds[0]) as string | undefined;
 
   if (!orgId) {
     const { data: org, error: orgErr } = await admin
@@ -51,13 +61,17 @@ export async function POST() {
   }
 
   // Venue var mı?
-  const { data: venue } = await admin
-    .from('venues')
-    .select('id, slug, name')
-    .eq('org_id', orgId)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const venue = latestVenue?.org_id === orgId
+    ? latestVenue
+    : (
+        await admin
+          .from('venues')
+          .select('id, org_id, slug, name')
+          .eq('org_id', orgId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      ).data;
   if (venue) {
     // Bu venue'da hiç kategori var mı? Varsa dönen kullanıcıdır → studyo
     // girişi panoya bağ gösterir. (menus → categories zinciri, RLS altında.)

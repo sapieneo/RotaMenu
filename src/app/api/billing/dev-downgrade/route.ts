@@ -1,8 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import { z } from 'zod';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { isIyzicoConfigured } from '@/lib/iyzico';
 
 export const runtime = 'nodejs';
+
+const bodySchema = z.object({ venueId: z.string().uuid().nullable().optional() });
 
 /**
  * POST /api/billing/dev-downgrade
@@ -13,7 +16,7 @@ export const runtime = 'nodejs';
  *
  * KALDIRMA: dev-upgrade/route.ts ile birlikte, bkz. o dosyadaki not.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   if (isIyzicoConfigured()) {
     return NextResponse.json({ error: 'iyzico aktif; bypass kapalı.' }, { status: 403 });
   }
@@ -25,11 +28,22 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
 
   const admin = createAdminClient();
-  const { data: membership } = await admin
+  const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
+  if (!parsed.success) return NextResponse.json({ error: 'Geçersiz işletme seçimi.' }, { status: 400 });
+  const venueId = parsed.data.venueId ?? null;
+  const { data: selectedVenue } = venueId
+    ? await admin.from('venues').select('id, org_id').eq('id', venueId).maybeSingle()
+    : { data: null };
+  if (venueId && !selectedVenue) {
+    return NextResponse.json({ error: 'İşletme bulunamadı.' }, { status: 404 });
+  }
+  let membershipQuery = admin
     .from('organization_members')
     .select('org_id, role')
     .eq('user_id', user.id)
-    .in('role', ['owner', 'admin'])
+    .in('role', ['owner', 'admin']);
+  if (selectedVenue) membershipQuery = membershipQuery.eq('org_id', selectedVenue.org_id);
+  const { data: membership } = await membershipQuery
     .limit(1)
     .maybeSingle();
   if (!membership) {
@@ -51,5 +65,8 @@ export async function POST() {
     .eq('provider', 'manual_bypass')
     .eq('status', 'ACTIVE');
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    redirectTo: selectedVenue ? `/studyo/pano?venue=${selectedVenue.id}` : '/studyo/pano',
+  });
 }

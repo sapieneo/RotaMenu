@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
  * Ücretsiz planda: fatura bilgi formu → iyzico abonelik Checkout Form.
  * Pro planda: durum + iptal. Fiyat/periyot iyzico pricing plan'da tanımlıdır.
  */
-export default async function PlanPage() {
+export default async function PlanPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
   const {
     data: { user },
@@ -27,12 +27,23 @@ export default async function PlanPage() {
     );
   }
 
-  const { data: membership } = await supabase
-    .from('organization_members')
-    .select('org_id, role')
-    .eq('user_id', user.id)
-    .limit(1)
-    .maybeSingle();
+  const venueSelection = searchParams?.venue
+    ? await supabase.from('venues').select('id, org_id').eq('id', searchParams.venue).maybeSingle()
+    : await supabase
+        .from('venues')
+        .select('id, org_id')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+  const venue = venueSelection.data;
+  const { data: membership } = venue
+    ? await supabase
+        .from('organization_members')
+        .select('org_id, role')
+        .eq('user_id', user.id)
+        .eq('org_id', venue.org_id)
+        .maybeSingle()
+    : { data: null };
 
   let plan = 'free';
   let contactPhone: string | null = null;
@@ -64,6 +75,8 @@ export default async function PlanPage() {
   const isOwner = membership?.role === 'owner' || membership?.role === 'admin';
 
   const data: PlanClientData = {
+    venueId: venue?.id ?? null,
+    dashboardHref: venue?.id ? `/studyo/pano?venue=${venue.id}` : '/studyo/pano',
     plan: plan as 'free' | 'pro' | 'enterprise',
     planLabel: planLimits(plan).label,
     isOwner,

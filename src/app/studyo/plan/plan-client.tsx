@@ -3,6 +3,8 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
 
 export type PlanClientData = {
+  venueId: string | null;
+  dashboardHref: string;
   plan: 'free' | 'pro' | 'enterprise';
   planLabel: string;
   isOwner: boolean;
@@ -169,12 +171,16 @@ export function PlanClient({ data }: { data: PlanClientData }) {
               {status === 'canceling' ? 'İptal ediliyor…' : 'Aboneliği iptal et'}
             </button>
           )}
-          {!data.billingConfigured && data.isOwner && <DevBypass mode="downgrade" />}
+          {!data.billingConfigured && data.isOwner && (
+            <DevBypass mode="downgrade" venueId={data.venueId} dashboardHref={data.dashboardHref} />
+          )}
         </section>
       ) : !data.billingConfigured ? (
         <section className="rounded-2xl border border-stone-200 bg-stone-50 p-5 text-sm text-stone-600 shadow-sm">
           <p>Ödeme altyapısı henüz etkin değil. Pro’ya yükseltme çok yakında açılacak.</p>
-          {data.isOwner && <DevBypass mode="upgrade" />}
+          {data.isOwner && (
+            <DevBypass mode="upgrade" venueId={data.venueId} dashboardHref={data.dashboardHref} />
+          )}
         </section>
       ) : !data.isOwner ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800 shadow-sm">
@@ -247,7 +253,15 @@ export function PlanClient({ data }: { data: PlanClientData }) {
  * (`/api/billing/dev-upgrade`, `/api/billing/dev-downgrade`) devre dışı kalır
  * (rotalar 403 döner). KALDIRMA: bu bileşeni + iki route dosyasını sil.
  */
-function DevBypass({ mode }: { mode: 'upgrade' | 'downgrade' }) {
+function DevBypass({
+  mode,
+  venueId,
+  dashboardHref,
+}: {
+  mode: 'upgrade' | 'downgrade';
+  venueId: string | null;
+  dashboardHref: string;
+}) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -255,10 +269,14 @@ function DevBypass({ mode }: { mode: 'upgrade' | 'downgrade' }) {
     setBusy(true);
     setErr(null);
     try {
-      const res = await fetch(`/api/billing/dev-${mode}`, { method: 'POST' });
-      const body = await res.json();
+      const res = await fetch(`/api/billing/dev-${mode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId }),
+      });
+      const body = (await res.json()) as { error?: string; redirectTo?: string };
       if (!res.ok) throw new Error(body.error ?? 'İşlem başarısız.');
-      window.location.reload();
+      window.location.assign(body.redirectTo ?? dashboardHref);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Beklenmeyen hata.');
       setBusy(false);

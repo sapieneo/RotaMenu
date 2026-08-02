@@ -24,7 +24,7 @@ export default function StudyoPage() {
   const [dragOver, setDragOver] = useState(false);
   const [isAnon, setIsAnon] = useState(false);
   const [hasMenu, setHasMenu] = useState(false);
-  const [venueInfo, setVenueInfo] = useState<{ name: string; slug: string } | null>(null);
+  const [venueInfo, setVenueInfo] = useState<{ id: string; name: string; slug: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const bootstrapped = useRef(false);
 
@@ -50,7 +50,7 @@ export default function StudyoPage() {
         setIsAnon(Boolean(u && (u.is_anonymous ?? !u.email)));
         setHasMenu(Boolean(body.hasMenu));
         if (body.hasMenu && body.slug) {
-          setVenueInfo({ name: body.name || 'İşletmem', slug: body.slug });
+          setVenueInfo({ id: body.venueId, name: body.name || 'İşletmem', slug: body.slug });
         }
         setPhase({ name: 'hazir', orgId: body.orgId, venueId: body.venueId });
       } catch (err) {
@@ -150,7 +150,7 @@ export default function StudyoPage() {
               {venueInfo?.slug && <p className="text-xs text-stone-500">/m/{venueInfo.slug}</p>}
             </div>
             <a
-              href="/studyo/pano"
+              href={venueInfo?.id ? `/studyo/pano?venue=${encodeURIComponent(venueInfo.id)}` : '/studyo/pano'}
               className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-700"
             >
               Panoya git

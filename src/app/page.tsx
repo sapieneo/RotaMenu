@@ -20,7 +20,7 @@ export default async function Home() {
     const { data: venue } = await supabase
       .from('venues')
       .select('id')
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     if (venue) {
@@ -30,7 +30,7 @@ export default async function Home() {
         .eq('menus.venue_id', venue.id)
         .limit(1)
         .maybeSingle();
-      if (someCat) redirect('/studyo/pano');
+      if (someCat) redirect(`/studyo/pano?venue=${venue.id}`);
     }
   }
 
