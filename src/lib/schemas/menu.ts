@@ -35,7 +35,7 @@ export const extractedCategorySchema = z.object({
   items: z.array(extractedItemSchema).default([]),
 });
 
-/** Claude'un submit_menu aracına vermesi zorunlu şema. */
+/** AI menü çıkarım çıktısının uygulama tarafındaki doğrulama şeması. */
 export const extractedMenuSchema = z.object({
   menu_name: z.string().min(1).max(120).default('Menü'),
   /** İşletme/restoran adı (logo/başlık/üstbilgiden). Bulunamazsa null. */

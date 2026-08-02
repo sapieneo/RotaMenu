@@ -46,7 +46,7 @@ birimi, ülkeden bağımsız şema.
 |---|-------|---------|------------------|
 | A1 | Next.js 14+ App Router + TypeScript + Tailwind, Vercel | Ekip bilgisi mevcut, ISR/edge cache yayın katmanı için ideal | Remix, SvelteKit |
 | A2 | Supabase (Postgres + Auth + Storage + RLS) | Tek platformda DB/auth/dosya; RLS ile çok kiracılılık | Ayrı auth servisi |
-| A3 | **AI sağlayıcı: Anthropic Claude (vision + yapılandırılmış JSON çıktı)** | Tek çağrıda OCR + yapılandırma; mevcut repo deneyimi; ayrı OCR servisi (Google Vision) gereksiz katman | GPT-4o + Google Vision (iki sağlayıcı, iki fatura, iki hata yüzeyi) |
+| A3 | **AI sağlayıcı: OpenAI Responses API (vision + strict structured output)** | Tek çağrıda OCR + yapılandırma; görsel ve PDF girdisi; ayrı OCR servisi (Google Vision) gereksiz katman | Ayrı LLM + Google Vision (iki sağlayıcı, iki fatura, iki hata yüzeyi) |
 | A4 | Auth: Supabase anonymous sign-in → yayında e-posta magic link / Google OAuth ile hesaba dönüşüm | "Kayıt olmadan dene" hunisi korunur; telefon OTP TR'ye hapsederdi. Netgsm/SMS tamamen çıkar | Telefon OTP |
 | A5 | RLS stratejisi: her kiracı tablosunda **denormalize `org_id`** + tek tip `is_org_member()` politikası | Join'li RLS politikaları yavaş ve hataya açık; trigger org_id'yi parent'tan otomatik doldurur | Her tabloda join'le yukarı yürüyen politika |
 | A6 | Node.js runtime (Edge runtime değil) API route'larda | iyzico ve ağır AI çağrıları uyumluluğu | Edge functions |
@@ -117,7 +117,7 @@ Yayınla adımında:
 ```
 
 1. **uploaded:** Dosya `menu-uploads` bucket'ına (private) yazılır, ingestion satırı açılır.
-2. **processing:** API route (Node runtime) Claude vision'a gönderir. Çıktı: katı JSON
+2. **processing:** API route (Node runtime) OpenAI Responses API'ye gönderir. Çıktı: katı JSON
    şeması (zod ile doğrulanır) — kategoriler, ürünler, fiyatlar, para birimi tahmini,
    alerjen/kalori önerileri + güven skorları. Ham çıktı `raw_result` (jsonb) alanına yazılır.
 3. **review:** Kullanıcı studyoda düzeltir. Onayladığı her parça normal tablolara yazılır.

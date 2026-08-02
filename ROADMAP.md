@@ -4,7 +4,7 @@ Bu dosya, üzerinde anlaştığımız işlerin sırasını tutar. Tamamlananlar�
 
 ## Tamamlanan
 - **M0** temel: çok kiracılı şema + RLS + 16 alerjen seed.
-- **M1** AI çıkarma: fotoğraf/PDF → Claude vision → taslak → onayla & kaydet.
+- **M1** AI çıkarma: fotoğraf/PDF → OpenAI vision → taslak → onayla & kaydet.
 - **M2** uyum motoru: alerjen/kalori onay akışı, denetim ekranı, PDF uyum raporu.
 - **Deploy**: Supabase projesi (`vaqhdaaqdsgfajqdvzls`) migration'ları uygulandı, anonim giriş açık, kod GitHub'da (`sapieneo/RestaurantOS`), yerelde uçtan uca çalışıyor (menü fotoğrafı okundu).
 

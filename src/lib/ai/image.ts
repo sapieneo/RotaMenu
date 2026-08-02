@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import Anthropic from '@anthropic-ai/sdk';
+import { createOpenAIResponse, getOpenAIOutputText } from '@/lib/ai/openai';
 
 /**
  * Runware görsel üretimi + iyileştirme (A7/A8).
@@ -11,8 +11,8 @@ const RUNWARE_URL = 'https://api.runware.ai/v1';
 // AIR model kimliği. Varsayılan: FLUX.1 schnell (hızlı/ucuz). Env ile değişir.
 const MODEL = process.env.RUNWARE_MODEL ?? 'runware:100@1';
 const STEPS = Number(process.env.RUNWARE_STEPS ?? '4');
-// Ürün adı çevirisi için (adlar Türkçe → görsel modeli anlamaz).
-const PROMPT_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5';
+// Ürün/kategori adlarını Runware için İngilizce görsel prompt'una dönüştürür.
+const PROMPT_MODEL = process.env.OPENAI_TEXT_MODEL ?? 'gpt-5.6-luna';
 
 export class ImageError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -39,27 +39,34 @@ SADECE ifadeyi yaz; tırnak, açıklama, ekstra kelime yok.
 "Efes Pilsen" -> a tall glass of golden pilsner beer with foam
 "Şarap Kadeh" -> a glass of red wine`;
 
-/** Türkçe ürün adını görsel için İngilizce betimlemeye çevirir (Claude). */
+async function createShortEnglishDescription(system: string, input: string, maxOutputTokens: number) {
+  const response = await createOpenAIResponse(
+    {
+      model: PROMPT_MODEL,
+      instructions: system,
+      input,
+      reasoning: { effort: 'none' },
+      max_output_tokens: maxOutputTokens,
+      text: { verbosity: 'low' },
+    },
+    { timeoutMs: 30_000 }
+  );
+  return getOpenAIOutputText(response).replace(/^['"]|['"]$/g, '').trim();
+}
+
+/** Türkçe ürün adını görsel için İngilizce betimlemeye çevirir (OpenAI). */
 export async function describeDishInEnglish(
   name: string,
   description?: string | null,
   ingredients?: string | null
 ): Promise<string> {
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = process.env.OPENAI_API_KEY;
   if (!key) return name;
   try {
-    const anthropic = new Anthropic({ apiKey: key });
     const parts = [`Ürün: ${name}`];
     if (description) parts.push(`Açıklama: ${description}`);
     if (ingredients) parts.push(`İçindekiler: ${ingredients}`);
-    const res = await anthropic.messages.create({
-      model: PROMPT_MODEL,
-      max_tokens: 120,
-      system: DESCRIBE_SYSTEM,
-      messages: [{ role: 'user', content: parts.join('\n') }],
-    });
-    const block = res.content.find((b) => b.type === 'text');
-    const text = block && 'text' in block ? block.text.trim() : '';
+    const text = await createShortEnglishDescription(DESCRIBE_SYSTEM, parts.join('\n'), 120);
     return text || name;
   } catch {
     return name; // Çeviri başarısızsa ham adı kullan
@@ -79,20 +86,12 @@ SADECE ifadeyi yaz; tırnak, açıklama, ekstra kelime yok.
 "Sıcaklar" -> a warm restaurant kitchen grill scene with gentle steam
 "Alkolsüz İçecekler" -> fresh cold drinks with ice and mint on a bright table`;
 
-/** Kategori adını atmosferik arka plan sahnesine çevirir (Claude). */
+/** Kategori adını atmosferik arka plan sahnesine çevirir (OpenAI). */
 export async function describeCategoryBackground(name: string): Promise<string> {
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = process.env.OPENAI_API_KEY;
   if (!key) return name;
   try {
-    const anthropic = new Anthropic({ apiKey: key });
-    const res = await anthropic.messages.create({
-      model: PROMPT_MODEL,
-      max_tokens: 100,
-      system: CATEGORY_SYSTEM,
-      messages: [{ role: 'user', content: `Kategori: ${name}` }],
-    });
-    const block = res.content.find((b) => b.type === 'text');
-    const text = block && 'text' in block ? block.text.trim() : '';
+    const text = await createShortEnglishDescription(CATEGORY_SYSTEM, `Kategori: ${name}`, 100);
     return text || name;
   } catch {
     return name;

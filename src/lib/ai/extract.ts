@@ -1,7 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { createOpenAIResponse, getOpenAIOutputText } from '@/lib/ai/openai';
 import { extractedMenuSchema, ALLERGEN_CODES, DIETARY_CODES, type ExtractedMenu } from '@/lib/schemas/menu';
 
-const MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5';
+const MODEL = process.env.OPENAI_MENU_MODEL ?? 'gpt-5.6-terra';
 
 const SYSTEM_PROMPT = `Sen bir restoran menüsü sayısallaştırma uzmanısın.
 Sana bir menünün fotoğrafı veya PDF'i verilecek. Görevin:
@@ -36,58 +36,74 @@ Sana bir menünün fotoğrafı veya PDF'i verilecek. Görevin:
 7. Menünün dilini (language_guess, BCP 47) ve para birimini
    (currency_guess, ISO 4217) tahmin et.
 
-Sonucu MUTLAKA submit_menu aracıyla gönder.`;
+Yalnızca verilen JSON şemasına uygun, tek bir yapılandırılmış menü üret.`;
 
-const SUBMIT_MENU_TOOL: Anthropic.Messages.Tool = {
-  name: 'submit_menu',
-  description: 'Çıkarılan menüyü yapılandırılmış olarak gönderir.',
-  input_schema: {
-    type: 'object' as const,
-    required: ['menu_name', 'categories'],
-    properties: {
-      menu_name: { type: 'string' },
-      venue_name_guess: { type: ['string', 'null'] },
-      currency_guess: { type: ['string', 'null'] },
-      language_guess: { type: ['string', 'null'] },
-      warnings: { type: 'array', items: { type: 'string' } },
-      categories: {
-        type: 'array',
-        items: {
-          type: 'object',
-          required: ['name', 'items'],
-          properties: {
-            name: { type: 'string' },
+const MENU_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'menu_name',
+    'venue_name_guess',
+    'currency_guess',
+    'language_guess',
+    'warnings',
+    'categories',
+  ],
+  properties: {
+    menu_name: { type: 'string' },
+    venue_name_guess: { type: ['string', 'null'] },
+    currency_guess: { type: ['string', 'null'] },
+    language_guess: { type: ['string', 'null'] },
+    warnings: { type: 'array', items: { type: 'string' } },
+    categories: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'items'],
+        properties: {
+          name: { type: 'string' },
+          items: {
+            type: 'array',
             items: {
-              type: 'array',
-              items: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                  name: { type: 'string' },
-                  description: { type: ['string', 'null'] },
-                  ingredients: { type: ['string', 'null'] },
-                  price: { type: ['number', 'null'] },
-                  calories_kcal: { type: ['integer', 'null'] },
-                  allergens: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      required: ['code', 'confidence'],
-                      properties: {
-                        code: { type: 'string', enum: [...ALLERGEN_CODES] },
-                        confidence: { type: 'number' },
-                      },
+              type: 'object',
+              additionalProperties: false,
+              required: [
+                'name',
+                'description',
+                'ingredients',
+                'price',
+                'calories_kcal',
+                'allergens',
+                'dietary',
+              ],
+              properties: {
+                name: { type: 'string' },
+                description: { type: ['string', 'null'] },
+                ingredients: { type: ['string', 'null'] },
+                price: { type: ['number', 'null'], minimum: 0 },
+                calories_kcal: { type: ['integer', 'null'], minimum: 0, maximum: 20000 },
+                allergens: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['code', 'confidence'],
+                    properties: {
+                      code: { type: 'string', enum: [...ALLERGEN_CODES] },
+                      confidence: { type: 'number', minimum: 0, maximum: 1 },
                     },
                   },
-                  dietary: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      required: ['code', 'confidence'],
-                      properties: {
-                        code: { type: 'string', enum: [...DIETARY_CODES] },
-                        confidence: { type: 'number' },
-                      },
+                },
+                dietary: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['code', 'confidence'],
+                    properties: {
+                      code: { type: 'string', enum: [...DIETARY_CODES] },
+                      confidence: { type: 'number', minimum: 0, maximum: 1 },
                     },
                   },
                 },
@@ -98,7 +114,12 @@ const SUBMIT_MENU_TOOL: Anthropic.Messages.Tool = {
       },
     },
   },
-};
+} as const;
+
+type OpenAIInputContent =
+  | { type: 'input_text'; text: string }
+  | { type: 'input_image'; image_url: string; detail: 'high' }
+  | { type: 'input_file'; filename: string; file_data: string };
 
 export class MenuExtractionError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -111,66 +132,83 @@ const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif
 
 export type MenuPage = { buffer: Buffer; mimeType: string };
 
-function toBlock(page: MenuPage): Anthropic.Messages.ContentBlockParam {
+function toInputContent(page: MenuPage, index: number): OpenAIInputContent {
   const base64 = page.buffer.toString('base64');
   if (page.mimeType === 'application/pdf') {
-    return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } };
+    return {
+      type: 'input_file',
+      filename: `menu-${index + 1}.pdf`,
+      file_data: base64,
+    };
   }
   if (IMAGE_TYPES.has(page.mimeType)) {
     return {
-      type: 'image',
-      source: {
-        type: 'base64',
-        media_type: page.mimeType as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif',
-        data: base64,
-      },
+      type: 'input_image',
+      image_url: `data:${page.mimeType};base64,${base64}`,
+      detail: 'high',
     };
   }
   throw new MenuExtractionError(`Desteklenmeyen dosya türü: ${page.mimeType}`);
 }
 
 /**
- * Bir veya daha fazla menü sayfasından (görsel/PDF) TEK yapılandırılmış menü
- * çıkarır. Tüm sayfalar aynı Claude çağrısında birleştirilir; kategoriler
- * sayfa sırasına göre toplanır. Çıktı zod ile doğrulanır.
+ * Bir veya daha fazla menü sayfasından (görsel/PDF) tek yapılandırılmış menü
+ * çıkarır. Tüm sayfalar aynı OpenAI çağrısında birleştirilir ve çıktı Zod ile
+ * ikinci kez doğrulanır.
  */
 export async function extractMenuFromFiles(
   pages: MenuPage[]
 ): Promise<{ extracted: ExtractedMenu; model: string }> {
   if (pages.length === 0) throw new MenuExtractionError('Hiç sayfa verilmedi.');
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const content: Anthropic.Messages.ContentBlockParam[] = pages.map(toBlock);
+  const content: OpenAIInputContent[] = pages.map(toInputContent);
   content.push({
-    type: 'text',
+    type: 'input_text',
     text:
       pages.length > 1
-        ? `Bunlar aynı menünün ${pages.length} sayfası. Hepsini TEK menü olarak, sayfa sırasına göre eksiksiz çıkar ve submit_menu ile gönder. Sayfalar arasında kategori tekrarlanıyorsa birleştir.`
-        : 'Bu menüyü eksiksiz çıkar ve submit_menu ile gönder.',
+        ? `Bunlar aynı menünün ${pages.length} sayfası. Hepsini tek menü olarak, sayfa sırasına göre eksiksiz çıkar. Sayfalar arasında kategori tekrarlanıyorsa birleştir.`
+        : 'Bu menüyü eksiksiz çıkar.',
   });
 
-  let response: Anthropic.Messages.Message;
+  let outputText: string;
   try {
-    response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 16384,
-      system: SYSTEM_PROMPT,
-      tools: [SUBMIT_MENU_TOOL],
-      tool_choice: { type: 'tool', name: 'submit_menu' },
-      messages: [{ role: 'user', content }],
-    });
-  } catch (err) {
-    throw new MenuExtractionError('AI servisi yanıt vermedi. Lütfen tekrar deneyin.', err);
+    const response = await createOpenAIResponse(
+      {
+        model: MODEL,
+        instructions: SYSTEM_PROMPT,
+        input: [{ role: 'user', content }],
+        reasoning: { effort: 'low' },
+        max_output_tokens: 32_768,
+        text: {
+          verbosity: 'low',
+          format: {
+            type: 'json_schema',
+            name: 'restaurant_menu',
+            description: 'Menü fotoğrafı veya PDF dosyalarından çıkarılan yapılandırılmış restoran menüsü.',
+            schema: MENU_JSON_SCHEMA,
+            strict: true,
+          },
+        },
+      },
+      { timeoutMs: 120_000 }
+    );
+    outputText = getOpenAIOutputText(response);
+  } catch (error) {
+    throw new MenuExtractionError('AI servisi yanıt vermedi. Lütfen tekrar deneyin.', error);
   }
 
-  const toolUse = response.content.find(
-    (b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use' && b.name === 'submit_menu'
-  );
-  if (!toolUse) {
+  if (!outputText) {
     throw new MenuExtractionError('AI yapılandırılmış çıktı üretmedi. Lütfen tekrar deneyin.');
   }
 
-  const parsed = extractedMenuSchema.safeParse(toolUse.input);
+  let json: unknown;
+  try {
+    json = JSON.parse(outputText);
+  } catch (error) {
+    throw new MenuExtractionError('AI çıktısı okunamadı. Lütfen tekrar deneyin.', error);
+  }
+
+  const parsed = extractedMenuSchema.safeParse(json);
   if (!parsed.success) {
     throw new MenuExtractionError(
       'AI çıktısı doğrulanamadı. Daha net bir fotoğrafla tekrar deneyin.',

@@ -32,7 +32,7 @@ npm run test:rls    # Şema + RLS testleri (gömülü Postgres, servis gerekmez)
 
 - `/` → `/studyo`: kayıt istemeden anonim oturum, org+venue taslağı (`/api/bootstrap`)
 - Fotoğraf/PDF yükleme → `menu-uploads` bucket (org klasörü, RLS'li)
-- `/api/ingest`: Claude vision ile yapılandırılmış çıkarma; zod doğrulama;
+- `/api/ingest`: OpenAI vision + strict structured output ile yapılandırılmış çıkarma; Zod doğrulama;
   durum makinesi `uploaded → processing → review | failed`; aynı dosya için idempotent
 - `/studyo/[id]`: taslak düzenleyici — kategori/ürün/fiyat düzenle, sil, ekle;
   AI alerjen önerileri güven skoruyla görünür (onay akışı M2)

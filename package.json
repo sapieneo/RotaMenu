@@ -10,7 +10,6 @@
     "test:rls": "node tests/rls.test.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.111.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.0",
     "iyzipay": "^2.0.0",
