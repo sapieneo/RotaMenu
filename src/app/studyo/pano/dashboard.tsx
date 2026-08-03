@@ -36,6 +36,7 @@ export type DashboardData = {
 export function Dashboard({ data }: { data: DashboardData }) {
   const hasAnalytics = data.stats.totalEvents > 0;
   const venueHref = (path: string) => `${path}${path.includes('?') ? '&' : '?'}venue=${encodeURIComponent(data.venueId)}`;
+  const nextAction = getNextAction(data, venueHref);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -67,28 +68,8 @@ export function Dashboard({ data }: { data: DashboardData }) {
         </div>
       </header>
 
-      {/* Uyarı bantları */}
-      {data.isAnonymous && (
-        <Banner
-          tone="amber"
-          text="Menünü yayınlamak için ücretsiz plana kaydolman gerekiyor — hesabın şu an geçici."
-          cta={{ href: venueHref('/studyo/hesap'), label: 'Ücretsiz kaydol' }}
-        />
-      )}
-      {!data.isPublished && (
-        <Banner
-          tone="amber"
-          text="Menün henüz yayında değil. Yayınladığında bağlantı ve QR herkese açılır."
-          cta={{ href: venueHref('/studyo/ayarlar'), label: 'Yayınla' }}
-        />
-      )}
-      {data.pendingCount > 0 && (
-        <Banner
-          tone="stone"
-          text={`${data.pendingCount}/${data.itemCount} ürünün alerjen onayı bekliyor. Onaylanmayan ürünlerde misafir alerjen bilgisi göremez.`}
-          cta={{ href: venueHref('/studyo/uyum'), label: 'Uyum ekranı' }}
-        />
-      )}
+      <NextActionCard action={nextAction} />
+      <SetupProgress data={data} />
 
       {/* Durum kartları */}
       <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -129,34 +110,29 @@ export function Dashboard({ data }: { data: DashboardData }) {
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <span className="text-3xl">📈</span>
-            <p className="font-medium text-stone-700">Henüz tarama verisi yok</p>
-            <p className="max-w-sm text-sm text-stone-500">
-              {data.isPublished
-                ? 'QR kodunu bastırıp masalara koy; misafirler okuttukça buradaki grafik dolmaya başlar.'
-                : 'Menünü yayınla ve QR kodunu paylaş; ziyaretçi verisi burada birikir.'}
-            </p>
-            <a
-              href={venueHref('/studyo/qr')}
-              className="mt-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-brand-700"
-            >
-              QR kodu al
-            </a>
+          <div className="flex items-center gap-3 rounded-xl bg-stone-50 px-4 py-3">
+            <span className="text-2xl">📈</span>
+            <div>
+              <p className="font-medium text-stone-700">Henüz ziyaret verisi yok</p>
+              <p className="text-sm text-stone-500">
+                {data.isPublished
+                  ? 'QR kodunu masalara koy; misafirler okuttukça veriler burada görünür.'
+                  : 'Menünü yayınladığında ziyaret verileri burada birikmeye başlar.'}
+              </p>
+            </div>
           </div>
         )}
       </section>
 
-      {/* Hızlı eylemler */}
-      <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <QuickLink href="/studyo" icon="📸" label="Menüye resim yükle" />
+      {/* Araçlar */}
+      <h2 className="mb-3 mt-6 text-sm font-bold uppercase tracking-wide text-stone-400">Araçlar</h2>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <QuickLink href="/studyo" icon="📸" label="Menüye sayfa ekle" />
         <QuickLink href={venueHref('/studyo/uyum')} icon="✅" label="Alerjen / uyum" />
         <QuickLink href={venueHref('/studyo/gorseller')} icon="🎨" label="Görseller" />
         <QuickLink href={venueHref('/studyo/diller')} icon="🌍" label="Diller / çeviri" />
         <QuickLink href={venueHref('/studyo/qr')} icon="🔳" label="QR kodları" />
         <QuickLink href={venueHref('/studyo/ayarlar')} icon="⚙️" label="Ayarlar" />
-        <QuickLink href={venueHref('/studyo/hesap')} icon="👤" label="Hesap" />
-        <QuickLink href={`/studyo/plan?venue=${encodeURIComponent(data.venueId)}`} icon="💎" label="Plan / yükselt" />
       </section>
       </div>
 
@@ -166,10 +142,133 @@ export function Dashboard({ data }: { data: DashboardData }) {
   );
 }
 
+type NextAction = {
+  complete: boolean;
+  eyebrow: string;
+  title: string;
+  text: string;
+  href: string;
+  label: string;
+};
+
+function getNextAction(data: DashboardData, venueHref: (path: string) => string): NextAction {
+  if (data.pendingCount > 0) {
+    return {
+      complete: false,
+      eyebrow: 'Sıradaki adım',
+      title: 'Alerjen ve kalorileri kontrol et',
+      text: `${data.pendingCount} ürün işletme onayı bekliyor. Bilgileri kontrol ederek menünü yayına hazırla.`,
+      href: venueHref('/studyo/uyum'),
+      label: 'Kontrole başla',
+    };
+  }
+
+  const needsAccount =
+    data.plan.requiresVerifiedAccount && (!data.plan.accountSecured || !data.plan.hasPhone);
+  if (needsAccount) {
+    return {
+      complete: false,
+      eyebrow: 'Sıradaki adım',
+      title: 'Ücretsiz hesabını tamamla',
+      text: 'Menünü güvenle saklamak ve yayınlamak için e-posta ile iletişim telefonunu ekle.',
+      href: venueHref('/studyo/hesap'),
+      label: 'Hesabı tamamla',
+    };
+  }
+
+  if (!data.isPublished) {
+    return {
+      complete: false,
+      eyebrow: 'Sıradaki adım',
+      title: 'Menünü yayınla',
+      text: 'İşletme bilgilerini son kez kontrol et ve menünü misafirlerin erişimine aç.',
+      href: venueHref('/studyo/ayarlar'),
+      label: 'Bilgileri kontrol et ve yayınla',
+    };
+  }
+
+  if (data.qrActive === 0) {
+    return {
+      complete: false,
+      eyebrow: 'Son adım',
+      title: 'İlk QR kodunu oluştur',
+      text: 'Menünü masalara, vitrine veya paket servise taşıyacak kalıcı QR kodunu hazırla.',
+      href: venueHref('/studyo/qr'),
+      label: 'QR kodu oluştur',
+    };
+  }
+
+  return {
+    complete: true,
+    eyebrow: 'Menün hazır',
+    title: 'Her şey yolunda',
+    text: 'Menün yayında ve QR kodun aktif. Dilersen misafir görünümünü kontrol edebilirsin.',
+    href: `/m/${data.slug}`,
+    label: 'Menüyü görüntüle',
+  };
+}
+
+function NextActionCard({ action }: { action: NextAction }) {
+  return (
+    <section
+      className={`rounded-2xl border p-5 shadow-sm ${
+        action.complete ? 'border-emerald-200 bg-emerald-50' : 'border-brand-200 bg-brand-50'
+      }`}
+    >
+      <p className={`text-xs font-bold uppercase tracking-wide ${action.complete ? 'text-emerald-700' : 'text-brand-700'}`}>
+        {action.eyebrow}
+      </p>
+      <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-stone-900">{action.title}</h2>
+          <p className="mt-1 max-w-xl text-sm text-stone-600">{action.text}</p>
+        </div>
+        <a
+          href={action.href}
+          className={`shrink-0 rounded-xl px-5 py-3 text-center text-sm font-semibold text-white shadow transition ${
+            action.complete ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-600 hover:bg-brand-700'
+          }`}
+        >
+          {action.label} →
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function SetupProgress({ data }: { data: DashboardData }) {
+  const steps = [
+    { label: 'Menü', done: data.itemCount > 0 },
+    { label: 'Kontrol', done: data.itemCount > 0 && data.pendingCount === 0 },
+    { label: 'Yayın', done: data.isPublished },
+    { label: 'QR', done: data.qrActive > 0 },
+  ];
+  const completed = steps.filter((step) => step.done).length;
+
+  return (
+    <section className="mt-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
+      <div className="mb-2 flex items-center justify-between text-xs">
+        <span className="font-semibold text-stone-600">Kurulum ilerlemesi</span>
+        <span className="text-stone-400">{completed} / {steps.length}</span>
+      </div>
+      <ol className="grid grid-cols-4 gap-2">
+        {steps.map((step) => (
+          <li key={step.label} className="min-w-0">
+            <div className={`h-1.5 rounded-full ${step.done ? 'bg-emerald-500' : 'bg-stone-200'}`} />
+            <p className={`mt-1 truncate text-[11px] ${step.done ? 'font-medium text-emerald-700' : 'text-stone-400'}`}>
+              {step.done ? '✓ ' : ''}{step.label}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 /** Sağ kolon: telefon çerçeveli canlı menü önizlemesi (aynı /m/{slug} sayfası). */
 function PhonePreview({ slug }: { slug: string }) {
   return (
-    <div className="lg:sticky lg:top-8">
+    <div className="hidden lg:sticky lg:top-8 lg:block">
       <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-stone-400">
         Canlı önizleme
       </p>
@@ -233,99 +332,34 @@ function PhonePreview({ slug }: { slug: string }) {
 function PlanCard({ plan, itemCount, venueId }: { plan: PlanInfo; itemCount: number; venueId: string }) {
   const isFree = plan.tier === 'free';
   const limit = plan.itemLimit;
-  const pct = limit ? Math.min(100, Math.round((itemCount / limit) * 100)) : 0;
-  const nearLimit = limit != null && itemCount >= limit * 0.8;
   const atLimit = limit != null && itemCount >= limit;
 
-  // Ücretsiz planda yayın için eksik şartlar (üyelik + telefon).
-  const missing: string[] = [];
-  if (isFree && plan.requiresVerifiedAccount) {
-    if (!plan.accountSecured) missing.push('Ücretsiz plana kaydol (e-posta ekle)');
-    if (!plan.hasPhone) missing.push('İletişim telefonu ekle');
-  }
-
   return (
-    <section className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-stone-400">Plan</h2>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              isFree ? 'bg-stone-200 text-stone-700' : 'bg-brand-600 text-white'
-            }`}
-          >
-            {plan.label}
+    <section className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            isFree ? 'bg-stone-100 text-stone-700' : 'bg-brand-600 text-white'
+          }`}
+        >
+          {plan.label}
+        </span>
+        <div className="min-w-0 text-sm">
+          <span className={atLimit ? 'font-semibold text-red-600' : 'text-stone-600'}>
+            {itemCount}{limit != null ? ` / ${limit} ürün` : ' ürün · sınırsız'}
+          </span>
+          <span className="hidden text-stone-400 sm:inline">
+            {isFree ? ' · 5 dile kadar çeviri' : ' · tüm diller ve görseller açık'}
           </span>
         </div>
-        {isFree && (
-          <a
-            href={`/studyo/plan?venue=${encodeURIComponent(venueId)}`}
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-brand-700"
-          >
-            Pro’ya yükselt
-          </a>
-        )}
       </div>
-
-      {/* Ürün kullanımı */}
-      <div className="mt-4">
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-stone-700">Ürün</span>
-          <span className={atLimit ? 'font-semibold text-red-600' : 'text-stone-500'}>
-            {itemCount}
-            {limit != null ? ` / ${limit}` : ' · sınırsız'}
-          </span>
-        </div>
-        {limit != null && (
-          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-stone-100">
-            <div
-              className={`h-full rounded-full ${
-                atLimit ? 'bg-red-500' : nearLimit ? 'bg-amber-500' : 'bg-brand-600'
-              }`}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        )}
-        {atLimit && (
-          <p className="mt-1.5 text-xs text-red-600">
-            Ürün limitine ulaştın. Yeni ürün eklemek için Pro’ya yükselt.
-          </p>
-        )}
-      </div>
-
-      {/* Özellik satırları */}
-      <dl className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <FeatureRow label="Ürün / kategori görselleri" on={plan.images} />
-        <FeatureRow label="RestaurantOS rozeti kaldırma" on={plan.removeBadge} />
-      </dl>
-
-      {/* Ücretsiz plan yayın şartları */}
-      {missing.length > 0 && (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <p className="font-medium">Yayınlamak için gerekenler:</p>
-          <ul className="mt-1 list-disc pl-5">
-            {missing.map((m) => (
-              <li key={m}>{m}</li>
-            ))}
-          </ul>
-          <a href={`/studyo/hesap?venue=${encodeURIComponent(venueId)}`} className="mt-2 inline-block font-semibold underline underline-offset-2">
-            Hesap sayfasına git
-          </a>
-        </div>
-      )}
+      <a
+        href={`/studyo/plan?venue=${encodeURIComponent(venueId)}`}
+        className="text-sm font-semibold text-brand-700 hover:underline"
+      >
+        {isFree ? 'Pro’ya yükselt' : 'Planı yönet'}
+      </a>
     </section>
-  );
-}
-
-function FeatureRow({ label, on }: { label: string; on: boolean }) {
-  return (
-    <div className="flex items-center gap-2 rounded-xl bg-stone-50 px-3 py-2 text-sm">
-      <span className={on ? 'text-emerald-600' : 'text-stone-400'} aria-hidden>
-        {on ? '✓' : '🔒'}
-      </span>
-      <span className="text-stone-700">{label}</span>
-      {!on && <span className="ml-auto text-xs font-medium text-brand-600">Pro</span>}
-    </div>
   );
 }
 
@@ -385,32 +419,6 @@ function DayChart({ days }: { days: DayBucket[] }) {
         );
       })}
     </svg>
-  );
-}
-
-function Banner({
-  tone,
-  text,
-  cta,
-}: {
-  tone: 'amber' | 'stone';
-  text: string;
-  cta: { href: string; label: string };
-}) {
-  const cls =
-    tone === 'amber'
-      ? 'border-amber-200 bg-amber-50 text-amber-800'
-      : 'border-stone-200 bg-stone-50 text-stone-700';
-  return (
-    <div className={`mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-3 text-sm ${cls}`}>
-      <span>{text}</span>
-      <a
-        href={cta.href}
-        className="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 font-semibold text-white transition hover:bg-stone-800"
-      >
-        {cta.label}
-      </a>
-    </div>
   );
 }
 

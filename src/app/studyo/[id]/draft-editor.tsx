@@ -187,40 +187,44 @@ export function DraftEditor({
   if (save.name === 'done') {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
-        <div className="w-full rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
-          <span className="text-4xl">🎉</span>
-          <h1 className="mt-3 text-xl font-semibold">Menün kaydedildi</h1>
+        <div className="w-full rounded-2xl border border-stone-200 bg-white p-7 shadow-sm">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-700">✓</span>
+          <h1 className="mt-4 text-xl font-semibold">Menün kaydedildi</h1>
           <p className="mt-2 text-stone-600">
-            {save.itemCount} ürün içe aktarıldı. Sıradaki adım: alerjen &amp; kalori
-            onayı — misafir menüsünde yalnız onayladığın bilgi görünür.
+            {save.itemCount} ürün içe aktarıldı. Şimdi yapay zekânın önerdiği alerjen ve kalori
+            bilgilerini kontrol et.
           </p>
-          <div className="mt-5 flex flex-col items-center gap-3">
+          <div className="mt-6">
             <a
-              href={`/studyo/${ingestionId}/uyum`}
-              className="inline-block rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow transition hover:bg-brand-700"
+              href={`/studyo/${ingestionId}/uyum?venue=${encodeURIComponent(venueId)}`}
+              className="block w-full rounded-xl bg-brand-600 px-5 py-3.5 font-semibold text-white shadow transition hover:bg-brand-700"
             >
-              Alerjenleri onayla →
+              Alerjen ve kalori kontrolüne başla →
             </a>
-            <a
-              href={`/studyo/gorseller?venue=${encodeURIComponent(venueId)}`}
-              className="text-sm font-medium text-brand-600 hover:text-brand-700"
-            >
-              🖼 Ürün görselleri ekle (AI ile üret veya yükle)
-            </a>
-            <a
-              href={`/studyo/ayarlar?venue=${encodeURIComponent(venueId)}`}
-              className="text-sm font-medium text-brand-600 hover:text-brand-700"
-            >
-              ⚙ İşletme bilgilerini düzenle (adres, telefon, saat…)
-            </a>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
             <a
               href={`/studyo/pano?venue=${encodeURIComponent(venueId)}`}
-              className="text-sm font-medium text-stone-500 hover:text-stone-700"
+              className="rounded-lg border border-stone-200 px-3 py-2.5 font-medium text-stone-700 transition hover:bg-stone-50"
             >
               Panoya git
             </a>
+            <a
+              href={`/studyo/ayarlar?venue=${encodeURIComponent(venueId)}`}
+              className="rounded-lg border border-stone-200 px-3 py-2.5 font-medium text-stone-700 transition hover:bg-stone-50"
+            >
+              İşletme bilgileri
+            </a>
+          </div>
+          <div className="mt-4 flex flex-col items-center gap-2 text-sm">
+            <a
+              href={`/studyo/gorseller?venue=${encodeURIComponent(venueId)}`}
+              className="font-medium text-brand-700 hover:underline"
+            >
+              Ürün görselleri ekle
+            </a>
             <a href="/studyo" className="text-sm font-medium text-stone-500 hover:text-stone-700">
-              + Başka sayfa ekle
+              Menünün başka bir sayfasını yükle
             </a>
           </div>
         </div>
