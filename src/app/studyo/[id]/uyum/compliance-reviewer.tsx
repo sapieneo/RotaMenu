@@ -48,10 +48,10 @@ function splitIngredients(s: string | null): string[] {
 
 /** Mevzuat takvimi — Tarım ve Orman Bakanlığı, menüde 14 alerjen + kalori. */
 const REG_MILESTONES = [
-  { date: new Date('2026-07-01T00:00:00+03:00'), label: 'Ulusal zincirler · içerik ve enerji' },
-  { date: new Date('2026-12-31T00:00:00+03:00'), label: 'Aynı ilde 3+ şube · içerik ve enerji' },
-  { date: new Date('2026-12-31T00:00:00+03:00'), label: 'Diğer işletmeler · içerik bilgisi' },
-  { date: new Date('2027-12-31T00:00:00+03:00'), label: 'Diğer işletmeler · enerji bilgisi' },
+  { dateMs: Date.parse('2026-07-01T00:00:00+03:00'), displayDate: '01.07.2026', label: 'Ulusal zincirler · içerik ve enerji' },
+  { dateMs: Date.parse('2026-12-31T00:00:00+03:00'), displayDate: '31.12.2026', label: 'Aynı ilde 3+ şube · içerik ve enerji' },
+  { dateMs: Date.parse('2026-12-31T00:00:00+03:00'), displayDate: '31.12.2026', label: 'Diğer işletmeler · içerik bilgisi' },
+  { dateMs: Date.parse('2027-12-31T00:00:00+03:00'), displayDate: '31.12.2027', label: 'Diğer işletmeler · enerji bilgisi' },
 ];
 
 export function ComplianceReviewer({
@@ -262,11 +262,11 @@ export function ComplianceReviewer({
         <p className="font-medium">Yönetmelik takvimi — menüde 14 alerjen + kalori zorunluluğu</p>
         <ul className="mt-1 space-y-0.5">
           {REG_MILESTONES.map((m) => {
-            const active = new Date() >= m.date;
+            const active = Date.now() >= m.dateMs;
             return (
               <li key={m.label} className="flex items-center gap-2">
                 <span className={active ? 'font-semibold text-emerald-700' : 'text-sky-800'}>
-                  {m.date.toLocaleDateString('tr-TR')}
+                  {m.displayDate}
                 </span>
                 <span>· {m.label}</span>
                 {active && <span className="text-xs text-emerald-600">(yürürlükte)</span>}
