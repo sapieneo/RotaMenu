@@ -48,7 +48,15 @@ export function DesignStudio({
   }
 
   function applyPreset(index: number) {
-    setSettings(stripPresetMeta(MENU_DESIGN_PRESETS[index]!));
+    const preset = stripPresetMeta(MENU_DESIGN_PRESETS[index]!);
+    setSettings((current) => current.backgroundImageUrl
+      ? {
+          ...preset,
+          backgroundImageUrl: current.backgroundImageUrl,
+          backgroundImageOpacity: current.backgroundImageOpacity,
+          backgroundImageMode: current.backgroundImageMode,
+        }
+      : preset);
     setSaveState('idle');
   }
 
