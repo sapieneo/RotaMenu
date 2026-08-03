@@ -35,11 +35,11 @@ export default async function DesignPage({ searchParams }: { searchParams?: { ve
   const { data: categories } = menuIds.length
     ? await supabase
         .from('categories')
-        .select('id, name, sort_order')
+        .select('id, name, sort_order, background_url, background_style')
         .in('menu_id', menuIds)
         .eq('is_active', true)
         .order('sort_order')
-    : { data: [] as { id: string; name: string; sort_order: number }[] };
+    : { data: [] as { id: string; name: string; sort_order: number; background_url: string | null; background_style: string | null }[] };
   const categoryIds = (categories ?? []).map((category) => category.id);
   const { data: items } = categoryIds.length
     ? await supabase
@@ -63,7 +63,13 @@ export default async function DesignPage({ searchParams }: { searchParams?: { ve
     byCategory.set(item.category_id, list);
   }
   const previewCategories = (categories ?? [])
-    .map((category) => ({ id: category.id, name: category.name, items: byCategory.get(category.id) ?? [] }))
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      backgroundUrl: category.background_url ?? null,
+      backgroundStyle: (category.background_style as 'strip' | 'hero' | null) ?? 'strip',
+      items: byCategory.get(category.id) ?? [],
+    }))
     .filter((category) => category.items.length > 0)
     .slice(0, 3);
 

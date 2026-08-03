@@ -295,7 +295,8 @@ export function GuestMenu({
                 <li key={it.id}>
                   <button
                     onClick={() => openItem(it)}
-                    className="flex w-full items-start gap-3 rounded-2xl bg-stone-900/45 px-3.5 py-3 text-left shadow-sm backdrop-blur-[3px] transition active:bg-stone-900/60"
+                    className="flex w-full items-start gap-3 px-3.5 py-3 text-left shadow-sm backdrop-blur-[3px] transition"
+                    style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px`, borderBottom: `1px solid ${hexToRgba(design.dividerColor, design.dividerOpacity)}` }}
                   >
                     {it.imageUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -307,15 +308,15 @@ export function GuestMenu({
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
-                        <h3 className="font-semibold text-white">{it.name}</h3>
+                        <h3 className="font-semibold" style={{ color: design.textColor }}>{it.name}</h3>
                         {it.price != null && (
-                          <span className="shrink-0 font-semibold text-white">
+                          <span className="shrink-0 font-semibold" style={{ color: design.primaryColor }}>
                             {formatPrice(it.price, venue.currency)}
                           </span>
                         )}
                       </div>
                       {it.description && (
-                        <p className="mt-0.5 line-clamp-2 text-sm text-white/75">
+                        <p className="mt-0.5 line-clamp-2 text-sm" style={{ color: design.mutedTextColor }}>
                           {it.description}
                         </p>
                       )}
@@ -324,7 +325,7 @@ export function GuestMenu({
                           <DietaryChip key={code} code={code} />
                         ))}
                         {it.calories != null && (
-                          <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-white/80">
+                          <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: hexToRgba(design.surfaceColor, 68), color: design.textColor }}>
                             {it.calories} kcal
                           </span>
                         )}
@@ -349,7 +350,7 @@ export function GuestMenu({
               className="scroll-mt-16 pt-6"
             >
               {isHero ? (
-                <div className="relative">
+                <div className="relative overflow-hidden rounded-2xl shadow-sm">
                   {/* Sabit (sticky) arka plan. ÖNEMLİ: resmin kendi kutusu normal
                       akışta KALIR (negatif margin YOK) — sticky'nin "durabileceği"
                       alanı, aşağıdaki içerik bloğunun kendi yüksekliğinden gelir.
@@ -359,21 +360,17 @@ export function GuestMenu({
                       bu bölümün sonuna gelinince bırakılır. `active` (scroll-spy)
                       state'i üzerinden opacity geçişiyle bir sonraki kategorinin
                       fotoğrafına yumuşak (crossfade) geçilir. */}
-                  <div
-                    className={`sticky top-14 z-0 h-72 overflow-hidden rounded-2xl transition-opacity duration-700 ease-in-out sm:h-80 ${
-                      c.id === active ? 'opacity-100' : 'opacity-0'
-                    }`}
-                  >
+                  <div className="absolute inset-0" aria-hidden>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={c.backgroundUrl!}
                       alt=""
                       className="absolute inset-0 h-full w-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-black/30" />
+                    <div className="absolute inset-0 bg-black/35" />
                   </div>
-                  <div className="relative z-10 -mt-72 sm:-mt-80">
-                    <div className="px-1 pb-3 pt-8 text-center">
+                  <div className="relative z-10 p-3">
+                    <div className="px-1 pb-4 pt-3 text-center">
                       <h2 className="text-xl font-bold uppercase tracking-wide text-white drop-shadow-lg sm:text-2xl" style={{ fontFamily: design.headingFont }}>
                         {c.name}
                       </h2>

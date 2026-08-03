@@ -19,6 +19,8 @@ import {
 export type DesignPreviewCategory = {
   id: string;
   name: string;
+  backgroundUrl: string | null;
+  backgroundStyle: 'strip' | 'hero';
   items: { id: string; name: string; description: string | null; price: number | null; imageUrl: string | null }[];
 };
 
@@ -265,7 +267,7 @@ export function DesignStudio({
 }
 
 function PhonePreview({ venue, categories, settings }: { venue: { name: string; description: string | null; currency: string; logoUrl: string | null; coverUrl: string | null }; categories: DesignPreviewCategory[]; settings: MenuDesignSettings }) {
-  const previewCategories = useMemo(() => categories.length ? categories : [{ id: 'sample', name: 'Menü', items: [{ id: '1', name: 'İmza Tabağı', description: 'Mevsim ürünleriyle hazırlanan özel lezzet', price: 320, imageUrl: null }, { id: '2', name: 'Günün Çorbası', description: 'Her gün taze hazırlanır', price: 120, imageUrl: null }] }], [categories]);
+  const previewCategories = useMemo(() => categories.length ? categories : [{ id: 'sample', name: 'Menü', backgroundUrl: null, backgroundStyle: 'strip' as const, items: [{ id: '1', name: 'İmza Tabağı', description: 'Mevsim ürünleriyle hazırlanan özel lezzet', price: 320, imageUrl: null }, { id: '2', name: 'Günün Çorbası', description: 'Her gün taze hazırlanır', price: 120, imageUrl: null }] }], [categories]);
   return (
     <div className="mx-auto w-full max-w-[390px] rounded-[42px] border-[8px] border-stone-900 bg-stone-900 p-1 shadow-2xl">
       <div className="relative h-[700px] overflow-y-auto rounded-[31px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ ...menuBackgroundStyle(settings), color: settings.textColor, fontFamily: settings.bodyFont, fontSize: `${settings.baseFontSize}px` }}>
@@ -284,7 +286,22 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
           {previewCategories.map((category, index) => <span key={category.id} className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold" style={index === 0 ? { backgroundColor: settings.primaryColor, color: settings.surfaceColor } : { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), color: settings.mutedTextColor }}>{category.name}</span>)}
         </nav>
         <div className="space-y-7 px-3 py-5">
-          {previewCategories.map((category) => <section key={category.id} className={settings.layout === 'two-column' ? 'p-3 shadow-sm' : ''} style={settings.layout === 'two-column' ? { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), borderRadius: `${settings.cardRadius}px` } : undefined}>
+          {previewCategories.map((category) => {
+            const hasHeroBackground = Boolean(category.backgroundUrl) && category.backgroundStyle === 'hero';
+            return <section
+              key={category.id}
+              className={settings.layout === 'two-column' ? 'p-3 shadow-sm' : ''}
+              style={{
+                ...(hasHeroBackground ? {
+                  backgroundImage: `linear-gradient(rgba(0, 0, 0, .35), rgba(0, 0, 0, .35)), url("${category.backgroundUrl}")`,
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: 'cover',
+                  padding: '12px',
+                } : {}),
+                ...(settings.layout === 'two-column' ? { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), borderRadius: `${settings.cardRadius}px` } : {}),
+              }}
+            >
             <h3 className="mb-2 px-1 font-bold" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
             <div style={{ display: 'grid', gridTemplateColumns: settings.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${settings.itemSpacing}px` }}>
               {category.items.slice(0, 6).map((item) => <div key={item.id} className={`flex items-start gap-3 ${settings.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`} style={{ backgroundColor: settings.layout === 'single' ? hexToRgba(settings.cardColor, settings.cardOpacity) : 'transparent', borderRadius: settings.layout === 'single' ? `${settings.cardRadius}px` : 0, borderBottom: `1px dashed ${hexToRgba(settings.dividerColor, settings.dividerOpacity)}` }}>
@@ -292,7 +309,8 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
                 <div className="min-w-0 flex-1"><div className="flex items-baseline justify-between gap-2"><p className="font-semibold leading-tight">{item.name}</p>{item.price != null && <span className="shrink-0 text-xs font-bold" style={{ color: settings.primaryColor }}>{formatPrice(item.price, venue.currency)}</span>}</div>{item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-snug" style={{ color: settings.mutedTextColor }}>{item.description}</p>}</div>
               </div>)}
             </div>
-          </section>)}
+          </section>;
+          })}
         </div>
       </div>
     </div>
