@@ -71,6 +71,7 @@ export default async function DesignPage({ searchParams }: { searchParams?: { ve
     <DesignStudio
       venue={{
         id: venue.id,
+        orgId: venue.org_id,
         name: venue.name,
         description: venue.description,
         slug: venue.slug,

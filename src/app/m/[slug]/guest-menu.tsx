@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ALLERGENS } from '@/lib/allergens';
 import { DIETARY } from '@/lib/dietary';
 import { formatPrice } from '@/lib/currency';
-import { hexToRgba, textureBackground, textureSize, type MenuDesignSettings } from '@/lib/themes';
+import { hexToRgba, menuBackgroundStyle, type MenuDesignSettings } from '@/lib/themes';
 
 export type GuestItem = {
   id: string;
@@ -134,15 +134,12 @@ export function GuestMenu({
   }
 
   const design = venue.design;
-  const pageTexture = textureBackground(design.texture, design.textColor, design.textureOpacity);
 
   return (
     <div
       className="mx-auto min-h-screen max-w-lg pb-16 shadow-sm sm:my-4 sm:rounded-2xl"
       style={{
-        backgroundColor: design.backgroundColor,
-        backgroundImage: pageTexture,
-        backgroundSize: textureSize(design.texture),
+        ...menuBackgroundStyle(design),
         color: design.textColor,
         fontFamily: design.bodyFont,
         fontSize: `${design.baseFontSize}px`,
@@ -236,15 +233,15 @@ export function GuestMenu({
         {categories.map((c) => {
           const isHero = Boolean(c.backgroundUrl) && c.backgroundStyle === 'hero';
           const itemList = (
-            <ul style={{ display: 'grid', gap: `${design.itemSpacing}px` }}>
+            <ul style={{ display: 'grid', gridTemplateColumns: design.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${design.itemSpacing}px` }}>
               {c.items.map((it) => (
                 <li key={it.id}>
                   <button
                     onClick={() => openItem(it)}
-                    className="flex w-full items-start gap-3 p-3 text-left shadow-sm transition"
-                    style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px`, borderBottom: `1px solid ${hexToRgba(design.dividerColor, design.dividerOpacity)}` }}
+                    className={`flex w-full items-start gap-3 text-left transition ${design.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`}
+                    style={{ backgroundColor: design.layout === 'single' ? hexToRgba(design.cardColor, design.cardOpacity) : 'transparent', borderRadius: design.layout === 'single' ? `${design.cardRadius}px` : 0, borderBottom: `1px ${design.layout === 'two-column' ? 'dashed' : 'solid'} ${hexToRgba(design.dividerColor, design.dividerOpacity)}` }}
                   >
-                    {it.imageUrl && (
+                    {it.imageUrl && design.layout === 'single' && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={it.imageUrl}
@@ -402,10 +399,10 @@ export function GuestMenu({
                   {itemList}
                 </>
               ) : (
-                <>
+                <div className={design.layout === 'two-column' ? 'p-3 shadow-sm' : ''} style={design.layout === 'two-column' ? { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px` } : undefined}>
                   <h2 className="mb-2 px-1 font-bold" style={{ color: design.textColor, fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale}px` }}>{c.name}</h2>
                   {itemList}
-                </>
+                </div>
               )}
             </section>
           );

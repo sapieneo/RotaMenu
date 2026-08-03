@@ -19,13 +19,17 @@ const settingsSchema = z.object({
   baseFontSize: z.number().int().min(13).max(20),
   headingScale: z.number().min(1).max(1.6),
   cardColor: color,
-  cardOpacity: z.number().int().min(20).max(100),
+  cardOpacity: z.number().int().min(0).max(100),
   cardRadius: z.number().int().min(0).max(32),
   itemSpacing: z.number().int().min(6).max(28),
   dividerColor: color,
   dividerOpacity: z.number().int().min(0).max(100),
   texture: z.enum(TEXTURE_OPTIONS.map((option) => option.id) as ['none', 'paper', 'linen', 'dots', 'grid']),
   textureOpacity: z.number().int().min(0).max(60),
+  backgroundImageUrl: z.string().url().nullable(),
+  backgroundImageOpacity: z.number().int().min(0).max(100),
+  backgroundImageMode: z.enum(['cover', 'tile']),
+  layout: z.enum(['single', 'two-column']),
 });
 
 const bodySchema = z.object({ venueId: z.string().uuid(), settings: settingsSchema });
@@ -38,6 +42,14 @@ export async function PATCH(request: NextRequest) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Geçersiz tasarım ayarı.' }, { status: 400 });
+  }
+
+  const backgroundImageUrl = parsed.data.settings.backgroundImageUrl;
+  if (backgroundImageUrl) {
+    const allowedPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/venue-media/`;
+    if (!backgroundImageUrl.startsWith(allowedPrefix)) {
+      return NextResponse.json({ error: 'Geçersiz arka plan görseli.' }, { status: 400 });
+    }
   }
 
   const { data, error } = await supabase

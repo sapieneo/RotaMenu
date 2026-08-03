@@ -1,13 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { formatPrice } from '@/lib/currency';
+import { createClient } from '@/lib/supabase/client';
 import {
   DEFAULT_MENU_DESIGN,
   FONT_OPTIONS,
   MENU_DESIGN_PRESETS,
   TEXTURE_OPTIONS,
   hexToRgba,
+  menuBackgroundStyle,
   stripPresetMeta,
   textureBackground,
   textureSize,
@@ -28,7 +30,7 @@ export function DesignStudio({
   initial,
   dashboardHref,
 }: {
-  venue: { id: string; name: string; description: string | null; slug: string; currency: string; logoUrl: string | null; coverUrl: string | null };
+  venue: { id: string; orgId: string; name: string; description: string | null; slug: string; currency: string; logoUrl: string | null; coverUrl: string | null };
   categories: DesignPreviewCategory[];
   initial: MenuDesignSettings;
   dashboardHref: string;
@@ -36,6 +38,8 @@ export function DesignStudio({
   const [settings, setSettings] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'error'>('idle');
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
 
   function update<K extends keyof MenuDesignSettings>(key: K, value: MenuDesignSettings[K]) {
@@ -65,6 +69,32 @@ export function DesignStudio({
     }
   }
 
+  async function uploadBackground(file: File) {
+    if (!['image/jpeg', 'image/jpg'].includes(file.type)) {
+      setUploadState('error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadState('error');
+      return;
+    }
+    setUploadState('uploading');
+    const supabase = createClient();
+    const path = `${venue.orgId}/design/${venue.id}-${crypto.randomUUID()}.jpg`;
+    const { error } = await supabase.storage.from('venue-media').upload(path, file, {
+      contentType: 'image/jpeg',
+      upsert: false,
+    });
+    if (error) {
+      setUploadState('error');
+      return;
+    }
+    const { data } = supabase.storage.from('venue-media').getPublicUrl(path);
+    setSettings((current) => ({ ...current, backgroundImageUrl: data.publicUrl }));
+    setSaveState('idle');
+    setUploadState('idle');
+  }
+
   return (
     <main className="min-h-screen bg-stone-100">
       <header className="sticky top-0 z-40 border-b border-stone-200 bg-white/95 backdrop-blur">
@@ -91,7 +121,7 @@ export function DesignStudio({
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-stone-900">Hazır tasarımlar</h1>
               <p className="mt-1 text-sm text-stone-500">Bir şablon seç, sonra bütün ayrıntıları kendi markana göre değiştir.</p>
             </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
               {MENU_DESIGN_PRESETS.map((preset, index) => {
                 const active = settings.templateId === preset.templateId;
                 return (
@@ -113,6 +143,13 @@ export function DesignStudio({
             </div>
           </section>
 
+          <ControlSection title="Menü düzeni" description="Ürünleri geniş tek sütunda veya yoğun menüler için iki sütunda göster.">
+            <div className="grid grid-cols-2 gap-3">
+              <LayoutChoice title="Tek kolon" description="Fotoğraflı ve ferah" active={settings.layout === 'single'} columns={1} onClick={() => update('layout', 'single')} />
+              <LayoutChoice title="Çift kolon" description="Kompakt ve hızlı taranır" active={settings.layout === 'two-column'} columns={2} onClick={() => update('layout', 'two-column')} />
+            </div>
+          </ControlSection>
+
           <ControlSection title="Renkler" description="Menünün ana yüzeylerini ve vurgu renklerini belirle.">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <ColorField label="Sayfa arka planı" value={settings.backgroundColor} onChange={(value) => update('backgroundColor', value)} />
@@ -131,6 +168,19 @@ export function DesignStudio({
               ))}
             </div>
             <RangeField label="Doku yoğunluğu" value={settings.textureOpacity} min={0} max={60} suffix="%" onChange={(value) => update('textureOpacity', value)} />
+            <div className="border-t border-stone-200 pt-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div><p className="text-sm font-semibold text-stone-800">Kendi JPG dokunu yükle</p><p className="mt-0.5 text-xs text-stone-500">En fazla 10 MB. Küçük desenlerde “Döşe”yi kullan.</p></div>
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadState === 'uploading'} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">{uploadState === 'uploading' ? 'Yükleniyor…' : settings.backgroundImageUrl ? 'JPG’yi değiştir' : 'JPG yükle'}</button>
+                <input ref={fileRef} type="file" accept="image/jpeg,.jpg,.jpeg" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadBackground(file); event.target.value = ''; }} />
+              </div>
+              {uploadState === 'error' && <p className="mt-2 text-xs font-medium text-red-600">Yalnızca 10 MB’den küçük JPG dosyası yükleyebilirsin.</p>}
+              {settings.backgroundImageUrl && <div className="mt-4 space-y-4 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                <div className="flex items-center gap-3"><img src={settings.backgroundImageUrl} alt="Yüklenen arka plan dokusu" className="h-16 w-24 rounded-lg object-cover" /><div className="flex-1"><p className="text-sm font-semibold text-stone-700">Özel JPG dokusu</p><button type="button" onClick={() => update('backgroundImageUrl', null)} className="mt-1 text-xs font-medium text-red-600 hover:underline">Kaldır</button></div></div>
+                <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => update('backgroundImageMode', 'cover')} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${settings.backgroundImageMode === 'cover' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 bg-white text-stone-600'}`}>Alanı kapla</button><button type="button" onClick={() => update('backgroundImageMode', 'tile')} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${settings.backgroundImageMode === 'tile' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 bg-white text-stone-600'}`}>Deseni döşe</button></div>
+                <RangeField label="JPG görünürlüğü" value={settings.backgroundImageOpacity} min={0} max={100} suffix="%" onChange={(value) => update('backgroundImageOpacity', value)} />
+              </div>}
+            </div>
           </ControlSection>
 
           <ControlSection title="Tipografi" description="Başlık ve ürün metinlerinin karakterini ayarla.">
@@ -147,7 +197,7 @@ export function DesignStudio({
               <ColorField label="Kart rengi" value={settings.cardColor} onChange={(value) => update('cardColor', value)} />
               <ColorField label="Ayırıcı rengi" value={settings.dividerColor} onChange={(value) => update('dividerColor', value)} />
             </div>
-            <RangeField label="Kart şeffaflığı" value={settings.cardOpacity} min={20} max={100} suffix="%" onChange={(value) => update('cardOpacity', value)} />
+            <RangeField label="Kart görünürlüğü" value={settings.cardOpacity} min={0} max={100} suffix="%" onChange={(value) => update('cardOpacity', value)} />
             <RangeField label="Köşe yuvarlaklığı" value={settings.cardRadius} min={0} max={32} suffix=" px" onChange={(value) => update('cardRadius', value)} />
             <RangeField label="Ürünler arası boşluk" value={settings.itemSpacing} min={6} max={28} suffix=" px" onChange={(value) => update('itemSpacing', value)} />
             <RangeField label="Ayırıcı görünürlüğü" value={settings.dividerOpacity} min={0} max={100} suffix="%" onChange={(value) => update('dividerOpacity', value)} />
@@ -174,10 +224,9 @@ export function DesignStudio({
 
 function PhonePreview({ venue, categories, settings }: { venue: { name: string; description: string | null; currency: string; logoUrl: string | null; coverUrl: string | null }; categories: DesignPreviewCategory[]; settings: MenuDesignSettings }) {
   const previewCategories = useMemo(() => categories.length ? categories : [{ id: 'sample', name: 'Menü', items: [{ id: '1', name: 'İmza Tabağı', description: 'Mevsim ürünleriyle hazırlanan özel lezzet', price: 320, imageUrl: null }, { id: '2', name: 'Günün Çorbası', description: 'Her gün taze hazırlanır', price: 120, imageUrl: null }] }], [categories]);
-  const texture = textureBackground(settings.texture, settings.textColor, settings.textureOpacity);
   return (
     <div className="mx-auto w-full max-w-[390px] rounded-[42px] border-[8px] border-stone-900 bg-stone-900 p-1 shadow-2xl">
-      <div className="relative h-[700px] overflow-y-auto rounded-[31px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ backgroundColor: settings.backgroundColor, backgroundImage: texture, backgroundSize: textureSize(settings.texture), color: settings.textColor, fontFamily: settings.bodyFont, fontSize: `${settings.baseFontSize}px` }}>
+      <div className="relative h-[700px] overflow-y-auto rounded-[31px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ ...menuBackgroundStyle(settings), color: settings.textColor, fontFamily: settings.bodyFont, fontSize: `${settings.baseFontSize}px` }}>
         <div className="sticky top-0 z-30 flex h-7 items-center justify-between px-5 text-[10px] font-bold" style={{ backgroundColor: settings.surfaceColor }}><span>9:41</span><span>● ᴡɪꜰɪ ▰</span></div>
         <header style={{ backgroundColor: settings.surfaceColor }}>
           <div className="h-28 bg-cover bg-center" style={venue.coverUrl ? { backgroundImage: `linear-gradient(0deg, rgba(0,0,0,.18), rgba(0,0,0,.18)), url(${venue.coverUrl})` } : { background: `linear-gradient(135deg, ${settings.primaryColor}, ${settings.accentColor})` }} />
@@ -193,11 +242,11 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
           {previewCategories.map((category, index) => <span key={category.id} className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold" style={index === 0 ? { backgroundColor: settings.primaryColor, color: settings.surfaceColor } : { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), color: settings.mutedTextColor }}>{category.name}</span>)}
         </nav>
         <div className="space-y-7 px-3 py-5">
-          {previewCategories.map((category) => <section key={category.id}>
+          {previewCategories.map((category) => <section key={category.id} className={settings.layout === 'two-column' ? 'p-3 shadow-sm' : ''} style={settings.layout === 'two-column' ? { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), borderRadius: `${settings.cardRadius}px` } : undefined}>
             <h3 className="mb-2 px-1 font-bold" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
-            <div style={{ display: 'grid', gap: `${settings.itemSpacing}px` }}>
-              {category.items.slice(0, 4).map((item) => <div key={item.id} className="flex items-start gap-3 p-3 shadow-sm" style={{ backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), borderRadius: `${settings.cardRadius}px`, borderBottom: `1px solid ${hexToRgba(settings.dividerColor, settings.dividerOpacity)}` }}>
-                {item.imageUrl && <img src={item.imageUrl} alt="" className="h-14 w-14 shrink-0 object-cover" style={{ borderRadius: `${Math.min(settings.cardRadius, 14)}px` }} />}
+            <div style={{ display: 'grid', gridTemplateColumns: settings.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${settings.itemSpacing}px` }}>
+              {category.items.slice(0, 6).map((item) => <div key={item.id} className={`flex items-start gap-3 ${settings.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`} style={{ backgroundColor: settings.layout === 'single' ? hexToRgba(settings.cardColor, settings.cardOpacity) : 'transparent', borderRadius: settings.layout === 'single' ? `${settings.cardRadius}px` : 0, borderBottom: `1px dashed ${hexToRgba(settings.dividerColor, settings.dividerOpacity)}` }}>
+                {item.imageUrl && settings.layout === 'single' && <img src={item.imageUrl} alt="" className="h-14 w-14 shrink-0 object-cover" style={{ borderRadius: `${Math.min(settings.cardRadius, 14)}px` }} />}
                 <div className="min-w-0 flex-1"><div className="flex items-baseline justify-between gap-2"><p className="font-semibold leading-tight">{item.name}</p>{item.price != null && <span className="shrink-0 text-xs font-bold" style={{ color: settings.primaryColor }}>{formatPrice(item.price, venue.currency)}</span>}</div>{item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-snug" style={{ color: settings.mutedTextColor }}>{item.description}</p>}</div>
               </div>)}
             </div>
@@ -210,6 +259,10 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
 
 function ControlSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6"><div className="mb-5"><h2 className="text-lg font-bold text-stone-900">{title}</h2><p className="mt-1 text-sm text-stone-500">{description}</p></div><div className="space-y-5">{children}</div></section>;
+}
+
+function LayoutChoice({ title, description, active, columns, onClick }: { title: string; description: string; active: boolean; columns: 1 | 2; onClick: () => void }) {
+  return <button type="button" onClick={onClick} className={`rounded-xl border p-3 text-left transition ${active ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-100' : 'border-stone-200 bg-stone-50 hover:border-stone-300'}`}><span className="mb-3 grid h-16 gap-2 rounded-lg bg-white p-2 shadow-inner" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>{Array.from({ length: columns }).map((_, index) => <span key={index} className="space-y-1.5"><span className="block h-2 w-3/4 rounded bg-stone-400" /><span className="block h-1.5 rounded bg-stone-200" /><span className="block h-1.5 w-4/5 rounded bg-stone-200" /></span>)}</span><span className="block text-sm font-semibold text-stone-800">{title}{active && <span className="float-right text-brand-600">✓</span>}</span><span className="mt-0.5 block text-xs text-stone-500">{description}</span></button>;
 }
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {

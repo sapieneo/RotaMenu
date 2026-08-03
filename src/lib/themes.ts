@@ -43,6 +43,8 @@ export interface ThemePreset {
 }
 
 export type TextureId = 'none' | 'paper' | 'linen' | 'dots' | 'grid';
+export type MenuLayout = 'single' | 'two-column';
+export type BackgroundImageMode = 'cover' | 'tile';
 
 export type MenuDesignSettings = {
   templateId: string;
@@ -64,6 +66,10 @@ export type MenuDesignSettings = {
   dividerOpacity: number;
   texture: TextureId;
   textureOpacity: number;
+  backgroundImageUrl: string | null;
+  backgroundImageOpacity: number;
+  backgroundImageMode: BackgroundImageMode;
+  layout: MenuLayout;
 };
 
 export const FONT_OPTIONS = [
@@ -93,7 +99,8 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
     textColor: '#1c1917', mutedTextColor: '#78716c', headingFont: FONT_OPTIONS[0].value,
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.2, cardColor: '#ffffff',
     cardOpacity: 100, cardRadius: 16, itemSpacing: 12, dividerColor: '#e7e5e4', dividerOpacity: 100,
-    texture: 'none', textureOpacity: 0,
+    texture: 'none', textureOpacity: 0, backgroundImageUrl: null, backgroundImageOpacity: 100,
+    backgroundImageMode: 'cover', layout: 'single',
   },
   {
     templateId: 'lokanta', name: 'Anadolu Lokantası', description: 'Sıcak, tanıdık ve iştah açıcı.', mood: 'Samimi',
@@ -101,7 +108,8 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
     textColor: '#3f2d20', mutedTextColor: '#7c6654', headingFont: FONT_OPTIONS[2].value,
     bodyFont: FONT_OPTIONS[1].value, baseFontSize: 16, headingScale: 1.25, cardColor: '#fffaf2',
     cardOpacity: 92, cardRadius: 12, itemSpacing: 14, dividerColor: '#d6c2aa', dividerOpacity: 75,
-    texture: 'paper', textureOpacity: 28,
+    texture: 'paper', textureOpacity: 28, backgroundImageUrl: null, backgroundImageOpacity: 100,
+    backgroundImageMode: 'cover', layout: 'single',
   },
   {
     templateId: 'gece', name: 'Gece', description: 'Bar, pub ve akşam servisi için güçlü.', mood: 'Koyu',
@@ -109,7 +117,8 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
     textColor: '#fafaf9', mutedTextColor: '#a8a29e', headingFont: FONT_OPTIONS[0].value,
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.18, cardColor: '#292524',
     cardOpacity: 88, cardRadius: 18, itemSpacing: 12, dividerColor: '#57534e', dividerOpacity: 65,
-    texture: 'grid', textureOpacity: 16,
+    texture: 'grid', textureOpacity: 16, backgroundImageUrl: null, backgroundImageOpacity: 100,
+    backgroundImageMode: 'cover', layout: 'single',
   },
   {
     templateId: 'bistro', name: 'Bistro', description: 'Zarif tipografi ve sakin renkler.', mood: 'Editoryal',
@@ -117,7 +126,8 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
     textColor: '#292524', mutedTextColor: '#6b665e', headingFont: FONT_OPTIONS[2].value,
     bodyFont: FONT_OPTIONS[2].value, baseFontSize: 17, headingScale: 1.35, cardColor: '#fcfaf5',
     cardOpacity: 94, cardRadius: 4, itemSpacing: 16, dividerColor: '#b9b3a8', dividerOpacity: 70,
-    texture: 'linen', textureOpacity: 22,
+    texture: 'linen', textureOpacity: 22, backgroundImageUrl: null, backgroundImageOpacity: 100,
+    backgroundImageMode: 'cover', layout: 'single',
   },
   {
     templateId: 'enerjik', name: 'Enerjik', description: 'Kafe ve hızlı servis için canlı.', mood: 'Renkli',
@@ -125,7 +135,17 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
     textColor: '#27272a', mutedTextColor: '#71717a', headingFont: FONT_OPTIONS[1].value,
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.22, cardColor: '#ffffff',
     cardOpacity: 96, cardRadius: 24, itemSpacing: 12, dividerColor: '#fecdd3', dividerOpacity: 80,
-    texture: 'dots', textureOpacity: 20,
+    texture: 'dots', textureOpacity: 20, backgroundImageUrl: null, backgroundImageOpacity: 100,
+    backgroundImageMode: 'cover', layout: 'single',
+  },
+  {
+    templateId: 'cift-kolon', name: 'Çift Kolon', description: 'Yoğun menüler için kompakt iki sütun.', mood: 'Pizzeria',
+    backgroundColor: '#c83b2d', surfaceColor: '#fffaf0', primaryColor: '#cf3024', accentColor: '#1f5b3a',
+    textColor: '#29251f', mutedTextColor: '#756d61', headingFont: FONT_OPTIONS[2].value,
+    bodyFont: FONT_OPTIONS[0].value, baseFontSize: 14, headingScale: 1.28, cardColor: '#fffaf0',
+    cardOpacity: 94, cardRadius: 10, itemSpacing: 8, dividerColor: '#b7aa96', dividerOpacity: 65,
+    texture: 'grid', textureOpacity: 22, backgroundImageUrl: null, backgroundImageOpacity: 100,
+    backgroundImageMode: 'tile', layout: 'two-column',
   },
 ];
 
@@ -165,4 +185,24 @@ export function textureSize(texture: TextureId): string {
   if (texture === 'dots') return '14px 14px';
   if (texture === 'grid') return '24px 24px';
   return 'auto';
+}
+
+export function menuBackgroundStyle(settings: MenuDesignSettings) {
+  if (settings.backgroundImageUrl) {
+    const overlay = hexToRgba(settings.backgroundColor, 100 - settings.backgroundImageOpacity);
+    return {
+      backgroundColor: settings.backgroundColor,
+      backgroundImage: `linear-gradient(${overlay}, ${overlay}), url("${settings.backgroundImageUrl}")`,
+      backgroundSize: settings.backgroundImageMode === 'tile' ? 'auto' : 'cover',
+      backgroundRepeat: settings.backgroundImageMode === 'tile' ? 'repeat' : 'no-repeat',
+      backgroundPosition: 'center top',
+    };
+  }
+  return {
+    backgroundColor: settings.backgroundColor,
+    backgroundImage: textureBackground(settings.texture, settings.textColor, settings.textureOpacity),
+    backgroundSize: textureSize(settings.texture),
+    backgroundRepeat: 'repeat',
+    backgroundPosition: 'center top',
+  };
 }
