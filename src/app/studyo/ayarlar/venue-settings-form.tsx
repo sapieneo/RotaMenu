@@ -107,6 +107,7 @@ export function VenueSettingsForm({
       </header>
 
       <PublishCard
+        venueId={v.id}
         state={pub}
         slug={savedSlug}
         busy={save.name === 'saving'}
@@ -144,7 +145,7 @@ export function VenueSettingsForm({
             </div>
             <span className="mt-1 block text-xs text-stone-500">
               Küçük harf, rakam ve tire. Değiştirirsen eski bağlantı çalışmaz —{' '}
-              <a href="/studyo/qr" className="underline">
+              <a href={`/studyo/qr?venue=${encodeURIComponent(v.id)}`} className="underline">
                 basılı QR kodların
               </a>{' '}
               etkilenmez.
@@ -249,7 +250,7 @@ export function VenueSettingsForm({
           <span className="text-sm font-medium text-emerald-600">✓ Kaydedildi</span>
         )}
         <a
-          href="/studyo/qr"
+          href={`/studyo/qr?venue=${encodeURIComponent(v.id)}`}
           className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
         >
           QR kodları
@@ -272,18 +273,20 @@ export function VenueSettingsForm({
  * policy'leri ona bağlı: kapalıyken menüyü yalnız org üyesi görür.
  */
 function PublishCard({
+  venueId,
   state,
   slug,
   busy,
   onToggle,
 }: {
+  venueId: string;
   state: PublishState;
   slug: string;
   busy: boolean;
   onToggle: (next: boolean) => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const liveUrl = typeof window === 'undefined' ? `/m/${slug}` : `${window.location.origin}/m/${slug}`;
+  const livePath = `/m/${slug}`;
 
   function confirmAndPublish() {
     if (state.pendingCount > 0) {
@@ -298,7 +301,7 @@ function PublishCard({
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(liveUrl);
+      await navigator.clipboard.writeText(`${window.location.origin}${livePath}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -333,7 +336,7 @@ function PublishCard({
           </p>
           {state.publishedAt && (
             <p className="mt-1 text-xs text-stone-500">
-              İlk yayın: {new Date(state.publishedAt).toLocaleDateString('tr-TR')}
+              İlk yayın: {new Date(state.publishedAt).toLocaleDateString('tr-TR', { timeZone: 'Europe/Istanbul' })}
             </p>
           )}
         </div>
@@ -355,7 +358,7 @@ function PublishCard({
         <p className="mt-3 rounded-lg border border-amber-300 bg-white/70 px-3 py-2 text-sm text-amber-800">
           {state.pendingCount}/{state.itemCount} ürünün alerjen onayı bekliyor. Onaylanmayan ürünlerde
           misafir alerjen bilgisi göremez.{' '}
-          <a href="/studyo/uyum" className="font-semibold underline">
+          <a href={`/studyo/uyum?venue=${encodeURIComponent(venueId)}`} className="font-semibold underline">
             Uyum ekranına git
           </a>
         </p>
@@ -364,7 +367,7 @@ function PublishCard({
       {state.isPublished && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <code className="min-w-0 flex-1 truncate rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-600">
-            {liveUrl}
+            {livePath}
           </code>
           <button
             onClick={copy}
@@ -373,7 +376,7 @@ function PublishCard({
             {copied ? '✓ Kopyalandı' : 'Kopyala'}
           </button>
           <a
-            href="/studyo/qr"
+            href={`/studyo/qr?venue=${encodeURIComponent(venueId)}`}
             className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
           >
             QR kodu al

@@ -150,7 +150,7 @@ export function buildCompliancePdf(data: ReportData): Promise<Buffer> {
         if (doc.y + 14 > pageBottom) doc.addPage();
         const alg = it.allergenCodes.length
           ? it.allergenCodes.map((c) => ALLERGENS[c as AllergenCode]?.tr ?? c).join(', ')
-          : 'Alerjensiz beyanı';
+          : 'İşletme beyanına göre listelenen alerjen yok';
         doc
           .font('bold')
           .fillColor('#111')

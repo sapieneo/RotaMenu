@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { planLimits, normalizePlan } from '@/lib/plans';
 import { isIyzicoConfigured } from '@/lib/iyzico';
 import { PlanClient, type PlanClientData } from './plan-client';
+import { resolveManagedVenue } from '@/lib/managed-venue';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,15 +28,7 @@ export default async function PlanPage({ searchParams }: { searchParams?: { venu
     );
   }
 
-  const venueSelection = searchParams?.venue
-    ? await supabase.from('venues').select('id, org_id').eq('id', searchParams.venue).maybeSingle()
-    : await supabase
-        .from('venues')
-        .select('id, org_id')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-  const venue = venueSelection.data;
+  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
   const { data: membership } = venue
     ? await supabase
         .from('organization_members')

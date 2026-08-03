@@ -48,8 +48,10 @@ function splitIngredients(s: string | null): string[] {
 
 /** Mevzuat takvimi — Tarım ve Orman Bakanlığı, menüde 14 alerjen + kalori. */
 const REG_MILESTONES = [
-  { date: new Date('2026-07-01'), label: 'Ulusal zincirler' },
-  { date: new Date('2026-12-31'), label: 'Aynı ilde 3+ şube' },
+  { date: new Date('2026-07-01T00:00:00+03:00'), label: 'Ulusal zincirler · içerik ve enerji' },
+  { date: new Date('2026-12-31T00:00:00+03:00'), label: 'Aynı ilde 3+ şube · içerik ve enerji' },
+  { date: new Date('2026-12-31T00:00:00+03:00'), label: 'Diğer işletmeler · içerik bilgisi' },
+  { date: new Date('2027-12-31T00:00:00+03:00'), label: 'Diğer işletmeler · enerji bilgisi' },
 ];
 
 export function ComplianceReviewer({
@@ -499,7 +501,7 @@ function ItemCard({
       </div>
 
       <p className="mt-1.5 text-xs text-stone-400">
-        Seçili = üründe var. Hiçbiri seçili değilse &quot;alerjensiz&quot; olarak onaylanır.
+        Seçili = üründe var. Hiçbiri seçili değilse “işletme beyanına göre listelenen alerjen yok” olarak kaydedilir.
       </p>
 
       {/* Diyet rozetleri */}

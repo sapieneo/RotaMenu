@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { resolveManagedVenue } from '@/lib/managed-venue';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,19 +12,14 @@ export const dynamic = 'force-dynamic';
  * çıkarımını bulup oraya yönlendiriyoruz. Böylece tüm "Uyum ekranı" bağları
  * tek sabit adrese işaret edebilir.
  */
-export default async function ComplianceEntryPage() {
+export default async function ComplianceEntryPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/studyo');
 
-  const { data: venue } = await supabase
-    .from('venues')
-    .select('id')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
   if (!venue) redirect('/studyo');
 
   // En son onaylanmış çıkarım → onun uyum ekranı.

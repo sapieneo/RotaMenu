@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { resolveManagedVenue } from '@/lib/managed-venue';
 import { VenueSettingsForm, type VenueSettings } from './venue-settings-form';
 
 export const dynamic = 'force-dynamic';
@@ -8,16 +9,9 @@ export const dynamic = 'force-dynamic';
  * menü adresi (slug) ve yayın durumu (Faz B1).
  * Tek venue modeli — kullanıcının erişebildiği ilk venue düzenlenir (RLS).
  */
-export default async function VenueSettingsPage() {
+export default async function VenueSettingsPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
-  const { data: venue } = await supabase
-    .from('venues')
-    // Tek parça string: supabase-js select'i literal tipten çözümlüyor,
-    // string birleştirme tip çıkarımını bozar (GenericStringError).
-    .select('id, slug, name, description, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, currency_code, is_published, published_at')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
 
   if (!venue) {
     return (

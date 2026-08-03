@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { resolveManagedVenue } from '@/lib/managed-venue';
 
 export const runtime = 'nodejs';
 
 const bodySchema = z.object({
+  venueId: z.string().uuid().optional(),
   email: z.string().trim().email('Geçerli bir e-posta gir.').optional(),
   phone: z
     .string()
@@ -39,26 +41,21 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  const { email, phone } = parsed.data;
+  const { email, phone, venueId } = parsed.data;
   if (!email && !phone) {
     return NextResponse.json({ error: 'E-posta veya telefon gerekli.' }, { status: 400 });
   }
 
   // Telefon → hesap sahibinin org'una yaz. Owner RLS (org_update) izin verir.
   if (phone) {
-    const { data: membership } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle();
-    if (!membership) {
+    const venue = await resolveManagedVenue(supabase, venueId);
+    if (!venue) {
       return NextResponse.json({ error: 'İşletme bulunamadı.' }, { status: 404 });
     }
     const { error: phoneErr } = await supabase
       .from('organizations')
       .update({ contact_phone: phone })
-      .eq('id', membership.org_id);
+      .eq('id', venue.org_id);
     if (phoneErr) {
       return NextResponse.json({ error: 'Telefon kaydedilemedi.', details: phoneErr.message }, { status: 500 });
     }

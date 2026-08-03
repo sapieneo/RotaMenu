@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { QrManager, type QrRow } from './qr-manager';
+import { resolveManagedVenue } from '@/lib/managed-venue';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,14 +8,9 @@ export const dynamic = 'force-dynamic';
  * QR yönetimi (Faz B2). Kodlar kalıcıdır: basılan QR'ın hedefi değişebilir
  * ama kodun kendisi asla değişmez, silinmez — yalnız devre dışı bırakılır.
  */
-export default async function QrPage() {
+export default async function QrPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
-  const { data: venue } = await supabase
-    .from('venues')
-    .select('id, slug, name, is_published')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
 
   if (!venue) {
     return (

@@ -16,6 +16,7 @@ export type TranslationJobView = {
 };
 
 export function LanguageManager({
+  venueId,
   venueName,
   languages,
   jobs,
@@ -24,6 +25,7 @@ export function LanguageManager({
   planLabel,
   maxTargets,
 }: {
+  venueId: string;
   venueName: string;
   languages: MenuLanguage[];
   jobs: TranslationJobView[];
@@ -73,7 +75,7 @@ export function LanguageManager({
       const response = await fetch('/api/menu/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ locales: selected }),
+        body: JSON.stringify({ venueId, locales: selected }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? 'Çeviri başlatılamadı.');
@@ -92,7 +94,7 @@ export function LanguageManager({
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
-      <a href="/studyo/pano" className="text-sm font-medium text-brand-700 hover:underline">← Panoya dön</a>
+      <a href={`/studyo/pano?venue=${encodeURIComponent(venueId)}`} className="text-sm font-medium text-brand-700 hover:underline">← Panoya dön</a>
       <header className="mt-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-brand-600">Dil yönetimi</p>

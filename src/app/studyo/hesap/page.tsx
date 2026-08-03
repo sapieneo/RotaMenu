@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { isPhoneVerificationConfigured } from '@/lib/sms';
 import { AccountCard } from './account-card';
+import { resolveManagedVenue } from '@/lib/managed-venue';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic';
  * verisi yalnız o tarayıcı oturumuna bağlıdır; çerez kaybolursa menü
  * erişilemez hale gelir — bu ekran o riski de kapatır.
  */
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
   const {
     data: { user },
@@ -32,20 +33,15 @@ export default async function AccountPage() {
   // is_anonymous JWT claim'i; e-posta bağlanınca false olur.
   const isAnonymous = (user as { is_anonymous?: boolean }).is_anonymous ?? !user.email;
 
-  const { data: membership } = await supabase
-    .from('organization_members')
-    .select('org_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .maybeSingle();
+  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
 
   let contactPhone: string | null = null;
   let contactPhoneVerifiedAt: string | null = null;
-  if (membership) {
+  if (venue) {
     const { data: org } = await supabase
       .from('organizations')
       .select('contact_phone, contact_phone_verified_at')
-      .eq('id', membership.org_id)
+      .eq('id', venue.org_id)
       .maybeSingle();
     contactPhone = (org?.contact_phone as string | null) ?? null;
     contactPhoneVerifiedAt = (org?.contact_phone_verified_at as string | null) ?? null;
@@ -53,6 +49,7 @@ export default async function AccountPage() {
 
   return (
     <AccountCard
+      venueId={venue?.id ?? null}
       email={user.email ?? null}
       isAnonymous={isAnonymous}
       contactPhone={contactPhone}

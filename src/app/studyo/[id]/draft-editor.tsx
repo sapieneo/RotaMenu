@@ -202,16 +202,22 @@ export function DraftEditor({
               Alerjenleri onayla →
             </a>
             <a
-              href="/studyo/gorseller"
+              href={`/studyo/gorseller?venue=${encodeURIComponent(venueId)}`}
               className="text-sm font-medium text-brand-600 hover:text-brand-700"
             >
               🖼 Ürün görselleri ekle (AI ile üret veya yükle)
             </a>
             <a
-              href="/studyo/ayarlar"
+              href={`/studyo/ayarlar?venue=${encodeURIComponent(venueId)}`}
               className="text-sm font-medium text-brand-600 hover:text-brand-700"
             >
               ⚙ İşletme bilgilerini düzenle (adres, telefon, saat…)
+            </a>
+            <a
+              href={`/studyo/pano?venue=${encodeURIComponent(venueId)}`}
+              className="text-sm font-medium text-stone-500 hover:text-stone-700"
+            >
+              Panoya git
             </a>
             <a href="/studyo" className="text-sm font-medium text-stone-500 hover:text-stone-700">
               + Başka sayfa ekle

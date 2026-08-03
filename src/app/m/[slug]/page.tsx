@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { recordEvent } from '@/lib/analytics';
 import { showRestaurantBadge } from '@/lib/plans';
 import { CODE_BY_ID } from '@/lib/allergens';
@@ -129,14 +129,22 @@ export default async function GuestMenuPage({
   const rows = (itemRows ?? []) as unknown as Record<string, unknown>[];
 
   const itemIds = rows.map((item) => item.id as string);
-  const [{ data: categoryTranslations }, { data: itemTranslations }] = await Promise.all([
+  const [{ data: categoryTranslations }, { data: itemTranslations }, { data: complianceRows }] = await Promise.all([
     catIds.length
       ? supabase.from('category_translations').select('category_id, locale, name').in('category_id', catIds)
       : Promise.resolve({ data: [] as { category_id: string; locale: string; name: string }[] }),
     itemIds.length
       ? supabase.from('item_translations').select('item_id, locale, name, description, ingredients').in('item_id', itemIds)
       : Promise.resolve({ data: [] as { item_id: string; locale: string; name: string; description: string | null; ingredients: string | null }[] }),
+    itemIds.length
+      ? createAdminClient().from('item_compliance').select('item_id, calories_review').in('item_id', itemIds)
+      : Promise.resolve({ data: [] as { item_id: string; calories_review: string }[] }),
   ]);
+  const confirmedCalories = new Set(
+    (complianceRows ?? [])
+      .filter((row) => row.calories_review === 'confirmed')
+      .map((row) => row.item_id)
+  );
   const categoryLocaleCounts = countLocales(categoryTranslations ?? [], 'category_id');
   const itemLocaleCounts = countLocales(itemTranslations ?? [], 'item_id');
   const availableLocaleCodes = [...MENU_LANGUAGE_BY_CODE.keys()].filter(
@@ -176,7 +184,9 @@ export default async function GuestMenuPage({
       description: translation?.description ?? (it.description as string | null) ?? null,
       ingredients: translation?.ingredients ?? (it.ingredients as string | null) ?? null,
       price: priceRaw == null ? null : Number(priceRaw),
-      calories: (it.calories_kcal as number | null) ?? null,
+      calories: confirmedCalories.has(it.id as string)
+        ? (it.calories_kcal as number | null) ?? null
+        : null,
       imageUrl: (it.image_url as string | null) ?? null,
       allergenCodes: alg,
       dietaryCodes: diet,

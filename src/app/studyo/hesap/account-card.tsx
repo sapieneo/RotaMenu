@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 type Props = {
+  venueId: string | null;
   email: string | null;
   isAnonymous: boolean;
   contactPhone: string | null;
@@ -13,6 +14,7 @@ type Props = {
 type Status = { name: 'idle' } | { name: 'saving' } | { name: 'sent' } | { name: 'error'; message: string };
 
 export function AccountCard({
+  venueId,
   email,
   isAnonymous,
   contactPhone,
@@ -29,7 +31,11 @@ export function AccountCard({
   async function verifyPhoneBypass() {
     setVerifyBusy(true);
     try {
-      const res = await fetch('/api/account/dev-verify-phone', { method: 'POST' });
+      const res = await fetch('/api/account/dev-verify-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId }),
+      });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? 'Doğrulanamadı.');
       setPhoneVerified(true);
@@ -55,7 +61,8 @@ export function AccountCard({
   }, []);
 
   async function submit() {
-    const payload: { email?: string; phone?: string } = {};
+    const payload: { venueId?: string; email?: string; phone?: string } = {};
+    if (venueId) payload.venueId = venueId;
     if (isAnonymous && emailInput.trim()) payload.email = emailInput.trim();
     const trimmedPhone = phone.trim();
     if (trimmedPhone && trimmedPhone !== (contactPhone ?? '')) payload.phone = trimmedPhone;
@@ -169,7 +176,7 @@ export function AccountCard({
         </div>
         <p className="mb-3 text-sm text-stone-500">
           Hesabınla ilgili iletişim için. Misafir menüsünde gösterilmez — o numara
-          <a href="/studyo/ayarlar" className="text-brand-700 underline"> işletme ayarlarında</a>.
+          <a href={venueId ? `/studyo/ayarlar?venue=${encodeURIComponent(venueId)}` : '/studyo/ayarlar'} className="text-brand-700 underline"> işletme ayarlarında</a>.
         </p>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-stone-600">Telefon</span>

@@ -4,10 +4,12 @@ import { createClient } from '@/lib/supabase/server';
 import { isSupportedMenuLanguage } from '@/lib/languages';
 import { planLimits } from '@/lib/plans';
 import { signTranslationBackgroundPayload } from '@/lib/ai/background-auth';
+import { resolveManagedVenue } from '@/lib/managed-venue';
 
 export const runtime = 'nodejs';
 
 const bodySchema = z.object({
+  venueId: z.string().uuid(),
   locales: z.array(z.string().min(2).max(5)).min(1).max(20).transform((values) => [...new Set(values)]),
 });
 
@@ -21,12 +23,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Geçersiz dil seçimi.' }, { status: 400 });
   }
 
-  const { data: venue } = await supabase
-    .from('venues')
-    .select('id, org_id, organizations(plan)')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const venue = await resolveManagedVenue(supabase, parsed.data.venueId);
   if (!venue) return NextResponse.json({ error: 'Menü bulunamadı.' }, { status: 404 });
 
   const { data: menu } = await supabase
@@ -39,8 +36,12 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
   if (!menu) return NextResponse.json({ error: 'Aktif menü bulunamadı.' }, { status: 404 });
 
-  const organization = Array.isArray(venue.organizations) ? venue.organizations[0] : venue.organizations;
-  const limits = planLimits((organization as { plan?: string } | null)?.plan);
+  const { data: organization } = await supabase
+    .from('organizations')
+    .select('plan')
+    .eq('id', venue.org_id)
+    .maybeSingle();
+  const limits = planLimits(organization?.plan);
   const maxTargets = Number.isFinite(limits.maxLocales) ? Math.max(0, limits.maxLocales - 1) : Infinity;
   if (parsed.data.locales.length > maxTargets) {
     return NextResponse.json(

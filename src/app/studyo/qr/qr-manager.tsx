@@ -74,8 +74,6 @@ export function QrManager({ venueId, venueName, venueSlug, isPublished, initial 
     }
   }
 
-  const origin = typeof window === 'undefined' ? '' : window.location.origin;
-
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <header className="mb-6">
@@ -91,7 +89,7 @@ export function QrManager({ venueId, venueName, venueSlug, isPublished, initial 
         <p className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Menü henüz yayında değil. QR'ı şimdi bastırabilirsin ama misafirler menüyü yayınlayana kadar
           göremez.{' '}
-          <a href="/studyo/ayarlar" className="font-semibold underline">
+          <a href={`/studyo/ayarlar?venue=${encodeURIComponent(venueId)}`} className="font-semibold underline">
             Ayarlardan yayınla
           </a>
         </p>
@@ -168,7 +166,7 @@ export function QrManager({ venueId, venueName, venueSlug, isPublished, initial 
                   className="mt-2 w-full rounded border border-transparent px-1 py-0.5 text-sm text-stone-600 outline-none hover:border-stone-200 focus:border-brand-500"
                 />
                 <p className="mt-1 truncate text-xs text-stone-400">
-                  {origin}/q/{r.code}
+                  /q/{r.code}
                 </p>
               </div>
 

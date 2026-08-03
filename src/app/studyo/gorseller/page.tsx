@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { planLimits } from '@/lib/plans';
 import { ImageManager, type ImgCategory } from './image-manager';
+import { resolveManagedVenue, withVenue } from '@/lib/managed-venue';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,15 +9,10 @@ export const dynamic = 'force-dynamic';
  * Görsel yönetimi (A7): ürün başına AI görseli üret / yeniden üret /
  * elle yükle / kaldır. Görseller misafir menüsünde görünür.
  */
-export default async function ImagesPage() {
+export default async function ImagesPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
 
-  const { data: venue } = await supabase
-    .from('venues')
-    .select('id, org_id, slug')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
 
   if (!venue) {
     return (
@@ -49,13 +45,13 @@ export default async function ImagesPage() {
         </p>
         <div className="mt-2 flex gap-3">
           <a
-            href="/studyo/plan"
+            href={withVenue('/studyo/plan', venue.id)}
             className="rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow transition hover:bg-brand-700"
           >
             Pro’ya yükselt
           </a>
           <a
-            href="/studyo/pano"
+            href={withVenue('/studyo/pano', venue.id)}
             className="rounded-xl border border-stone-300 px-6 py-3 font-semibold text-stone-700 transition hover:bg-stone-50"
           >
             Panoya dön

@@ -35,6 +35,7 @@ export type DashboardData = {
 
 export function Dashboard({ data }: { data: DashboardData }) {
   const hasAnalytics = data.stats.totalEvents > 0;
+  const venueHref = (path: string) => `${path}${path.includes('?') ? '&' : '?'}venue=${encodeURIComponent(data.venueId)}`;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -71,33 +72,33 @@ export function Dashboard({ data }: { data: DashboardData }) {
         <Banner
           tone="amber"
           text="Menünü yayınlamak için ücretsiz plana kaydolman gerekiyor — hesabın şu an geçici."
-          cta={{ href: '/studyo/hesap', label: 'Ücretsiz kaydol' }}
+          cta={{ href: venueHref('/studyo/hesap'), label: 'Ücretsiz kaydol' }}
         />
       )}
       {!data.isPublished && (
         <Banner
           tone="amber"
           text="Menün henüz yayında değil. Yayınladığında bağlantı ve QR herkese açılır."
-          cta={{ href: '/studyo/ayarlar', label: 'Yayınla' }}
+          cta={{ href: venueHref('/studyo/ayarlar'), label: 'Yayınla' }}
         />
       )}
       {data.pendingCount > 0 && (
         <Banner
           tone="stone"
           text={`${data.pendingCount}/${data.itemCount} ürünün alerjen onayı bekliyor. Onaylanmayan ürünlerde misafir alerjen bilgisi göremez.`}
-          cta={{ href: '/studyo/uyum', label: 'Uyum ekranı' }}
+          cta={{ href: venueHref('/studyo/uyum'), label: 'Uyum ekranı' }}
         />
       )}
 
       {/* Durum kartları */}
       <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Ürün" value={data.itemCount} href="/studyo/ayarlar" />
+        <StatCard label="Ürün" value={data.itemCount} href={venueHref('/studyo/ayarlar')} />
         <StatCard
           label="Onaylı ürün"
           value={data.itemCount - data.pendingCount}
           sub={`/ ${data.itemCount}`}
         />
-        <StatCard label="Aktif QR" value={data.qrActive} href="/studyo/qr" />
+        <StatCard label="Aktif QR" value={data.qrActive} href={venueHref('/studyo/qr')} />
         <StatCard label="30 gün tarama" value={data.stats.scans} />
       </section>
 
@@ -137,7 +138,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
                 : 'Menünü yayınla ve QR kodunu paylaş; ziyaretçi verisi burada birikir.'}
             </p>
             <a
-              href="/studyo/qr"
+              href={venueHref('/studyo/qr')}
               className="mt-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-brand-700"
             >
               QR kodu al
@@ -149,12 +150,12 @@ export function Dashboard({ data }: { data: DashboardData }) {
       {/* Hızlı eylemler */}
       <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <QuickLink href="/studyo" icon="📸" label="Menüye resim yükle" />
-        <QuickLink href="/studyo/uyum" icon="✅" label="Alerjen / uyum" />
-        <QuickLink href="/studyo/gorseller" icon="🎨" label="Görseller" />
-        <QuickLink href="/studyo/diller" icon="🌍" label="Diller / çeviri" />
-        <QuickLink href="/studyo/qr" icon="🔳" label="QR kodları" />
-        <QuickLink href="/studyo/ayarlar" icon="⚙️" label="Ayarlar" />
-        <QuickLink href="/studyo/hesap" icon="👤" label="Hesap" />
+        <QuickLink href={venueHref('/studyo/uyum')} icon="✅" label="Alerjen / uyum" />
+        <QuickLink href={venueHref('/studyo/gorseller')} icon="🎨" label="Görseller" />
+        <QuickLink href={venueHref('/studyo/diller')} icon="🌍" label="Diller / çeviri" />
+        <QuickLink href={venueHref('/studyo/qr')} icon="🔳" label="QR kodları" />
+        <QuickLink href={venueHref('/studyo/ayarlar')} icon="⚙️" label="Ayarlar" />
+        <QuickLink href={venueHref('/studyo/hesap')} icon="👤" label="Hesap" />
         <QuickLink href={`/studyo/plan?venue=${encodeURIComponent(data.venueId)}`} icon="💎" label="Plan / yükselt" />
       </section>
       </div>
@@ -307,7 +308,7 @@ function PlanCard({ plan, itemCount, venueId }: { plan: PlanInfo; itemCount: num
               <li key={m}>{m}</li>
             ))}
           </ul>
-          <a href="/studyo/hesap" className="mt-2 inline-block font-semibold underline underline-offset-2">
+          <a href={`/studyo/hesap?venue=${encodeURIComponent(venueId)}`} className="mt-2 inline-block font-semibold underline underline-offset-2">
             Hesap sayfasına git
           </a>
         </div>

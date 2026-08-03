@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { isPhoneVerificationConfigured } from '@/lib/sms';
+import { resolveManagedVenue } from '@/lib/managed-venue';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
 
@@ -18,7 +20,9 @@ export const runtime = 'nodejs';
  * account-card.tsx içindeki bypass düğmesini sil; yerine gerçek OTP
  * gönder/doğrula akışı (iki adımlı) eklenir.
  */
-export async function POST() {
+const bodySchema = z.object({ venueId: z.string().uuid().nullable().optional() });
+
+export async function POST(request: Request) {
   if (isPhoneVerificationConfigured()) {
     return NextResponse.json({ error: 'SMS doğrulama aktif; bypass kapalı.' }, { status: 403 });
   }
@@ -29,21 +33,18 @@ export async function POST() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
 
-  const admin = createAdminClient();
-  const { data: membership } = await admin
-    .from('organization_members')
-    .select('org_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .maybeSingle();
-  if (!membership) {
+  const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
+  if (!parsed.success) return NextResponse.json({ error: 'Geçersiz işletme seçimi.' }, { status: 400 });
+  const venue = await resolveManagedVenue(supabase, parsed.data.venueId);
+  if (!venue) {
     return NextResponse.json({ error: 'İşletme bulunamadı.' }, { status: 404 });
   }
+  const admin = createAdminClient();
 
   const { data: org } = await admin
     .from('organizations')
     .select('contact_phone')
-    .eq('id', membership.org_id)
+    .eq('id', venue.org_id)
     .maybeSingle();
   if (!org?.contact_phone) {
     return NextResponse.json({ error: 'Önce bir telefon numarası ekle.' }, { status: 400 });
@@ -52,7 +53,7 @@ export async function POST() {
   const { error } = await admin
     .from('organizations')
     .update({ contact_phone_verified_at: new Date().toISOString() })
-    .eq('id', membership.org_id);
+    .eq('id', venue.org_id);
   if (error) {
     return NextResponse.json({ error: 'Doğrulanamadı.', details: error.message }, { status: 500 });
   }

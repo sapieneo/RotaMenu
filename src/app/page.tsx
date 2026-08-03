@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { resolveManagedVenue } from '@/lib/managed-venue';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,12 +18,7 @@ export default async function Home() {
   } = await supabase.auth.getUser();
 
   if (user) {
-    const { data: venue } = await supabase
-      .from('venues')
-      .select('id')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const venue = await resolveManagedVenue(supabase);
     if (venue) {
       const { data: someCat } = await supabase
         .from('categories')

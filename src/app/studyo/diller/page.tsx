@@ -1,21 +1,17 @@
 import { createClient } from '@/lib/supabase/server';
 import { normalizePlan, planLimits } from '@/lib/plans';
 import { MENU_LANGUAGES } from '@/lib/languages';
+import { resolveManagedVenue } from '@/lib/managed-venue';
 import { LanguageManager, type TranslationJobView } from './language-manager';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LanguagesPage() {
+export default async function LanguagesPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return <EmptyState title="Oturum bulunamadı" text="Dil yönetimi için Studyoya giriş yapın." />;
 
-  const { data: venue } = await supabase
-    .from('venues')
-    .select('id, org_id, name')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
   if (!venue) return <EmptyState title="Henüz menünüz yok" text="Önce menünüzü oluşturun." />;
 
   const [{ data: menu }, { data: org }] = await Promise.all([
@@ -48,6 +44,7 @@ export default async function LanguagesPage() {
 
   return (
     <LanguageManager
+      venueId={venue.id}
       venueName={venue.name}
       languages={[...MENU_LANGUAGES]}
       jobs={(jobs ?? []) as TranslationJobView[]}

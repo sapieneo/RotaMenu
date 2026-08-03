@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { planLimits, normalizePlan } from '@/lib/plans';
 import { Dashboard, type DashboardData, type DayBucket } from './dashboard';
+import { resolveManagedVenue } from '@/lib/managed-venue';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,19 +30,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
   const isAnonymous = (user as { is_anonymous?: boolean }).is_anonymous ?? !user.email;
   const accountSecured = !isAnonymous && Boolean(user.email);
 
-  const venueSelection = searchParams?.venue
-    ? await supabase
-        .from('venues')
-        .select('id, org_id, slug, name, is_published, published_at')
-        .eq('id', searchParams.venue)
-        .maybeSingle()
-    : await supabase
-        .from('venues')
-        .select('id, org_id, slug, name, is_published, published_at')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-  const venue = venueSelection.data;
+  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
 
   if (!venue) {
     return (

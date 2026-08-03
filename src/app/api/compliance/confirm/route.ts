@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 
 const bodySchema = z.object({
   itemId: z.string().uuid(),
-  /** Onaylanan nihai alerjen seti. Boş = "alerjensiz" beyanı. */
+  /** Onaylanan nihai alerjen seti. Boş = listelenen alerjen olmadığına dair işletme beyanı. */
   allergenCodes: z.array(z.enum(ALLERGEN_CODES)).default([]),
   /** Onaylanan diyet rozetleri (Helal/Alkolsüz/Vegan/Vejetaryen). */
   dietaryCodes: z.array(z.enum(DIETARY_CODES)).default([]),
