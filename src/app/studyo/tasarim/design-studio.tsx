@@ -60,21 +60,37 @@ export function DesignStudio({
     setSaveState('idle');
   }
 
-  async function save() {
+  async function save(settingsToSave = settings) {
     setSaveState('saving');
     try {
       const response = await fetch('/api/venue/design', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venueId: venue.id, settings }),
+        body: JSON.stringify({ venueId: venue.id, settings: settingsToSave }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? 'Tasarım kaydedilemedi.');
-      setSaved(settings);
+      setSaved(settingsToSave);
       setSaveState('saved');
+      return true;
     } catch {
       setSaveState('error');
+      return false;
     }
+  }
+
+  async function openFullscreenMenu() {
+    // Yeni sekmeyi kullanıcı tıklaması sırasında açıyoruz; böylece tarayıcı
+    // kaydetme isteği sürerken bunu bir pop-up olarak engellemez.
+    const menuWindow = window.open('', '_blank');
+    const wasSaved = dirty ? await save() : true;
+    if (!wasSaved) {
+      menuWindow?.close();
+      return;
+    }
+    const menuUrl = `/m/${venue.slug}`;
+    if (menuWindow) menuWindow.location.assign(menuUrl);
+    else window.open(menuUrl, '_blank', 'noopener,noreferrer');
   }
 
   async function uploadBackground(file: File) {
@@ -131,7 +147,7 @@ export function DesignStudio({
           <span className={`hidden text-xs sm:inline ${dirty ? 'text-amber-600' : 'text-emerald-600'}`}>
             {dirty ? 'Kaydedilmemiş değişiklik' : saveState === 'saved' ? '✓ Kaydedildi' : 'Güncel'}
           </span>
-          <button onClick={save} disabled={!dirty || saveState === 'saving'} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40">
+          <button onClick={() => void save()} disabled={!dirty || saveState === 'saving'} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40">
             {saveState === 'saving' ? 'Kaydediliyor…' : 'Tasarımı kaydet'}
           </button>
         </div>
@@ -230,7 +246,9 @@ export function DesignStudio({
           {saveState === 'error' && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Tasarım kaydedilemedi. Bağlantını kontrol edip tekrar dene.</p>}
           <div className="flex flex-wrap items-center gap-3 pb-10">
             <button onClick={() => setSettings({ ...DEFAULT_MENU_DESIGN })} className="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Varsayılana dön</button>
-            <a href={`/m/${venue.slug}`} target="_blank" rel="noreferrer" className="text-sm font-semibold text-brand-700 hover:underline">Tam ekran menüyü aç ↗</a>
+            <button type="button" onClick={() => void openFullscreenMenu()} disabled={saveState === 'saving'} className="text-sm font-semibold text-brand-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50">
+              {dirty ? 'Kaydet ve tam ekran menüyü aç ↗' : 'Tam ekran menüyü aç ↗'}
+            </button>
           </div>
         </div>
 
