@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatPrice } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -268,9 +268,34 @@ export function DesignStudio({
 
 function PhonePreview({ venue, categories, settings }: { venue: { name: string; description: string | null; currency: string; logoUrl: string | null; coverUrl: string | null }; categories: DesignPreviewCategory[]; settings: MenuDesignSettings }) {
   const previewCategories = useMemo(() => categories.length ? categories : [{ id: 'sample', name: 'Menü', backgroundUrl: null, backgroundStyle: 'strip' as const, items: [{ id: '1', name: 'İmza Tabağı', description: 'Mevsim ürünleriyle hazırlanan özel lezzet', price: 320, imageUrl: null }, { id: '2', name: 'Günün Çorbası', description: 'Her gün taze hazırlanır', price: 120, imageUrl: null }] }], [categories]);
+  const [activeCategory, setActiveCategory] = useState(previewCategories[0]?.id ?? '');
+  const previewNavRef = useRef<HTMLDivElement | null>(null);
+  const previewTabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const previewSectionRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  useEffect(() => {
+    setActiveCategory(previewCategories[0]?.id ?? '');
+  }, [previewCategories]);
+
+  useEffect(() => {
+    const nav = previewNavRef.current;
+    const tab = previewTabRefs.current[activeCategory];
+    if (!nav || !tab) return;
+    nav.scrollTo({ left: tab.offsetLeft - nav.clientWidth / 2 + tab.clientWidth / 2, behavior: 'smooth' });
+  }, [activeCategory]);
+
+  function trackPreviewScroll(event: React.UIEvent<HTMLDivElement>) {
+    const viewportTop = event.currentTarget.getBoundingClientRect().top + 108;
+    const visible = previewCategories
+      .map((category) => ({ id: category.id, top: previewSectionRefs.current[category.id]?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY }))
+      .filter((category) => category.top <= viewportTop)
+      .sort((a, b) => b.top - a.top)[0];
+    if (visible) setActiveCategory(visible.id);
+  }
+
   return (
     <div className="mx-auto w-full max-w-[390px] rounded-[42px] border-[8px] border-stone-900 bg-stone-900 p-1 shadow-2xl">
-      <div className="relative h-[700px] overflow-y-auto rounded-[31px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ ...menuBackgroundStyle(settings), color: settings.textColor, fontFamily: settings.bodyFont, fontSize: `${settings.baseFontSize}px` }}>
+      <div onScroll={trackPreviewScroll} className="relative h-[700px] overflow-y-auto rounded-[31px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ ...menuBackgroundStyle(settings), color: settings.textColor, fontFamily: settings.bodyFont, fontSize: `${settings.baseFontSize}px` }}>
         <div className="sticky top-0 z-30 flex h-7 items-center justify-between px-5 text-[10px] font-bold" style={{ backgroundColor: settings.surfaceColor }}><span>9:41</span><span>● ᴡɪꜰɪ ▰</span></div>
         <header style={{ backgroundColor: settings.surfaceColor }}>
           <div className="h-28 bg-cover bg-center" style={venue.coverUrl ? { backgroundImage: `linear-gradient(0deg, rgba(0,0,0,.18), rgba(0,0,0,.18)), url(${venue.coverUrl})` } : { background: `linear-gradient(135deg, ${settings.primaryColor}, ${settings.accentColor})` }} />
@@ -282,14 +307,15 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
             {venue.description && <p className="mt-1 line-clamp-2 text-xs" style={{ color: settings.mutedTextColor }}>{venue.description}</p>}
           </div>
         </header>
-        <nav className="sticky top-7 z-20 flex gap-2 overflow-hidden px-3 py-2 shadow-sm" style={{ backgroundColor: hexToRgba(settings.surfaceColor, 94) }}>
-          {previewCategories.map((category, index) => <span key={category.id} className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold" style={index === 0 ? { backgroundColor: settings.primaryColor, color: settings.surfaceColor } : { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), color: settings.mutedTextColor }}>{category.name}</span>)}
+        <nav ref={previewNavRef} className="sticky top-7 z-20 flex gap-2 overflow-x-auto px-3 py-2 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ backgroundColor: hexToRgba(settings.surfaceColor, 94) }}>
+          {previewCategories.map((category) => <button key={category.id} ref={(element) => { previewTabRefs.current[category.id] = element; }} type="button" onClick={() => previewSectionRefs.current[category.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold" style={category.id === activeCategory ? { backgroundColor: settings.primaryColor, color: settings.surfaceColor } : { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), color: settings.mutedTextColor }}>{category.name}</button>)}
         </nav>
         <div className="space-y-7 px-3 py-5">
           {previewCategories.map((category) => {
             const hasHeroBackground = Boolean(category.backgroundUrl) && category.backgroundStyle === 'hero';
             return <section
               key={category.id}
+              ref={(element) => { previewSectionRefs.current[category.id] = element; }}
               className={settings.layout === 'two-column' ? 'p-3 shadow-sm' : ''}
               style={{
                 ...(hasHeroBackground ? {
