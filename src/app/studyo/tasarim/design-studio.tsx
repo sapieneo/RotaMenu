@@ -90,8 +90,24 @@ export function DesignStudio({
       return;
     }
     const { data } = supabase.storage.from('venue-media').getPublicUrl(path);
+    if (settings.backgroundImageUrl) {
+      const oldPath = storagePathFromPublicUrl(settings.backgroundImageUrl);
+      if (oldPath) await supabase.storage.from('venue-media').remove([oldPath]);
+    }
     setSettings((current) => ({ ...current, backgroundImageUrl: data.publicUrl }));
     setSaveState('idle');
+    setUploadState('idle');
+  }
+
+  async function removeBackground() {
+    if (!settings.backgroundImageUrl) return;
+    setUploadState('uploading');
+    const path = storagePathFromPublicUrl(settings.backgroundImageUrl);
+    if (path) {
+      const supabase = createClient();
+      await supabase.storage.from('venue-media').remove([path]);
+    }
+    update('backgroundImageUrl', null);
     setUploadState('idle');
   }
 
@@ -176,7 +192,7 @@ export function DesignStudio({
               </div>
               {uploadState === 'error' && <p className="mt-2 text-xs font-medium text-red-600">Yalnızca 10 MB’den küçük JPG dosyası yükleyebilirsin.</p>}
               {settings.backgroundImageUrl && <div className="mt-4 space-y-4 rounded-xl border border-stone-200 bg-stone-50 p-3">
-                <div className="flex items-center gap-3"><img src={settings.backgroundImageUrl} alt="Yüklenen arka plan dokusu" className="h-16 w-24 rounded-lg object-cover" /><div className="flex-1"><p className="text-sm font-semibold text-stone-700">Özel JPG dokusu</p><button type="button" onClick={() => update('backgroundImageUrl', null)} className="mt-1 text-xs font-medium text-red-600 hover:underline">Kaldır</button></div></div>
+                <div className="flex items-center gap-3"><img src={settings.backgroundImageUrl} alt="Yüklenen arka plan dokusu" className="h-16 w-24 rounded-lg object-cover" /><div className="flex-1"><p className="text-sm font-semibold text-stone-700">Özel JPG dokusu</p><button type="button" onClick={() => void removeBackground()} disabled={uploadState === 'uploading'} className="mt-1 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">Kaldır</button></div></div>
                 <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => update('backgroundImageMode', 'cover')} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${settings.backgroundImageMode === 'cover' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 bg-white text-stone-600'}`}>Alanı kapla</button><button type="button" onClick={() => update('backgroundImageMode', 'tile')} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${settings.backgroundImageMode === 'tile' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 bg-white text-stone-600'}`}>Deseni döşe</button></div>
                 <RangeField label="JPG görünürlüğü" value={settings.backgroundImageOpacity} min={0} max={100} suffix="%" onChange={(value) => update('backgroundImageOpacity', value)} />
               </div>}
@@ -275,4 +291,15 @@ function RangeField({ label, value, min, max, suffix, onChange }: { label: strin
 
 function SelectField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return <label className="block"><span className="mb-1.5 block text-sm font-medium text-stone-700">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-500">{FONT_OPTIONS.map((font) => <option key={font.id} value={font.value}>{font.label}</option>)}</select><span className="mt-2 block truncate text-base" style={{ fontFamily: value }}>İyi yemek, güzel anılar.</span></label>;
+}
+
+function storagePathFromPublicUrl(url: string): string | null {
+  const marker = '/storage/v1/object/public/venue-media/';
+  try {
+    const path = new URL(url).pathname;
+    const index = path.indexOf(marker);
+    return index >= 0 ? decodeURIComponent(path.slice(index + marker.length)) : null;
+  } catch {
+    return null;
+  }
 }
