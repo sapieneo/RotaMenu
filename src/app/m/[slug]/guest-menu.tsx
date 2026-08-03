@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ALLERGENS } from '@/lib/allergens';
 import { DIETARY } from '@/lib/dietary';
 import { formatPrice } from '@/lib/currency';
+import { hexToRgba, textureBackground, textureSize, type MenuDesignSettings } from '@/lib/themes';
 
 export type GuestItem = {
   id: string;
@@ -43,6 +44,7 @@ export type GuestVenue = {
   isPublished: boolean;
   /** Ücretsiz planda "RestaurantOS ile hazırlandı" rozeti gösterilir. */
   showBadge: boolean;
+  design: MenuDesignSettings;
 };
 
 export function GuestMenu({
@@ -131,8 +133,21 @@ export function GuestMenu({
     );
   }
 
+  const design = venue.design;
+  const pageTexture = textureBackground(design.texture, design.textColor, design.textureOpacity);
+
   return (
-    <div className="mx-auto min-h-screen max-w-lg bg-white pb-16 shadow-sm sm:my-4 sm:rounded-2xl">
+    <div
+      className="mx-auto min-h-screen max-w-lg pb-16 shadow-sm sm:my-4 sm:rounded-2xl"
+      style={{
+        backgroundColor: design.backgroundColor,
+        backgroundImage: pageTexture,
+        backgroundSize: textureSize(design.texture),
+        color: design.textColor,
+        fontFamily: design.bodyFont,
+        fontSize: `${design.baseFontSize}px`,
+      }}
+    >
       {/* DİKKAT: dış kapsayıcıda overflow-hidden OLMAMALI — position:sticky'nin
           "en yakın scroll ata"sını buraya sabitler ve nav'ı kırar. Yuvarlak
           köşe kırpma bunun yerine header/footer'ın kendi üzerinde yapılır. */}
@@ -143,30 +158,30 @@ export function GuestMenu({
       )}
 
       {/* Hero */}
-      <header className="relative">
+      <header className="relative" style={{ backgroundColor: design.surfaceColor }}>
         <div
-          className="h-40 w-full bg-gradient-to-br from-brand-500 to-brand-700 bg-cover bg-center sm:rounded-t-2xl"
-          style={venue.coverUrl ? { backgroundImage: `url(${venue.coverUrl})` } : undefined}
+          className="h-40 w-full bg-cover bg-center sm:rounded-t-2xl"
+          style={venue.coverUrl ? { backgroundImage: `url(${venue.coverUrl})` } : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }}
         />
         <div className="px-5 pb-4">
           <div className="-mt-10 flex items-end gap-3">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-white shadow-md">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden border-4 shadow-md" style={{ borderColor: design.surfaceColor, backgroundColor: design.surfaceColor, borderRadius: `${Math.min(design.cardRadius, 24)}px` }}>
               {venue.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={venue.logoUrl} alt={venue.name} className="h-full w-full object-cover" />
               ) : (
-                <span className="text-2xl font-bold text-brand-600">
+                <span className="text-2xl font-bold" style={{ color: design.primaryColor }}>
                   {venue.name.slice(0, 2).toUpperCase()}
                 </span>
               )}
             </div>
           </div>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight">{venue.name}</h1>
+          <h1 className="mt-3 font-bold tracking-tight" style={{ fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale * 1.35}px` }}>{venue.name}</h1>
           {venue.description && (
-            <p className="mt-1 text-sm text-stone-500">{venue.description}</p>
+            <p className="mt-1 text-sm" style={{ color: design.mutedTextColor }}>{venue.description}</p>
           )}
           {availableLocales.length > 1 && (
-            <label className="mt-4 inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-700 shadow-sm">
+            <label className="mt-4 inline-flex items-center gap-2 border px-3 py-2 text-sm font-medium shadow-sm" style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), backgroundColor: design.surfaceColor, color: design.textColor, borderRadius: `${Math.min(design.cardRadius, 16)}px` }}>
               <span aria-hidden>🌐</span>
               <span className="sr-only">Menü dili</span>
               <select
@@ -190,7 +205,7 @@ export function GuestMenu({
       </header>
 
       {/* Yapışkan kategori sekmeleri */}
-      <nav className="sticky top-0 z-20 border-b border-stone-100 bg-white/95 backdrop-blur">
+      <nav className="sticky top-0 z-20 border-b backdrop-blur" style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), backgroundColor: hexToRgba(design.surfaceColor, 95) }}>
         <div
           ref={navRef}
           className="flex gap-1 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -204,11 +219,10 @@ export function GuestMenu({
                   tabRefs.current[c.id] = el;
                 }}
                 onClick={() => goTo(c.id)}
-                className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                }`}
+                className="whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition"
+                style={isActive
+                  ? { backgroundColor: design.primaryColor, color: design.surfaceColor }
+                  : { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.mutedTextColor }}
               >
                 {c.name}
               </button>
@@ -222,32 +236,34 @@ export function GuestMenu({
         {categories.map((c) => {
           const isHero = Boolean(c.backgroundUrl) && c.backgroundStyle === 'hero';
           const itemList = (
-            <ul className="divide-y divide-stone-100/80">
+            <ul style={{ display: 'grid', gap: `${design.itemSpacing}px` }}>
               {c.items.map((it) => (
                 <li key={it.id}>
                   <button
                     onClick={() => openItem(it)}
-                    className="flex w-full items-start gap-3 py-3 text-left transition active:bg-stone-50"
+                    className="flex w-full items-start gap-3 p-3 text-left shadow-sm transition"
+                    style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px`, borderBottom: `1px solid ${hexToRgba(design.dividerColor, design.dividerOpacity)}` }}
                   >
                     {it.imageUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={it.imageUrl}
                         alt={it.name}
-                        className="h-16 w-16 shrink-0 rounded-xl object-cover"
+                        className="h-16 w-16 shrink-0 object-cover"
+                        style={{ borderRadius: `${Math.min(design.cardRadius, 16)}px` }}
                       />
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
-                        <h3 className="font-semibold text-stone-800">{it.name}</h3>
+                        <h3 className="font-semibold" style={{ color: design.textColor }}>{it.name}</h3>
                         {it.price != null && (
-                          <span className="shrink-0 font-semibold text-brand-700">
+                          <span className="shrink-0 font-semibold" style={{ color: design.primaryColor }}>
                             {formatPrice(it.price, venue.currency)}
                           </span>
                         )}
                       </div>
                       {it.description && (
-                        <p className="mt-0.5 line-clamp-2 text-sm text-stone-500">
+                        <p className="mt-0.5 line-clamp-2 text-sm" style={{ color: design.mutedTextColor }}>
                           {it.description}
                         </p>
                       )}
@@ -361,7 +377,7 @@ export function GuestMenu({
                   </div>
                   <div className="relative z-10 -mt-72 sm:-mt-80">
                     <div className="px-1 pb-3 pt-8 text-center">
-                      <h2 className="text-xl font-bold uppercase tracking-wide text-white drop-shadow-lg sm:text-2xl">
+                      <h2 className="text-xl font-bold uppercase tracking-wide text-white drop-shadow-lg sm:text-2xl" style={{ fontFamily: design.headingFont }}>
                         {c.name}
                       </h2>
                       <span className="mx-auto mt-1.5 block h-0.5 w-10 bg-white/70" />
@@ -379,7 +395,7 @@ export function GuestMenu({
                       className="absolute inset-0 h-full w-full object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                    <h2 className="absolute bottom-2 left-3 text-xl font-bold text-white drop-shadow-md">
+                    <h2 className="absolute bottom-2 left-3 text-xl font-bold text-white drop-shadow-md" style={{ fontFamily: design.headingFont }}>
                       {c.name}
                     </h2>
                   </div>
@@ -387,7 +403,7 @@ export function GuestMenu({
                 </>
               ) : (
                 <>
-                  <h2 className="mb-2 px-1 text-lg font-bold text-stone-800">{c.name}</h2>
+                  <h2 className="mb-2 px-1 font-bold" style={{ color: design.textColor, fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale}px` }}>{c.name}</h2>
                   {itemList}
                 </>
               )}
@@ -567,21 +583,22 @@ function ContactFooter({ venue }: { venue: GuestVenue }) {
   );
 
   return (
-    <footer className="mt-8 border-t border-stone-100 px-5 py-6">
+    <footer className="mt-8 border-t px-5 py-6" style={{ borderColor: hexToRgba(venue.design.dividerColor, venue.design.dividerOpacity), backgroundColor: hexToRgba(venue.design.surfaceColor, 75) }}>
       {rows.length > 0 && (
         <dl className="space-y-3">
           {rows.map((r) => (
             <div key={r.label} className="flex flex-col gap-0.5">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+              <dt className="text-xs font-semibold uppercase tracking-wide" style={{ color: venue.design.mutedTextColor }}>
                 {r.label}
               </dt>
-              <dd className="text-sm text-stone-700">
+              <dd className="text-sm" style={{ color: venue.design.textColor }}>
                 {r.href ? (
                   <a
                     href={r.href}
                     target={r.href.startsWith('http') ? '_blank' : undefined}
                     rel="noreferrer"
-                    className="text-brand-700 underline-offset-2 hover:underline"
+                    className="underline-offset-2 hover:underline"
+                    style={{ color: venue.design.primaryColor }}
                   >
                     {r.value}
                   </a>

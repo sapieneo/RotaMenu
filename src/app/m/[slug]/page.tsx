@@ -8,6 +8,7 @@ import { CODE_BY_ID } from '@/lib/allergens';
 import { DIETARY_CODE_BY_ID } from '@/lib/dietary';
 import { MENU_LANGUAGE_BY_CODE, SOURCE_LANGUAGE } from '@/lib/languages';
 import { GuestMenu, type GuestCategory, type GuestVenue } from './guest-menu';
+import { normalizeMenuDesign } from '@/lib/themes';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,7 +54,7 @@ export default async function GuestMenuPage({
 
   const { data: venue } = await supabase
     .from('venues')
-    .select('id, org_id, name, description, logo_url, cover_url, currency_code, is_published, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours')
+    .select('id, org_id, name, description, logo_url, cover_url, currency_code, is_published, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, design_settings')
     .eq('slug', params.slug)
     .maybeSingle();
 
@@ -219,6 +220,7 @@ export default async function GuestMenuPage({
     openingHours: venue.opening_hours ?? null,
     isPublished: Boolean(venue.is_published),
     showBadge,
+    design: normalizeMenuDesign(venue.design_settings),
   };
 
   // 'menu_view' — yalnız YAYINDAKİ menüde sayılır. Sahibin önizlemesi

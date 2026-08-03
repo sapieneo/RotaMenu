@@ -1,0 +1,225 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { formatPrice } from '@/lib/currency';
+import {
+  DEFAULT_MENU_DESIGN,
+  FONT_OPTIONS,
+  MENU_DESIGN_PRESETS,
+  TEXTURE_OPTIONS,
+  hexToRgba,
+  stripPresetMeta,
+  textureBackground,
+  textureSize,
+  type MenuDesignSettings,
+} from '@/lib/themes';
+
+export type DesignPreviewCategory = {
+  id: string;
+  name: string;
+  items: { id: string; name: string; description: string | null; price: number | null; imageUrl: string | null }[];
+};
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+export function DesignStudio({
+  venue,
+  categories,
+  initial,
+  dashboardHref,
+}: {
+  venue: { id: string; name: string; description: string | null; slug: string; currency: string; logoUrl: string | null; coverUrl: string | null };
+  categories: DesignPreviewCategory[];
+  initial: MenuDesignSettings;
+  dashboardHref: string;
+}) {
+  const [settings, setSettings] = useState(initial);
+  const [saved, setSaved] = useState(initial);
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
+
+  function update<K extends keyof MenuDesignSettings>(key: K, value: MenuDesignSettings[K]) {
+    setSettings((current) => ({ ...current, [key]: value }));
+    setSaveState('idle');
+  }
+
+  function applyPreset(index: number) {
+    setSettings(stripPresetMeta(MENU_DESIGN_PRESETS[index]!));
+    setSaveState('idle');
+  }
+
+  async function save() {
+    setSaveState('saving');
+    try {
+      const response = await fetch('/api/venue/design', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId: venue.id, settings }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? 'Tasarım kaydedilemedi.');
+      setSaved(settings);
+      setSaveState('saved');
+    } catch {
+      setSaveState('error');
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-stone-100">
+      <header className="sticky top-0 z-40 border-b border-stone-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-3 sm:px-6">
+          <a href={dashboardHref} className="rounded-lg px-2 py-1.5 text-sm font-medium text-stone-500 hover:bg-stone-100 hover:text-stone-800">← Panoya dön</a>
+          <div className="min-w-0 flex-1 border-l border-stone-200 pl-3">
+            <p className="truncate text-sm font-semibold text-stone-900">Tasarım Stüdyosu</p>
+            <p className="truncate text-xs text-stone-500">{venue.name}</p>
+          </div>
+          <span className={`hidden text-xs sm:inline ${dirty ? 'text-amber-600' : 'text-emerald-600'}`}>
+            {dirty ? 'Kaydedilmemiş değişiklik' : saveState === 'saved' ? '✓ Kaydedildi' : 'Güncel'}
+          </span>
+          <button onClick={save} disabled={!dirty || saveState === 'saving'} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40">
+            {saveState === 'saving' ? 'Kaydediliyor…' : 'Tasarımı kaydet'}
+          </button>
+        </div>
+      </header>
+
+      <div className="mx-auto grid max-w-[1440px] gap-7 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,840px)_420px] xl:justify-between">
+        <div className="min-w-0 space-y-6">
+          <section>
+            <div className="mb-3">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-600">Başlangıç noktası</p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-stone-900">Hazır tasarımlar</h1>
+              <p className="mt-1 text-sm text-stone-500">Bir şablon seç, sonra bütün ayrıntıları kendi markana göre değiştir.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+              {MENU_DESIGN_PRESETS.map((preset, index) => {
+                const active = settings.templateId === preset.templateId;
+                return (
+                  <button key={preset.templateId} onClick={() => applyPreset(index)} className={`overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${active ? 'border-brand-500 ring-2 ring-brand-100' : 'border-stone-200'}`}>
+                    <span className="block h-20 p-3" style={{ backgroundColor: preset.backgroundColor, backgroundImage: textureBackground(preset.texture, preset.textColor, preset.textureOpacity), backgroundSize: textureSize(preset.texture) }}>
+                      <span className="block h-3 w-3/4 rounded-full" style={{ backgroundColor: preset.primaryColor }} />
+                      <span className="mt-3 block space-y-1.5 rounded-lg p-2" style={{ backgroundColor: hexToRgba(preset.cardColor, preset.cardOpacity) }}>
+                        <span className="block h-1.5 w-4/5 rounded" style={{ backgroundColor: preset.textColor }} />
+                        <span className="block h-1 w-2/3 rounded opacity-50" style={{ backgroundColor: preset.mutedTextColor }} />
+                      </span>
+                    </span>
+                    <span className="block p-3">
+                      <span className="flex items-center justify-between gap-1 text-sm font-semibold text-stone-800">{preset.name}{active && <span className="text-brand-600">✓</span>}</span>
+                      <span className="mt-0.5 block text-[11px] text-stone-500">{preset.mood}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <ControlSection title="Renkler" description="Menünün ana yüzeylerini ve vurgu renklerini belirle.">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <ColorField label="Sayfa arka planı" value={settings.backgroundColor} onChange={(value) => update('backgroundColor', value)} />
+              <ColorField label="Üst yüzey" value={settings.surfaceColor} onChange={(value) => update('surfaceColor', value)} />
+              <ColorField label="Ana renk" value={settings.primaryColor} onChange={(value) => update('primaryColor', value)} />
+              <ColorField label="Vurgu rengi" value={settings.accentColor} onChange={(value) => update('accentColor', value)} />
+              <ColorField label="Ana yazı" value={settings.textColor} onChange={(value) => update('textColor', value)} />
+              <ColorField label="İkincil yazı" value={settings.mutedTextColor} onChange={(value) => update('mutedTextColor', value)} />
+            </div>
+          </ControlSection>
+
+          <ControlSection title="Arka plan dokusu" description="Düz renk üzerine hafif bir malzeme hissi ekle.">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {TEXTURE_OPTIONS.map((texture) => (
+                <button key={texture.id} onClick={() => update('texture', texture.id)} className={`h-16 rounded-xl border text-xs font-semibold transition ${settings.texture === texture.id ? 'border-brand-500 text-brand-700 ring-2 ring-brand-100' : 'border-stone-200 text-stone-600'}`} style={{ backgroundColor: settings.backgroundColor, backgroundImage: textureBackground(texture.id, settings.textColor, Math.max(settings.textureOpacity, 18)), backgroundSize: textureSize(texture.id) }}>{texture.label}</button>
+              ))}
+            </div>
+            <RangeField label="Doku yoğunluğu" value={settings.textureOpacity} min={0} max={60} suffix="%" onChange={(value) => update('textureOpacity', value)} />
+          </ControlSection>
+
+          <ControlSection title="Tipografi" description="Başlık ve ürün metinlerinin karakterini ayarla.">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField label="Başlık fontu" value={settings.headingFont} onChange={(value) => update('headingFont', value)} />
+              <SelectField label="Gövde fontu" value={settings.bodyFont} onChange={(value) => update('bodyFont', value)} />
+            </div>
+            <RangeField label="Yazı boyutu" value={settings.baseFontSize} min={13} max={20} suffix=" px" onChange={(value) => update('baseFontSize', value)} />
+            <RangeField label="Başlık büyüklüğü" value={Math.round(settings.headingScale * 100)} min={100} max={160} suffix="%" onChange={(value) => update('headingScale', value / 100)} />
+          </ControlSection>
+
+          <ControlSection title="Ürün kartları ve aralıklar" description="Ürünlerin birbirinden ne kadar ayrışacağını belirle.">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ColorField label="Kart rengi" value={settings.cardColor} onChange={(value) => update('cardColor', value)} />
+              <ColorField label="Ayırıcı rengi" value={settings.dividerColor} onChange={(value) => update('dividerColor', value)} />
+            </div>
+            <RangeField label="Kart şeffaflığı" value={settings.cardOpacity} min={20} max={100} suffix="%" onChange={(value) => update('cardOpacity', value)} />
+            <RangeField label="Köşe yuvarlaklığı" value={settings.cardRadius} min={0} max={32} suffix=" px" onChange={(value) => update('cardRadius', value)} />
+            <RangeField label="Ürünler arası boşluk" value={settings.itemSpacing} min={6} max={28} suffix=" px" onChange={(value) => update('itemSpacing', value)} />
+            <RangeField label="Ayırıcı görünürlüğü" value={settings.dividerOpacity} min={0} max={100} suffix="%" onChange={(value) => update('dividerOpacity', value)} />
+          </ControlSection>
+
+          {saveState === 'error' && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Tasarım kaydedilemedi. Bağlantını kontrol edip tekrar dene.</p>}
+          <div className="flex flex-wrap items-center gap-3 pb-10">
+            <button onClick={() => setSettings({ ...DEFAULT_MENU_DESIGN })} className="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Varsayılana dön</button>
+            <a href={`/m/${venue.slug}`} target="_blank" rel="noreferrer" className="text-sm font-semibold text-brand-700 hover:underline">Tam ekran menüyü aç ↗</a>
+          </div>
+        </div>
+
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">Canlı önizleme</p><p className="mt-0.5 text-xs text-stone-500">Değişiklikler anında görünür</p></div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Canlı</span>
+          </div>
+          <PhonePreview venue={venue} categories={categories} settings={settings} />
+        </aside>
+      </div>
+    </main>
+  );
+}
+
+function PhonePreview({ venue, categories, settings }: { venue: { name: string; description: string | null; currency: string; logoUrl: string | null; coverUrl: string | null }; categories: DesignPreviewCategory[]; settings: MenuDesignSettings }) {
+  const previewCategories = useMemo(() => categories.length ? categories : [{ id: 'sample', name: 'Menü', items: [{ id: '1', name: 'İmza Tabağı', description: 'Mevsim ürünleriyle hazırlanan özel lezzet', price: 320, imageUrl: null }, { id: '2', name: 'Günün Çorbası', description: 'Her gün taze hazırlanır', price: 120, imageUrl: null }] }], [categories]);
+  const texture = textureBackground(settings.texture, settings.textColor, settings.textureOpacity);
+  return (
+    <div className="mx-auto w-full max-w-[390px] rounded-[42px] border-[8px] border-stone-900 bg-stone-900 p-1 shadow-2xl">
+      <div className="relative h-[700px] overflow-y-auto rounded-[31px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ backgroundColor: settings.backgroundColor, backgroundImage: texture, backgroundSize: textureSize(settings.texture), color: settings.textColor, fontFamily: settings.bodyFont, fontSize: `${settings.baseFontSize}px` }}>
+        <div className="sticky top-0 z-30 flex h-7 items-center justify-between px-5 text-[10px] font-bold" style={{ backgroundColor: settings.surfaceColor }}><span>9:41</span><span>● ᴡɪꜰɪ ▰</span></div>
+        <header style={{ backgroundColor: settings.surfaceColor }}>
+          <div className="h-28 bg-cover bg-center" style={venue.coverUrl ? { backgroundImage: `linear-gradient(0deg, rgba(0,0,0,.18), rgba(0,0,0,.18)), url(${venue.coverUrl})` } : { background: `linear-gradient(135deg, ${settings.primaryColor}, ${settings.accentColor})` }} />
+          <div className="px-5 pb-4">
+            <div className="-mt-8 flex h-16 w-16 items-center justify-center overflow-hidden border-4 text-xl font-bold shadow" style={{ borderColor: settings.surfaceColor, backgroundColor: settings.surfaceColor, color: settings.primaryColor, borderRadius: `${Math.min(settings.cardRadius, 20)}px` }}>
+              {venue.logoUrl ? <img src={venue.logoUrl} alt="" className="h-full w-full object-cover" /> : venue.name.slice(0, 2).toUpperCase()}
+            </div>
+            <h2 className="mt-3 font-bold tracking-tight" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale * 1.35}px` }}>{venue.name}</h2>
+            {venue.description && <p className="mt-1 line-clamp-2 text-xs" style={{ color: settings.mutedTextColor }}>{venue.description}</p>}
+          </div>
+        </header>
+        <nav className="sticky top-7 z-20 flex gap-2 overflow-hidden px-3 py-2 shadow-sm" style={{ backgroundColor: hexToRgba(settings.surfaceColor, 94) }}>
+          {previewCategories.map((category, index) => <span key={category.id} className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold" style={index === 0 ? { backgroundColor: settings.primaryColor, color: settings.surfaceColor } : { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), color: settings.mutedTextColor }}>{category.name}</span>)}
+        </nav>
+        <div className="space-y-7 px-3 py-5">
+          {previewCategories.map((category) => <section key={category.id}>
+            <h3 className="mb-2 px-1 font-bold" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
+            <div style={{ display: 'grid', gap: `${settings.itemSpacing}px` }}>
+              {category.items.slice(0, 4).map((item) => <div key={item.id} className="flex items-start gap-3 p-3 shadow-sm" style={{ backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), borderRadius: `${settings.cardRadius}px`, borderBottom: `1px solid ${hexToRgba(settings.dividerColor, settings.dividerOpacity)}` }}>
+                {item.imageUrl && <img src={item.imageUrl} alt="" className="h-14 w-14 shrink-0 object-cover" style={{ borderRadius: `${Math.min(settings.cardRadius, 14)}px` }} />}
+                <div className="min-w-0 flex-1"><div className="flex items-baseline justify-between gap-2"><p className="font-semibold leading-tight">{item.name}</p>{item.price != null && <span className="shrink-0 text-xs font-bold" style={{ color: settings.primaryColor }}>{formatPrice(item.price, venue.currency)}</span>}</div>{item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-snug" style={{ color: settings.mutedTextColor }}>{item.description}</p>}</div>
+              </div>)}
+            </div>
+          </section>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ControlSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  return <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6"><div className="mb-5"><h2 className="text-lg font-bold text-stone-900">{title}</h2><p className="mt-1 text-sm text-stone-500">{description}</p></div><div className="space-y-5">{children}</div></section>;
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <label className="flex items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 p-2.5"><input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-10 cursor-pointer rounded-lg border-0 bg-transparent p-0" /><span className="min-w-0"><span className="block text-xs font-semibold text-stone-700">{label}</span><input value={value.toUpperCase()} onChange={(event) => /^#[0-9A-Fa-f]{0,6}$/.test(event.target.value) && event.target.value.length === 7 && onChange(event.target.value)} className="mt-0.5 w-24 bg-transparent text-xs uppercase text-stone-500 outline-none" /></span></label>;
+}
+
+function RangeField({ label, value, min, max, suffix, onChange }: { label: string; value: number; min: number; max: number; suffix: string; onChange: (value: number) => void }) {
+  return <label className="block"><span className="mb-2 flex items-center justify-between text-sm font-medium text-stone-700"><span>{label}</span><output className="rounded-lg bg-stone-100 px-2 py-1 text-xs font-bold tabular-nums text-stone-600">{value}{suffix}</output></span><input type="range" value={value} min={min} max={max} onChange={(event) => onChange(Number(event.target.value))} className="h-2 w-full cursor-pointer accent-orange-600" /></label>;
+}
+
+function SelectField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <label className="block"><span className="mb-1.5 block text-sm font-medium text-stone-700">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-500">{FONT_OPTIONS.map((font) => <option key={font.id} value={font.value}>{font.label}</option>)}</select><span className="mt-2 block truncate text-base" style={{ fontFamily: value }}>İyi yemek, güzel anılar.</span></label>;
+}

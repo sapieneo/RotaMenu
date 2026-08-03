@@ -129,6 +129,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <QuickLink href="/studyo" icon="📸" label="Menüye sayfa ekle" />
         <QuickLink href={venueHref('/studyo/uyum')} icon="✅" label="Alerjen / uyum" />
+        <QuickLink href={venueHref('/studyo/tasarim')} icon="✦" label="Tasarım" />
         <QuickLink href={venueHref('/studyo/gorseller')} icon="🎨" label="Görseller" />
         <QuickLink href={venueHref('/studyo/diller')} icon="🌍" label="Diller / çeviri" />
         <QuickLink href={venueHref('/studyo/qr')} icon="🔳" label="QR kodları" />
