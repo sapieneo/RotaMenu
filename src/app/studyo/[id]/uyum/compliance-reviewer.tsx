@@ -80,6 +80,8 @@ export function ComplianceReviewer({
       error: null,
     }))
   );
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
   const confirmedCount = items.filter((i) => i.confirmed).length;
   const total = items.length;
@@ -154,12 +156,31 @@ export function ComplianceReviewer({
         ingredients: ingredientsText || s.ingredients,
         saving: false,
       }));
+      return true;
     } catch (err) {
       patch(item.id, (s) => ({
         ...s,
         saving: false,
         error: err instanceof Error ? err.message : 'Beklenmeyen hata.',
       }));
+      return false;
+    }
+  }
+
+  async function confirmAll() {
+    const pendingItems = items.filter((item) => !item.confirmed && !item.saving);
+    if (!pendingItems.length) return;
+
+    setBulkSaving(true);
+    setBulkError(null);
+    let failedCount = 0;
+    for (const item of pendingItems) {
+      const confirmed = await confirm(item);
+      if (!confirmed) failedCount += 1;
+    }
+    setBulkSaving(false);
+    if (failedCount) {
+      setBulkError(`${failedCount} ürün onaylanamadı. İlgili ürünlerdeki hata mesajını kontrol edip tekrar deneyin.`);
     }
   }
 
@@ -226,6 +247,16 @@ export function ComplianceReviewer({
               {pending.length} ürün henüz incelenmedi
             </span>
           )}
+          {pending.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void confirmAll()}
+              disabled={bulkSaving || items.some((item) => item.saving)}
+              className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {bulkSaving ? `Onaylanıyor…` : `✓ Hepsini onayla (${pending.length})`}
+            </button>
+          )}
           <a
             href="/studyo/gorseller"
             className="ml-auto rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
@@ -255,6 +286,7 @@ export function ComplianceReviewer({
             ⬇ Uyum raporunu indir (PDF)
           </a>
         </div>
+        {bulkError && <p className="mt-3 text-sm font-medium text-red-600">{bulkError}</p>}
       </div>
 
       {/* Mevzuat takvimi */}
