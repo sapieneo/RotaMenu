@@ -54,11 +54,18 @@ export default async function GuestMenuPage({
 
   const { data: venue } = await supabase
     .from('venues')
-    .select('id, org_id, name, description, logo_url, cover_url, currency_code, is_published, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, design_settings')
+    .select('id, org_id, name, description, logo_url, cover_url, currency_code, is_published, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, design_settings, is_suspended, suspension_message, suspension_image_url')
     .eq('slug', params.slug)
     .maybeSingle();
 
   if (!venue) notFound();
+
+  // Süper-admin bu venue'yu askıya almışsa herkese (sahibi dahil) normal menü
+  // yerine buradaki görsel + uyarı metni gösterilir. Veri silinmemiştir —
+  // admin panelindeki işaret kaldırılınca menü kaldığı yerden yayına döner.
+  if (venue.is_suspended) {
+    return <SuspendedNotice venueName={venue.name} message={venue.suspension_message} imageUrl={venue.suspension_image_url} />;
+  }
 
   // Sahibin önizlemesi (örn. /studyo/pano'daki canlı telefon önizlemesi veya
   // "Menüyü gör" linki) analitiği ŞİŞİRMEMELİ. Org üyesiyse sayaç atlanır.
@@ -247,6 +254,33 @@ export default async function GuestMenuPage({
       availableLocales={availableLocales}
       currentLocale={currentLocale}
     />
+  );
+}
+
+function SuspendedNotice({
+  venueName,
+  message,
+  imageUrl,
+}: {
+  venueName: string;
+  message: string | null;
+  imageUrl: string | null;
+}) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-stone-100 px-4 py-10">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-sm">
+        {imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageUrl} alt="" className="h-56 w-full object-cover" />
+        )}
+        <div className="p-6 text-center">
+          <h1 className="text-lg font-bold text-stone-900">{venueName}</h1>
+          <p className="mt-3 whitespace-pre-line text-stone-600">
+            {message || 'Bu menü şu an geçici olarak kullanılamıyor.'}
+          </p>
+        </div>
+      </div>
+    </main>
   );
 }
 
