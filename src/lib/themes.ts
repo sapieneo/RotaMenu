@@ -196,6 +196,9 @@ export function menuBackgroundStyle(settings: MenuDesignSettings) {
       backgroundSize: settings.backgroundImageMode === 'tile' ? 'auto' : 'cover',
       backgroundRepeat: settings.backgroundImageMode === 'tile' ? 'repeat' : 'no-repeat',
       backgroundPosition: 'center top',
+      // Doku, kategori görselleri ve kartlar sayfada kayarken en alttaki katman
+      // olarak sabit kalır; uzun menülerde ilk ekrandan sonra kaybolmaz.
+      backgroundAttachment: 'fixed',
     };
   }
   return {

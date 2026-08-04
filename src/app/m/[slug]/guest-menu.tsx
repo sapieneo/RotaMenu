@@ -350,7 +350,7 @@ export function GuestMenu({
               className="scroll-mt-16 pt-6"
             >
               {isHero ? (
-                <div className="relative overflow-hidden rounded-2xl shadow-sm">
+                <div className="relative">
                   {/* Sabit (sticky) arka plan. ÖNEMLİ: resmin kendi kutusu normal
                       akışta KALIR (negatif margin YOK) — sticky'nin "durabileceği"
                       alanı, aşağıdaki içerik bloğunun kendi yüksekliğinden gelir.
@@ -360,17 +360,22 @@ export function GuestMenu({
                       bu bölümün sonuna gelinince bırakılır. `active` (scroll-spy)
                       state'i üzerinden opacity geçişiyle bir sonraki kategorinin
                       fotoğrafına yumuşak (crossfade) geçilir. */}
-                  <div className="absolute inset-0" aria-hidden>
+                  <div
+                    className={`sticky top-14 z-0 h-72 overflow-hidden rounded-2xl transition-opacity duration-700 ease-in-out sm:h-80 ${
+                      c.id === active ? 'opacity-100' : 'opacity-0'
+                    }`}
+                    aria-hidden
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={c.backgroundUrl!}
                       alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
+                      className="absolute inset-0 h-full w-full object-cover opacity-90"
                     />
-                    <div className="absolute inset-0 bg-black/35" />
+                    <div className="absolute inset-0 bg-black/30" />
                   </div>
-                  <div className="relative z-10 p-3">
-                    <div className="px-1 pb-4 pt-3 text-center">
+                  <div className="relative z-10 -mt-72 sm:-mt-80">
+                    <div className="px-1 pb-3 pt-8 text-center">
                       <h2 className="text-xl font-bold uppercase tracking-wide text-white drop-shadow-lg sm:text-2xl" style={{ fontFamily: design.headingFont }}>
                         {c.name}
                       </h2>
