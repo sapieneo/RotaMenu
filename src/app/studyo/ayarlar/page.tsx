@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { resolveManagedVenue } from '@/lib/managed-venue';
+import { resolvePlanContext } from '@/lib/plans';
 import { VenueSettingsForm, type VenueSettings } from './venue-settings-form';
 
 export const dynamic = 'force-dynamic';
@@ -59,6 +60,19 @@ export default async function VenueSettingsPage({ searchParams }: { searchParams
   const itemCount = itemIds.length;
   const pendingCount = Math.max(0, itemCount - (confirmedCount ?? 0));
 
+  // Plan + hesap durumu → yayın önkoşulları (API'deki kapılarla aynı kaynak).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: orgRow } = await supabase
+    .from('organizations')
+    .select('plan, contact_phone, trial_ends_at')
+    .eq('id', venue.org_id)
+    .maybeSingle();
+  const planCtx = resolvePlanContext(orgRow?.plan, orgRow?.trial_ends_at as string | null);
+  const accountSecured = Boolean(user && !user.is_anonymous && user.email);
+  const hasPhone = Boolean(orgRow?.contact_phone);
+
   const initial: VenueSettings = {
     id: venue.id,
     slug: venue.slug,
@@ -82,6 +96,13 @@ export default async function VenueSettingsPage({ searchParams }: { searchParams
         publishedAt: venue.published_at ?? null,
         itemCount,
         pendingCount,
+        // Yayın önkoşulları: buton artık boşuna tıklanıp 403 almasın.
+        canPublish: planCtx.limits.canPublish,
+        trialExpired: planCtx.trial.state === 'expired',
+        needsAccount:
+          planCtx.limits.requiresVerifiedAccount && (!accountSecured || !hasPhone),
+        accountSecured,
+        hasPhone,
       }}
     />
   );

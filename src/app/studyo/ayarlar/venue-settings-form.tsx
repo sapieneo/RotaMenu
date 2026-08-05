@@ -23,6 +23,13 @@ export type PublishState = {
   publishedAt: string | null;
   itemCount: number;
   pendingCount: number;
+  /** Plan yayına izin veriyor mu (deneme bitmişse false). */
+  canPublish: boolean;
+  trialExpired: boolean;
+  /** Ücretsiz planda e-posta + telefon eksik mi? */
+  needsAccount: boolean;
+  accountSecured: boolean;
+  hasPhone: boolean;
 };
 
 type Save = { name: 'idle' } | { name: 'saving' } | { name: 'done' } | { name: 'error'; message: string };
@@ -341,18 +348,46 @@ function PublishCard({
           )}
         </div>
 
-        <button
-          onClick={() => (state.isPublished ? onToggle(false) : confirmAndPublish())}
-          disabled={busy}
-          className={`rounded-xl px-5 py-2.5 font-semibold shadow transition disabled:opacity-50 ${
-            state.isPublished
-              ? 'border border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
-              : 'bg-emerald-600 text-white hover:bg-emerald-700'
-          }`}
-        >
-          {busy ? '…' : state.isPublished ? 'Yayından kaldır' : 'Yayınla'}
-        </button>
+        {/* Önkoşul yoksa buton yerine ne yapılması gerektiğini gösteren link:
+            kullanıcı boşuna tıklayıp hata almasın. */}
+        {!state.isPublished && state.trialExpired ? (
+          <a
+            href={`/studyo/plan?venue=${encodeURIComponent(venueId)}`}
+            className="rounded-xl bg-red-600 px-5 py-2.5 font-semibold text-white shadow transition hover:bg-red-700"
+          >
+            Aboneliği başlat
+          </a>
+        ) : !state.isPublished && state.needsAccount ? (
+          <a
+            href="/studyo/hesap"
+            className="rounded-xl bg-amber-600 px-5 py-2.5 font-semibold text-white shadow transition hover:bg-amber-700"
+          >
+            Önce kaydını tamamla
+          </a>
+        ) : (
+          <button
+            onClick={() => (state.isPublished ? onToggle(false) : confirmAndPublish())}
+            disabled={busy}
+            className={`rounded-xl px-5 py-2.5 font-semibold shadow transition disabled:opacity-50 ${
+              state.isPublished
+                ? 'border border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
+                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
+          >
+            {busy ? '…' : state.isPublished ? 'Yayından kaldır' : 'Yayınla'}
+          </button>
+        )}
       </div>
+
+      {!state.isPublished && (state.trialExpired || state.needsAccount) && (
+        <p className="mt-3 rounded-lg border border-stone-200 bg-white/70 px-3 py-2 text-sm text-stone-700">
+          {state.trialExpired
+            ? 'Deneme süren doldu. Menün ve verilerin duruyor; abonelik başlayınca kaldığı yerden yayına döner.'
+            : `Yayınlamak için ${!state.accountSecured ? 'e-postanı doğrulaman' : ''}${
+                !state.accountSecured && !state.hasPhone ? ' ve ' : ''
+              }${!state.hasPhone ? 'iletişim telefonu eklemen' : ''} gerekiyor.`}
+        </p>
+      )}
 
       {!state.isPublished && state.pendingCount > 0 && (
         <p className="mt-3 rounded-lg border border-amber-300 bg-white/70 px-3 py-2 text-sm text-amber-800">

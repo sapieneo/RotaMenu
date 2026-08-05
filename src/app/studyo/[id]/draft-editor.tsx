@@ -53,6 +53,7 @@ export function DraftEditor({
   const [save, setSave] = useState<SaveState>({ name: 'idle' });
   const [adding, setAdding] = useState(false);
   const addRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   async function handleAddPages(files: File[]) {
     if (files.length === 0) return;
@@ -165,6 +166,14 @@ export function DraftEditor({
   }
 
   async function approve() {
+    // İşletme adı misafir menüsünün başlığıdır — "İşletmem" olarak kalması
+    // profesyonel görünmüyor, bu yüzden kaydetmeden önce zorunlu tutuluyor.
+    if (!venueName.trim()) {
+      setSave({ name: 'error', message: 'Önce işletmenizin adını yazın — menünün başlığında görünecek.' });
+      nameRef.current?.focus();
+      nameRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setSave({ name: 'saving' });
     try {
       const res = await fetch(`/api/ingest/${ingestionId}/approve`, {
@@ -236,13 +245,20 @@ export function DraftEditor({
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-brand-600">Adım 2 / 3 · Taslağı düzenle</p>
-          <label className="mt-1 block text-xs font-medium text-stone-400">İşletme adı</label>
+          <p className="text-sm font-medium text-brand-600">Adım 2 / 4 · Menüyü düzenle</p>
+          <label className="mt-1 block text-xs font-medium text-stone-400">
+            İşletme adı <span className="text-red-500">*</span>
+          </label>
           <input
+            ref={nameRef}
             value={venueName}
             onChange={(e) => setVenueName(e.target.value)}
             placeholder="İşletmenizin adı (misafir menüsünde görünür)"
-            className="w-full rounded-lg border border-transparent bg-transparent text-2xl font-bold outline-none placeholder:text-stone-300 focus:border-stone-300 focus:bg-white"
+            className={`w-full rounded-lg border bg-transparent text-2xl font-bold outline-none placeholder:text-stone-300 focus:bg-white ${
+              venueName.trim()
+                ? 'border-transparent focus:border-stone-300'
+                : 'border-red-300 bg-red-50/40'
+            }`}
             aria-label="İşletme adı"
           />
           <label className="mt-2 block text-xs font-medium text-stone-400">Menü adı</label>

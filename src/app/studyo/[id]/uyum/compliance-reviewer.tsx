@@ -216,7 +216,7 @@ export function ComplianceReviewer({
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-4">
-        <p className="text-sm font-medium text-brand-600">Adım 3 / 3 · Uyum onayı</p>
+        <p className="text-sm font-medium text-brand-600">Adım 3 / 4 · Uyum onayı</p>
         <h1 className="mt-1 text-2xl font-bold">{venueName} · Alerjen &amp; kalori onayı</h1>
         <p className="mt-1 text-sm text-stone-500">
           Her ürünün alerjenlerini onayla. Misafir menüsünde <b>yalnızca onayladığın</b> bilgi görünür.

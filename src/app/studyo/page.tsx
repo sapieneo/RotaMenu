@@ -133,6 +133,7 @@ export default function StudyoPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-6 px-6 py-12">
       <div>
+        <p className="text-sm font-medium text-brand-600">Adım 1 / 4 · Menüyü yükle</p>
         <h1 className="text-2xl font-bold">Menünü yükle</h1>
         <p className="mt-1 text-stone-600">
           Mevcut menünün fotoğrafını veya PDF&apos;ini yükle; gerisini yapay zeka halletsin.
