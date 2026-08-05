@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { isPhoneVerificationConfigured } from '@/lib/sms';
+import { isAdminSession } from '@/lib/admin-auth';
 import { resolveManagedVenue } from '@/lib/managed-venue';
 import { z } from 'zod';
 
@@ -25,6 +26,11 @@ const bodySchema = z.object({ venueId: z.string().uuid().nullable().optional() }
 export async function POST(request: Request) {
   if (isPhoneVerificationConfigured()) {
     return NextResponse.json({ error: 'SMS doğrulama aktif; bypass kapalı.' }, { status: 403 });
+  }
+  // İKİNCİ KİLİT: yalnız süper-admin oturumu — normal kullanıcı kendi
+  // telefonunu doğrulanmış gösteremesin.
+  if (!isAdminSession()) {
+    return NextResponse.json({ error: 'Bu işlem için yetkin yok.' }, { status: 403 });
   }
 
   const supabase = createClient();

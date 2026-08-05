@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { planLimits, normalizePlan } from '@/lib/plans';
 import { isIyzicoConfigured } from '@/lib/iyzico';
+import { isAdminSession } from '@/lib/admin-auth';
 import { PlanClient, type PlanClientData } from './plan-client';
 import { resolveManagedVenue } from '@/lib/managed-venue';
 
@@ -73,6 +74,7 @@ export default async function PlanPage({ searchParams }: { searchParams?: { venu
     plan: plan as 'free' | 'pro' | 'enterprise',
     planLabel: planLimits(plan).label,
     isOwner,
+    isSuperAdmin: isAdminSession(),
     billingConfigured: isIyzicoConfigured(),
     subStatus,
     periodEnd,

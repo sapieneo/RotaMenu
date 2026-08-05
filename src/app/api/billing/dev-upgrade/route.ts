@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { isIyzicoConfigured } from '@/lib/iyzico';
+import { isAdminSession } from '@/lib/admin-auth';
 
 export const runtime = 'nodejs';
 
@@ -24,6 +25,11 @@ const bodySchema = z.object({ venueId: z.string().uuid().nullable().optional() }
 export async function POST(request: NextRequest) {
   if (isIyzicoConfigured()) {
     return NextResponse.json({ error: 'iyzico aktif; bypass kapalı.' }, { status: 403 });
+  }
+  // İKİNCİ KİLİT: bypass yalnız süper-admin oturumuyla (/admin girişi) çalışır.
+  // Aksi halde canlıda HERKES ödemeden Pro'ya geçebilirdi.
+  if (!isAdminSession()) {
+    return NextResponse.json({ error: 'Bu işlem için yetkin yok.' }, { status: 403 });
   }
 
   const supabase = createClient();

@@ -9,6 +9,8 @@ type Props = {
   contactPhone: string | null;
   contactPhoneVerifiedAt: string | null;
   phoneVerificationConfigured: boolean;
+  /** Süper-admin oturumu — geliştirme bypass'ı yalnız o zaman görünür. */
+  isSuperAdmin: boolean;
 };
 
 type Status = { name: 'idle' } | { name: 'saving' } | { name: 'sent' } | { name: 'error'; message: string };
@@ -20,6 +22,7 @@ export function AccountCard({
   contactPhone,
   contactPhoneVerifiedAt,
   phoneVerificationConfigured,
+  isSuperAdmin,
 }: Props) {
   const [emailInput, setEmailInput] = useState('');
   const [phone, setPhone] = useState(contactPhone ?? '');
@@ -191,7 +194,7 @@ export function AccountCard({
           />
         </label>
 
-        {!phoneVerified && contactPhone && !phoneVerificationConfigured && (
+        {!phoneVerified && contactPhone && !phoneVerificationConfigured && isSuperAdmin && (
           <div className="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
               Geliştirme modu — SMS bağlanınca kaldırılacak

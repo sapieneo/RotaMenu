@@ -8,6 +8,8 @@ export type PlanClientData = {
   plan: 'free' | 'pro' | 'enterprise';
   planLabel: string;
   isOwner: boolean;
+  /** Süper-admin oturumu var mı — geliştirme bypass'ı yalnız o zaman görünür. */
+  isSuperAdmin: boolean;
   billingConfigured: boolean;
   subStatus: string | null;
   periodEnd: string | null;
@@ -171,14 +173,14 @@ export function PlanClient({ data }: { data: PlanClientData }) {
               {status === 'canceling' ? 'İptal ediliyor…' : 'Aboneliği iptal et'}
             </button>
           )}
-          {!data.billingConfigured && data.isOwner && (
+          {!data.billingConfigured && data.isOwner && data.isSuperAdmin && (
             <DevBypass mode="downgrade" venueId={data.venueId} dashboardHref={data.dashboardHref} />
           )}
         </section>
       ) : !data.billingConfigured ? (
         <section className="rounded-2xl border border-stone-200 bg-stone-50 p-5 text-sm text-stone-600 shadow-sm">
           <p>Ödeme altyapısı henüz etkin değil. Pro’ya yükseltme çok yakında açılacak.</p>
-          {data.isOwner && (
+          {data.isOwner && data.isSuperAdmin && (
             <DevBypass mode="upgrade" venueId={data.venueId} dashboardHref={data.dashboardHref} />
           )}
         </section>

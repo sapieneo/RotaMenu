@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { isPhoneVerificationConfigured } from '@/lib/sms';
+import { isAdminSession } from '@/lib/admin-auth';
 import { AccountCard } from './account-card';
 import { resolveManagedVenue } from '@/lib/managed-venue';
 
@@ -55,6 +56,7 @@ export default async function AccountPage({ searchParams }: { searchParams?: { v
       contactPhone={contactPhone}
       contactPhoneVerifiedAt={contactPhoneVerifiedAt}
       phoneVerificationConfigured={isPhoneVerificationConfigured()}
+      isSuperAdmin={isAdminSession()}
     />
   );
 }
