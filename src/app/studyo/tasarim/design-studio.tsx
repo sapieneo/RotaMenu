@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatPrice } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
+import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
 import {
   DEFAULT_MENU_DESIGN,
   FONT_OPTIONS,
@@ -155,7 +156,7 @@ export function DesignStudio({
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1440px] gap-7 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,840px)_420px] xl:justify-between">
+      <div className="mx-auto grid max-w-[1440px] gap-7 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,840px)_320px] xl:justify-between">
         <div className="min-w-0 space-y-6">
           <section>
             <div className="mb-3">
@@ -266,6 +267,9 @@ export function DesignStudio({
   );
 }
 
+/** Ölçekleme sabiti — pano'daki iframe tekniğiyle aynı: 260 / 390. */
+const PREVIEW_SCALE = 0.6667;
+
 function PhonePreview({ venue, categories, settings }: { venue: { name: string; description: string | null; currency: string; logoUrl: string | null; coverUrl: string | null }; categories: DesignPreviewCategory[]; settings: MenuDesignSettings }) {
   const previewCategories = useMemo(() => categories.length ? categories : [{ id: 'sample', name: 'Menü', backgroundUrl: null, backgroundStyle: 'strip' as const, items: [{ id: '1', name: 'İmza Tabağı', description: 'Mevsim ürünleriyle hazırlanan özel lezzet', price: 320, imageUrl: null }, { id: '2', name: 'Günün Çorbası', description: 'Her gün taze hazırlanır', price: 120, imageUrl: null }] }], [categories]);
   const [activeCategory, setActiveCategory] = useState(previewCategories[0]?.id ?? '');
@@ -285,7 +289,9 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
   }, [activeCategory]);
 
   function trackPreviewScroll(event: React.UIEvent<HTMLDivElement>) {
-    const viewportTop = event.currentTarget.getBoundingClientRect().top + 108;
+    // rect.top zaten dış scale(0.6667) çerçevesinden geçtiği için görsel
+    // (ölçeklenmiş) koordinatta gelir — eşik sabiti de aynı oranda ölçeklenir.
+    const viewportTop = event.currentTarget.getBoundingClientRect().top + 80 * PREVIEW_SCALE;
     const visible = previewCategories
       .map((category) => ({ id: category.id, top: previewSectionRefs.current[category.id]?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY }))
       .filter((category) => category.top <= viewportTop)
@@ -294,52 +300,53 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
   }
 
   return (
-    <div className="mx-auto w-full max-w-[390px] rounded-[42px] border-[8px] border-stone-900 bg-stone-900 p-1 shadow-2xl">
-      <div onScroll={trackPreviewScroll} className="relative h-[700px] overflow-y-auto rounded-[31px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ ...menuBackgroundStyle(settings), color: settings.textColor, fontFamily: settings.bodyFont, fontSize: `${settings.baseFontSize}px` }}>
-        <div className="sticky top-0 z-30 flex h-7 items-center justify-between px-5 text-[10px] font-bold" style={{ backgroundColor: settings.surfaceColor }}><span>9:41</span><span>● ᴡɪꜰɪ ▰</span></div>
-        <header style={{ backgroundColor: settings.surfaceColor }}>
-          <div className="h-28 bg-cover bg-center" style={venue.coverUrl ? { backgroundImage: `linear-gradient(0deg, rgba(0,0,0,.18), rgba(0,0,0,.18)), url(${venue.coverUrl})` } : { background: `linear-gradient(135deg, ${settings.primaryColor}, ${settings.accentColor})` }} />
-          <div className="px-5 pb-4">
-            <div className="-mt-8 flex h-16 w-16 items-center justify-center overflow-hidden border-4 text-xl font-bold shadow" style={{ borderColor: settings.surfaceColor, backgroundColor: settings.surfaceColor, color: settings.primaryColor, borderRadius: `${Math.min(settings.cardRadius, 20)}px` }}>
-              {venue.logoUrl ? <img src={venue.logoUrl} alt="" className="h-full w-full object-cover" /> : venue.name.slice(0, 2).toUpperCase()}
+    <PhoneFrame>
+      <PhoneScaledContent>
+        <div onScroll={trackPreviewScroll} className="relative h-full w-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ ...menuBackgroundStyle(settings), color: settings.textColor, fontFamily: settings.bodyFont, fontSize: `${settings.baseFontSize}px` }}>
+          <header style={{ backgroundColor: settings.surfaceColor }}>
+            <div className="h-28 bg-cover bg-center" style={venue.coverUrl ? { backgroundImage: `linear-gradient(0deg, rgba(0,0,0,.18), rgba(0,0,0,.18)), url(${venue.coverUrl})` } : { background: `linear-gradient(135deg, ${settings.primaryColor}, ${settings.accentColor})` }} />
+            <div className="px-5 pb-4">
+              <div className="-mt-8 flex h-16 w-16 items-center justify-center overflow-hidden border-4 text-xl font-bold shadow" style={{ borderColor: settings.surfaceColor, backgroundColor: settings.surfaceColor, color: settings.primaryColor, borderRadius: `${Math.min(settings.cardRadius, 20)}px` }}>
+                {venue.logoUrl ? <img src={venue.logoUrl} alt="" className="h-full w-full object-cover" /> : venue.name.slice(0, 2).toUpperCase()}
+              </div>
+              <h2 className="mt-3 font-bold tracking-tight" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale * 1.35}px` }}>{venue.name}</h2>
+              {venue.description && <p className="mt-1 line-clamp-2 text-xs" style={{ color: settings.mutedTextColor }}>{venue.description}</p>}
             </div>
-            <h2 className="mt-3 font-bold tracking-tight" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale * 1.35}px` }}>{venue.name}</h2>
-            {venue.description && <p className="mt-1 line-clamp-2 text-xs" style={{ color: settings.mutedTextColor }}>{venue.description}</p>}
+          </header>
+          <nav ref={previewNavRef} className="sticky top-0 z-20 flex gap-2 overflow-x-auto px-3 py-2 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ backgroundColor: hexToRgba(settings.surfaceColor, 94) }}>
+            {previewCategories.map((category) => <button key={category.id} ref={(element) => { previewTabRefs.current[category.id] = element; }} type="button" onClick={() => previewSectionRefs.current[category.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold" style={category.id === activeCategory ? { backgroundColor: settings.primaryColor, color: settings.surfaceColor } : { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), color: settings.mutedTextColor }}>{category.name}</button>)}
+          </nav>
+          <div className="space-y-7 px-3 py-5">
+            {previewCategories.map((category) => {
+              const hasHeroBackground = Boolean(category.backgroundUrl) && category.backgroundStyle === 'hero';
+              return <section
+                key={category.id}
+                ref={(element) => { previewSectionRefs.current[category.id] = element; }}
+                className={settings.layout === 'two-column' ? 'p-3 shadow-sm' : ''}
+                style={{
+                  ...(hasHeroBackground ? {
+                    backgroundImage: `linear-gradient(rgba(0, 0, 0, .35), rgba(0, 0, 0, .35)), url("${category.backgroundUrl}")`,
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: 'cover',
+                    padding: '12px',
+                  } : {}),
+                  ...(settings.layout === 'two-column' ? { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), borderRadius: `${settings.cardRadius}px` } : {}),
+                }}
+              >
+              <h3 className="mb-2 px-1 font-bold" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: settings.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${settings.itemSpacing}px` }}>
+                {category.items.slice(0, 6).map((item) => <div key={item.id} className={`flex items-start gap-3 ${settings.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`} style={{ backgroundColor: settings.layout === 'single' ? hexToRgba(settings.cardColor, settings.cardOpacity) : 'transparent', borderRadius: settings.layout === 'single' ? `${settings.cardRadius}px` : 0, borderBottom: `1px dashed ${hexToRgba(settings.dividerColor, settings.dividerOpacity)}` }}>
+                  {item.imageUrl && settings.layout === 'single' && <img src={item.imageUrl} alt="" className="h-14 w-14 shrink-0 object-cover" style={{ borderRadius: `${Math.min(settings.cardRadius, 14)}px` }} />}
+                  <div className="min-w-0 flex-1"><div className="flex items-baseline justify-between gap-2"><p className="font-semibold leading-tight">{item.name}</p>{item.price != null && <span className="shrink-0 text-xs font-bold" style={{ color: settings.primaryColor }}>{formatPrice(item.price, venue.currency)}</span>}</div>{item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-snug" style={{ color: settings.mutedTextColor }}>{item.description}</p>}</div>
+                </div>)}
+              </div>
+            </section>;
+            })}
           </div>
-        </header>
-        <nav ref={previewNavRef} className="sticky top-7 z-20 flex gap-2 overflow-x-auto px-3 py-2 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ backgroundColor: hexToRgba(settings.surfaceColor, 94) }}>
-          {previewCategories.map((category) => <button key={category.id} ref={(element) => { previewTabRefs.current[category.id] = element; }} type="button" onClick={() => previewSectionRefs.current[category.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold" style={category.id === activeCategory ? { backgroundColor: settings.primaryColor, color: settings.surfaceColor } : { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), color: settings.mutedTextColor }}>{category.name}</button>)}
-        </nav>
-        <div className="space-y-7 px-3 py-5">
-          {previewCategories.map((category) => {
-            const hasHeroBackground = Boolean(category.backgroundUrl) && category.backgroundStyle === 'hero';
-            return <section
-              key={category.id}
-              ref={(element) => { previewSectionRefs.current[category.id] = element; }}
-              className={settings.layout === 'two-column' ? 'p-3 shadow-sm' : ''}
-              style={{
-                ...(hasHeroBackground ? {
-                  backgroundImage: `linear-gradient(rgba(0, 0, 0, .35), rgba(0, 0, 0, .35)), url("${category.backgroundUrl}")`,
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundSize: 'cover',
-                  padding: '12px',
-                } : {}),
-                ...(settings.layout === 'two-column' ? { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), borderRadius: `${settings.cardRadius}px` } : {}),
-              }}
-            >
-            <h3 className="mb-2 px-1 font-bold" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: settings.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${settings.itemSpacing}px` }}>
-              {category.items.slice(0, 6).map((item) => <div key={item.id} className={`flex items-start gap-3 ${settings.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`} style={{ backgroundColor: settings.layout === 'single' ? hexToRgba(settings.cardColor, settings.cardOpacity) : 'transparent', borderRadius: settings.layout === 'single' ? `${settings.cardRadius}px` : 0, borderBottom: `1px dashed ${hexToRgba(settings.dividerColor, settings.dividerOpacity)}` }}>
-                {item.imageUrl && settings.layout === 'single' && <img src={item.imageUrl} alt="" className="h-14 w-14 shrink-0 object-cover" style={{ borderRadius: `${Math.min(settings.cardRadius, 14)}px` }} />}
-                <div className="min-w-0 flex-1"><div className="flex items-baseline justify-between gap-2"><p className="font-semibold leading-tight">{item.name}</p>{item.price != null && <span className="shrink-0 text-xs font-bold" style={{ color: settings.primaryColor }}>{formatPrice(item.price, venue.currency)}</span>}</div>{item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-snug" style={{ color: settings.mutedTextColor }}>{item.description}</p>}</div>
-              </div>)}
-            </div>
-          </section>;
-          })}
         </div>
-      </div>
-    </div>
+      </PhoneScaledContent>
+    </PhoneFrame>
   );
 }
 

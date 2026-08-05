@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PRICING } from '@/lib/plans';
+import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
 import {
   MarketingHeader,
   MarketingFooter,
@@ -90,57 +91,24 @@ function Hero() {
   );
 }
 
-/** Saf CSS telefon çerçevesi — misafir menüsünün nasıl göründüğünü anlatır. */
+/**
+ * Gerçek telefon çerçevesi + örnek menünün canlı iframe'i — pano'daki
+ * "Canlı önizleme" ile birebir aynı bileşen/boyut. Sahte statik maket değil;
+ * gerçekten /m/demo'yu render eder, oran ve fontlar gerçek mobil görünümle
+ * birebir eşleşir.
+ */
 function PhoneMockup() {
-  const items = [
-    { name: 'Mercimek Çorbası', price: '95 ₺', kcal: '220 kcal', tags: ['Vegan', 'Glüten'] },
-    { name: 'Adana Kebap', price: '380 ₺', kcal: '640 kcal', tags: ['Helal'] },
-    { name: 'İçli Köfte', price: '160 ₺', kcal: '310 kcal', tags: ['Glüten', 'Yumurta'] },
-  ];
   return (
-    <div className="relative mx-auto w-full max-w-[300px]">
-      <div className="rounded-[2.5rem] border-8 border-stone-900 bg-white shadow-2xl">
-        <div className="flex justify-center bg-stone-900 pb-1 pt-1.5">
-          <div className="h-4 w-24 rounded-full bg-stone-900" />
-        </div>
-        <div className="h-24 bg-gradient-to-br from-brand-500 to-brand-700" />
-        <div className="px-4 pb-5">
-          <div className="-mt-7 mb-2 flex h-14 w-14 items-center justify-center rounded-2xl border border-stone-100 bg-white text-lg font-bold text-brand-600 shadow">
-            SL
-          </div>
-          <p className="text-base font-bold text-stone-900">Sofra Lokantası</p>
-          <div className="mt-3 flex gap-1.5 overflow-hidden text-[10px]">
-            <span className="rounded-full bg-brand-600 px-2.5 py-1 font-semibold text-white">
-              Çorbalar
-            </span>
-            <span className="rounded-full px-2.5 py-1 text-stone-500">Kebaplar</span>
-            <span className="rounded-full px-2.5 py-1 text-stone-500">Tatlılar</span>
-          </div>
-          <div className="mt-3 space-y-2">
-            {items.map((it) => (
-              <div key={it.name} className="rounded-xl bg-stone-50 p-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-semibold text-stone-900">{it.name}</p>
-                  <p className="shrink-0 text-xs font-bold text-brand-600">{it.price}</p>
-                </div>
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {it.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="rounded bg-white px-1.5 py-0.5 text-[9px] font-medium text-stone-600 ring-1 ring-stone-200"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                  <span className="rounded bg-white px-1.5 py-0.5 text-[9px] text-stone-500 ring-1 ring-stone-200">
-                    {it.kcal}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+    <div className="mx-auto">
+      <PhoneFrame>
+        <PhoneScaledContent>
+          <iframe
+            src={`/m/${DEMO_SLUG}`}
+            title="Örnek menü önizleme"
+            className="h-full w-full border-0"
+          />
+        </PhoneScaledContent>
+      </PhoneFrame>
     </div>
   );
 }
