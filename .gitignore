@@ -6,3 +6,7 @@ node_modules/
 *.tsbuildinfo
 .DS_Store
 devserver.log
+
+build.log
+tsc.log
+gen.log
