@@ -100,7 +100,10 @@ export default async function GuestMenuPage({
   }
 
   // Plan → misafir menüsünde "RestaurantOS" rozeti yalnız ücretsiz planda görünür.
-  const { data: org } = await supabase
+  // DİKKAT: organizations RLS'i anonim misafire okuma vermez. Plan/deneme
+  // durumu misafir ekranını belirlediği için service-role ile okunur —
+  // aksi halde org satırı null döner ve YAYINDAKİ her menü kilitli sanılır.
+  const { data: org } = await createAdminClient()
     .from('organizations')
     .select('plan, trial_ends_at')
     .eq('id', venue.org_id)
