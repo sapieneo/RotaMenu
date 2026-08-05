@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { planLimits, UPGRADE_MESSAGES } from '@/lib/plans';
+import { resolvePlanContext, UPGRADE_MESSAGES } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 
@@ -99,10 +99,21 @@ export async function PATCH(request: NextRequest) {
       }
       const { data: orgRow } = await supabase
         .from('organizations')
-        .select('plan, contact_phone')
+        .select('plan, contact_phone, trial_ends_at')
         .eq('id', venueRow.org_id)
         .maybeSingle();
-      if (planLimits(orgRow?.plan).requiresVerifiedAccount) {
+      const planCtx = resolvePlanContext(orgRow?.plan, orgRow?.trial_ends_at);
+
+      // Deneme bitti ve abonelik yoksa yayın kilitlidir. Veri durur, yalnız
+      // canlıya alma kapalıdır — abonelik başlayınca kaldığı yerden açılır.
+      if (!planCtx.limits.canPublish) {
+        return NextResponse.json(
+          { error: UPGRADE_MESSAGES.trialExpired, code: 'trial_expired' },
+          { status: 402 }
+        );
+      }
+
+      if (planCtx.limits.requiresVerifiedAccount) {
         const secured = !user.is_anonymous && Boolean(user.email);
         const hasPhone = Boolean(orgRow?.contact_phone);
         if (!secured || !hasPhone) {

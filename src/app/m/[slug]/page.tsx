@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { recordEvent } from '@/lib/analytics';
-import { showRestaurantBadge } from '@/lib/plans';
+import { showRestaurantBadge, resolvePlanContext } from '@/lib/plans';
 import { CODE_BY_ID } from '@/lib/allergens';
 import { DIETARY_CODE_BY_ID } from '@/lib/dietary';
 import { MENU_LANGUAGE_BY_CODE, SOURCE_LANGUAGE } from '@/lib/languages';
@@ -54,7 +54,7 @@ export default async function GuestMenuPage({
 
   const { data: venue } = await supabase
     .from('venues')
-    .select('id, org_id, name, description, logo_url, cover_url, currency_code, is_published, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, design_settings, is_suspended, suspension_message, suspension_image_url')
+    .select('id, org_id, name, description, logo_url, cover_url, currency_code, is_published, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, design_settings, is_suspended')
     .eq('slug', params.slug)
     .maybeSingle();
 
@@ -64,7 +64,20 @@ export default async function GuestMenuPage({
   // yerine buradaki görsel + uyarı metni gösterilir. Veri silinmemiştir —
   // admin panelindeki işaret kaldırılınca menü kaldığı yerden yayına döner.
   if (venue.is_suspended) {
-    return <SuspendedNotice venueName={venue.name} message={venue.suspension_message} imageUrl={venue.suspension_image_url} />;
+    // İçerik platform genelidir: yönetici bir kez tanımlar, askıya alınan tüm
+    // menüler aynı ekranı gösterir (bkz. /admin/panel → "Askıya alma ekranı").
+    const { data: settings } = await createAdminClient()
+      .from('platform_settings')
+      .select('suspension_message, suspension_image_url')
+      .eq('id', true)
+      .maybeSingle();
+    return (
+      <SuspendedNotice
+        venueName={venue.name}
+        message={(settings?.suspension_message as string | null) ?? null}
+        imageUrl={(settings?.suspension_image_url as string | null) ?? null}
+      />
+    );
   }
 
   // Sahibin önizlemesi (örn. /studyo/pano'daki canlı telefon önizlemesi veya
@@ -89,10 +102,18 @@ export default async function GuestMenuPage({
   // Plan → misafir menüsünde "RestaurantOS" rozeti yalnız ücretsiz planda görünür.
   const { data: org } = await supabase
     .from('organizations')
-    .select('plan')
+    .select('plan, trial_ends_at')
     .eq('id', venue.org_id)
     .maybeSingle();
-  const showBadge = showRestaurantBadge(org?.plan);
+  const planCtx = resolvePlanContext(org?.plan, org?.trial_ends_at as string | null);
+  const showBadge = showRestaurantBadge(planCtx.effectivePlan);
+
+  // Deneme bitmiş ve abonelik yoksa yayın kilitlenir: misafire nazik bir bilgi
+  // ekranı gösterilir. Menü SİLİNMEZ — abonelik başlayınca aynen geri gelir.
+  // Sahibi (org üyesi) önizlemeye devam edebilir ki neyin kilitlendiğini görsün.
+  if (!planCtx.limits.canPublish && !isOwnerViewing) {
+    return <UnavailableNotice venueName={venue.name} phone={venue.phone ?? null} />;
+  }
 
   // Venue'nun aktif menü(leri) → tek menü modeli olsa da genel davranıyoruz.
   const { data: menus } = await supabase
@@ -254,6 +275,29 @@ export default async function GuestMenuPage({
       availableLocales={availableLocales}
       currentLocale={currentLocale}
     />
+  );
+}
+
+/**
+ * Deneme süresi dolmuş işletmenin misafir ekranı. Ton bilinçli olarak nötr:
+ * misafir müşteridir, işletmenin ödeme durumu onu ilgilendirmez.
+ */
+function UnavailableNotice({ venueName, phone }: { venueName: string; phone: string | null }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-stone-100 px-4 py-10">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
+        <h1 className="text-lg font-bold text-stone-900">{venueName}</h1>
+        <p className="mt-3 text-stone-600">Dijital menü şu anda görüntülenemiyor.</p>
+        {phone && (
+          <a
+            href={`tel:${phone}`}
+            className="mt-5 inline-block rounded-xl bg-stone-900 px-5 py-2.5 text-sm font-semibold text-white"
+          >
+            İşletmeyi ara
+          </a>
+        )}
+      </div>
+    </main>
   );
 }
 

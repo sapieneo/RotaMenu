@@ -3,7 +3,8 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/server';
 import { planLimits } from '@/lib/plans';
 import { LogoutButton } from '../logout-button';
-import { SuspendControl } from './suspend-control';
+import { SuspensionNoticeCard } from './suspension-notice-card';
+import { SuspendToggle, DeleteVenueButton } from './row-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +22,6 @@ type VenueEmbed = {
   is_published: boolean;
   org_id: string;
   is_suspended: boolean;
-  suspension_message: string | null;
-  suspension_image_url: string | null;
   organizations: OrganizationEmbed | OrganizationEmbed[] | null;
 };
 
@@ -53,11 +52,18 @@ export default async function AdminPanelPage() {
   const { data: menuData, error: menuError } = await admin
     .from('menus')
     .select(
-      'id, name, is_active, created_at, updated_at, venue_id, venues!inner(id, name, slug, is_published, org_id, is_suspended, suspension_message, suspension_image_url, organizations!inner(name, plan, created_by, contact_phone))'
+      'id, name, is_active, created_at, updated_at, venue_id, venues!inner(id, name, slug, is_published, org_id, is_suspended, organizations!inner(name, plan, created_by, contact_phone))'
     )
     .order('created_at', { ascending: false });
 
   if (menuError) throw new Error('Menü listesi yüklenemedi.');
+
+  // Platform geneli askıya alma bildirimi (tek görsel + tek metin).
+  const { data: settings } = await admin
+    .from('platform_settings')
+    .select('suspension_message, suspension_image_url')
+    .eq('id', true)
+    .maybeSingle();
 
   const menus = (menuData ?? []) as unknown as MenuRow[];
   const menuIds = menus.map((menu) => menu.id);
@@ -131,6 +137,11 @@ export default async function AdminPanelPage() {
         <SummaryCard label="Toplam ürün" value={items.length} />
       </section>
 
+      <SuspensionNoticeCard
+        initialMessage={(settings?.suspension_message as string | null) ?? null}
+        initialImageUrl={(settings?.suspension_image_url as string | null) ?? null}
+      />
+
       <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
         <table className="w-full min-w-[1180px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
@@ -198,11 +209,9 @@ export default async function AdminPanelPage() {
                   </td>
                   <td className="px-4 py-3">
                     {venue && (
-                      <SuspendControl
+                      <SuspendToggle
                         venueId={venue.id}
                         initialSuspended={Boolean(venue.is_suspended)}
-                        initialMessage={venue.suspension_message}
-                        initialImageUrl={venue.suspension_image_url}
                       />
                     )}
                   </td>
@@ -228,6 +237,12 @@ export default async function AdminPanelPage() {
                         >
                           Menüyü aç
                         </a>
+                      )}
+                      {venue && (
+                        <DeleteVenueButton
+                          venueId={venue.id}
+                          venueName={venue.name || organization?.name || 'Bu işletme'}
+                        />
                       )}
                     </div>
                   </td>

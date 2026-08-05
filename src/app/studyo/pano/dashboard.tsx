@@ -8,8 +8,11 @@ export type PlanInfo = {
   images: boolean;
   removeBadge: boolean;
   requiresVerifiedAccount: boolean;
+  /** Deneme bitmiş ve abonelik yoksa false — yayın kilitli. */
+  canPublish: boolean;
   accountSecured: boolean;
   hasPhone: boolean;
+  trial: { state: 'active' | 'expired' | 'none'; endsAt: string | null; daysLeft: number };
 };
 
 export type DashboardData = {
@@ -153,6 +156,18 @@ type NextAction = {
 };
 
 function getNextAction(data: DashboardData, venueHref: (path: string) => string): NextAction {
+  // Deneme bittiyse yapılacak tek iş abonelik: diğer adımlar anlamsız.
+  if (!data.plan.canPublish) {
+    return {
+      complete: false,
+      eyebrow: 'Deneme süresi doldu',
+      title: 'Aboneliğini başlat',
+      text: 'Menün ve tüm verilerin duruyor. Yeniden yayına almak için aboneliğini başlat.',
+      href: venueHref('/studyo/plan'),
+      label: 'Aboneliği başlat',
+    };
+  }
+
   if (data.pendingCount > 0) {
     return {
       complete: false,
@@ -334,6 +349,57 @@ function PlanCard({ plan, itemCount, venueId }: { plan: PlanInfo; itemCount: num
   const isFree = plan.tier === 'free';
   const limit = plan.itemLimit;
   const atLimit = limit != null && itemCount >= limit;
+  const planHref = `/studyo/plan?venue=${encodeURIComponent(venueId)}`;
+
+  // Deneme bitmiş: yayın kilitli — en yüksek öncelikli uyarı.
+  if (plan.trial.state === 'expired') {
+    return (
+      <section className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-4">
+        <p className="text-sm font-bold text-red-800">Deneme süreniz doldu</p>
+        <p className="mt-1 text-sm text-red-700">
+          Menünüz ve tüm verileriniz duruyor, hiçbir şey silinmedi. Yeniden yayına almak için
+          aboneliğinizi başlatın.
+        </p>
+        <a
+          href={planHref}
+          className="mt-3 inline-block rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+        >
+          Aboneliği başlat
+        </a>
+      </section>
+    );
+  }
+
+  // Deneme sürüyor: kalan gün sayacı. Son 3 günde tonu sertleştir.
+  if (plan.trial.state === 'active') {
+    const urgent = plan.trial.daysLeft <= 3;
+    return (
+      <section
+        className={`mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
+          urgent ? 'border-amber-300 bg-amber-50' : 'border-stone-200 bg-white'
+        }`}
+      >
+        <div className="min-w-0 text-sm">
+          <span
+            className={`mr-2 rounded-full px-3 py-1 text-xs font-semibold ${
+              urgent ? 'bg-amber-500 text-white' : 'bg-emerald-600 text-white'
+            }`}
+          >
+            DENEME
+          </span>
+          <span className={urgent ? 'font-semibold text-amber-900' : 'text-stone-600'}>
+            {plan.trial.daysLeft === 0
+              ? 'Bugün son gün'
+              : `Bitmesine ${plan.trial.daysLeft} gün kaldı`}
+          </span>
+          <span className="hidden text-stone-400 sm:inline"> · tüm özellikler açık</span>
+        </div>
+        <a href={planHref} className="text-sm font-semibold text-brand-700 hover:underline">
+          Aboneliği başlat
+        </a>
+      </section>
+    );
+  }
 
   return (
     <section className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">

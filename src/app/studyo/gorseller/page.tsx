@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { planLimits } from '@/lib/plans';
+import { resolvePlanContext } from '@/lib/plans';
 import { ImageManager, type ImgCategory } from './image-manager';
 import { resolveManagedVenue, withVenue } from '@/lib/managed-venue';
 
@@ -29,10 +29,10 @@ export default async function ImagesPage({ searchParams }: { searchParams?: { ve
   // Plan kapısı: görseller Pro+ özelliğidir. Ücretsiz planda yükseltme ekranı.
   const { data: orgRow } = await supabase
     .from('organizations')
-    .select('plan')
+    .select('plan, trial_ends_at')
     .eq('id', venue.org_id)
     .maybeSingle();
-  if (!planLimits(orgRow?.plan).images) {
+  if (!resolvePlanContext(orgRow?.plan, orgRow?.trial_ends_at).limits.images) {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
         <span className="text-4xl" aria-hidden>

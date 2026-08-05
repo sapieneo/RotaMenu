@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { PRICING } from '@/lib/plans';
 
 export type PlanClientData = {
   venueId: string | null;
@@ -13,6 +14,7 @@ export type PlanClientData = {
   billingConfigured: boolean;
   subStatus: string | null;
   periodEnd: string | null;
+  trial: { state: 'active' | 'expired' | 'none'; endsAt: string | null; daysLeft: number };
   prefill: { email: string; gsmNumber: string; name: string };
 };
 
@@ -136,23 +138,47 @@ export function PlanClient({ data }: { data: PlanClientData }) {
         </p>
       )}
 
-      {/* Pro karşılaştırma */}
+      {/* Deneme durumu */}
+      {!isPro && data.trial.state === 'active' && (
+        <p className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <strong>Deneme sürüyor</strong> — bitmesine {data.trial.daysLeft} gün kaldı. Tüm
+          özellikler açık; süre dolunca menün yayından kalkar, verilerin durur.
+        </p>
+      )}
+      {!isPro && data.trial.state === 'expired' && (
+        <p className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <strong>Deneme süren doldu.</strong> Menün ve tüm verilerin duruyor — abonelik
+          başlayınca kaldığın yerden yayına döner.
+        </p>
+      )}
+
+      {/* Fiyat karşılaştırma */}
       <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PlanBox
-          title="Ücretsiz"
+          title={`${PRICING.trialDays} gün ücretsiz deneme`}
+          price="0 ₺"
+          priceNote="kart bilgisi istenmez"
           active={!isPro}
-          features={['1 işletme', '50 ürüne kadar', '5 dile çeviri', 'Görsel yok', 'RestaurantOS rozeti']}
+          features={[
+            'Tüm Pro özellikleri açık',
+            'Menünü kur, düzenle, yayınla',
+            `${PRICING.trialDays} gün sonunda yayın kilitlenir`,
+            'Verilerin silinmez',
+          ]}
         />
         <PlanBox
-          title="Pro"
+          title="Abonelik"
+          price={`${PRICING.monthly} ₺`}
+          priceNote={`aylık · yıllık ${PRICING.yearly.toLocaleString('tr-TR')} ₺ (${PRICING.freeMonthsOnYearly} ay bedava)`}
           highlight
           active={isPro}
           features={[
-            'Sınırsız ürün',
-            'Tüm diller',
+            'Sınırsız ürün ve kategori',
+            'Tüm diller · otomatik çeviri',
+            'Alerjen & kalori uyum raporu (PDF)',
             'AI ürün + kategori görselleri',
-            'Rozet kaldırma',
-            'Öncelikli işleme',
+            'Sınırsız QR kod ve masa kartı',
+            'RestaurantOS rozeti kalkar',
           ]}
         />
       </section>
@@ -313,11 +339,15 @@ function DevBypass({
 
 function PlanBox({
   title,
+  price,
+  priceNote,
   features,
   active,
   highlight,
 }: {
   title: string;
+  price?: string;
+  priceNote?: string;
   features: string[];
   active?: boolean;
   highlight?: boolean;
@@ -336,7 +366,13 @@ function PlanBox({
           </span>
         )}
       </div>
-      <ul className="mt-2 space-y-1 text-sm text-stone-600">
+      {price && (
+        <p className="mt-1">
+          <span className="text-2xl font-bold text-stone-900">{price}</span>
+          {priceNote && <span className="ml-1.5 text-xs text-stone-500">{priceNote}</span>}
+        </p>
+      )}
+      <ul className="mt-3 space-y-1 text-sm text-stone-600">
         {features.map((f) => (
           <li key={f} className="flex items-center gap-1.5">
             <span className="text-brand-500" aria-hidden>

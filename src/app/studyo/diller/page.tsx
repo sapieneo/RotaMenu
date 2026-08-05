@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { normalizePlan, planLimits } from '@/lib/plans';
+import { resolvePlanContext } from '@/lib/plans';
 import { MENU_LANGUAGES } from '@/lib/languages';
 import { resolveManagedVenue } from '@/lib/managed-venue';
 import { LanguageManager, type TranslationJobView } from './language-manager';
@@ -23,7 +23,11 @@ export default async function LanguagesPage({ searchParams }: { searchParams?: {
       .order('sort_order')
       .limit(1)
       .maybeSingle(),
-    supabase.from('organizations').select('plan').eq('id', venue.org_id).maybeSingle(),
+    supabase
+      .from('organizations')
+      .select('plan, trial_ends_at')
+      .eq('id', venue.org_id)
+      .maybeSingle(),
   ]);
   if (!menu) return <EmptyState title="Aktif menü bulunamadı" text="Menünüzü tamamlayıp tekrar deneyin." />;
 
@@ -39,8 +43,7 @@ export default async function LanguagesPage({ searchParams }: { searchParams?: {
       .eq('menu_id', menu.id)
       .order('updated_at', { ascending: false }),
   ]);
-  const tier = normalizePlan(org?.plan);
-  const limits = planLimits(tier);
+  const limits = resolvePlanContext(org?.plan, org?.trial_ends_at).limits;
 
   return (
     <LanguageManager

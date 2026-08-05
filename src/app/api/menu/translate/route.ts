@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { isSupportedMenuLanguage } from '@/lib/languages';
-import { planLimits } from '@/lib/plans';
+import { resolvePlanContext } from '@/lib/plans';
 import { signTranslationBackgroundPayload } from '@/lib/ai/background-auth';
 import { resolveManagedVenue } from '@/lib/managed-venue';
 
@@ -38,10 +38,10 @@ export async function POST(request: NextRequest) {
 
   const { data: organization } = await supabase
     .from('organizations')
-    .select('plan')
+    .select('plan, trial_ends_at')
     .eq('id', venue.org_id)
     .maybeSingle();
-  const limits = planLimits(organization?.plan);
+  const limits = resolvePlanContext(organization?.plan, organization?.trial_ends_at).limits;
   const maxTargets = Number.isFinite(limits.maxLocales) ? Math.max(0, limits.maxLocales - 1) : Infinity;
   if (parsed.data.locales.length > maxTargets) {
     return NextResponse.json(

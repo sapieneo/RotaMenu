@@ -10,7 +10,7 @@ import {
   ImageError,
   isImageConfigured,
 } from '@/lib/ai/image';
-import { planLimits, UPGRADE_MESSAGES } from '@/lib/plans';
+import { UPGRADE_MESSAGES, resolvePlanContext } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -109,10 +109,10 @@ export async function POST(request: NextRequest) {
   // Plan kapısı: görsel üretimi yalnız görsele izin veren planlarda (Pro+).
   const { data: orgRow } = await admin
     .from('organizations')
-    .select('plan')
+    .select('plan, trial_ends_at')
     .eq('id', orgId)
     .maybeSingle();
-  if (!planLimits(orgRow?.plan).images) {
+  if (!resolvePlanContext(orgRow?.plan, orgRow?.trial_ends_at).limits.images) {
     return NextResponse.json(
       { error: UPGRADE_MESSAGES.images, code: 'upgrade_required' },
       { status: 402 }

@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { planLimits, normalizePlan } from '@/lib/plans';
+import { planLimits, resolvePlanContext } from '@/lib/plans';
 import { isIyzicoConfigured } from '@/lib/iyzico';
 import { isAdminSession } from '@/lib/admin-auth';
 import { PlanClient, type PlanClientData } from './plan-client';
@@ -44,14 +44,17 @@ export default async function PlanPage({ searchParams }: { searchParams?: { venu
   let orgName = '';
   let subStatus: string | null = null;
   let periodEnd: string | null = null;
+  let trial: PlanClientData['trial'] = { state: 'none', endsAt: null, daysLeft: 0 };
 
   if (membership) {
     const { data: org } = await supabase
       .from('organizations')
-      .select('plan, contact_phone, name')
+      .select('plan, contact_phone, name, trial_ends_at')
       .eq('id', membership.org_id)
       .maybeSingle();
-    plan = normalizePlan(org?.plan);
+    const ctx = resolvePlanContext(org?.plan, org?.trial_ends_at as string | null);
+    trial = ctx.trial;
+    plan = ctx.basePlan;
     contactPhone = (org?.contact_phone as string | null) ?? null;
     orgName = (org?.name as string | null) ?? '';
 
@@ -78,6 +81,7 @@ export default async function PlanPage({ searchParams }: { searchParams?: { venu
     billingConfigured: isIyzicoConfigured(),
     subStatus,
     periodEnd,
+    trial,
     prefill: {
       email: user.email ?? '',
       gsmNumber: contactPhone ?? '',
