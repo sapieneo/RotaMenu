@@ -47,6 +47,36 @@ export type GuestVenue = {
   design: MenuDesignSettings;
 };
 
+/**
+ * Ardışık 'hero' arka planlı kategorileri tek bir grupta toplar. Her grup TEK
+ * bir sticky arka plan katmanı paylaşır — böylece kategoriler arası geçişte
+ * fotoğraf asla yer değiştirmez, yalnızca crossfade ile bir sonrakine geçer.
+ * (Önceki tasarımda her kategorinin KENDİ sticky'si vardı; bir kategoriden
+ * diğerine geçerken biri "unstick" olup diğeri "stick" olduğu için görsel
+ * önce kayıyor sonra kayboluyordu.)
+ */
+type CategoryGroup =
+  | { kind: 'plain'; category: GuestCategory }
+  | { kind: 'hero'; categories: GuestCategory[] };
+
+function isHeroCategory(c: GuestCategory): boolean {
+  return Boolean(c.backgroundUrl) && c.backgroundStyle === 'hero';
+}
+
+function groupCategories(categories: GuestCategory[]): CategoryGroup[] {
+  const groups: CategoryGroup[] = [];
+  for (const c of categories) {
+    const last = groups[groups.length - 1];
+    if (isHeroCategory(c)) {
+      if (last?.kind === 'hero') last.categories.push(c);
+      else groups.push({ kind: 'hero', categories: [c] });
+    } else {
+      groups.push({ kind: 'plain', category: c });
+    }
+  }
+  return groups;
+}
+
 export function GuestMenu({
   venue,
   categories,
@@ -230,141 +260,116 @@ export function GuestMenu({
 
       {/* Kategoriler + ürünler */}
       <main className="px-4">
-        {categories.map((c) => {
-          const isHero = Boolean(c.backgroundUrl) && c.backgroundStyle === 'hero';
-          const itemList = (
-            <ul style={{ display: 'grid', gridTemplateColumns: design.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${design.itemSpacing}px` }}>
-              {c.items.map((it) => (
-                <li key={it.id}>
-                  <button
-                    onClick={() => openItem(it)}
-                    className={`flex w-full items-start gap-3 text-left transition ${design.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`}
-                    style={{ backgroundColor: design.layout === 'single' ? hexToRgba(design.cardColor, design.cardOpacity) : 'transparent', borderRadius: design.layout === 'single' ? `${design.cardRadius}px` : 0, borderBottom: `1px ${design.layout === 'two-column' ? 'dashed' : 'solid'} ${hexToRgba(design.dividerColor, design.dividerOpacity)}` }}
-                  >
-                    {it.imageUrl && design.layout === 'single' && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={it.imageUrl}
-                        alt={it.name}
-                        className="h-16 w-16 shrink-0 object-cover"
-                        style={{ borderRadius: `${Math.min(design.cardRadius, 16)}px` }}
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <h3 className="font-semibold" style={{ color: design.textColor }}>{it.name}</h3>
-                        {it.price != null && (
-                          <span className="shrink-0 font-semibold" style={{ color: design.primaryColor }}>
-                            {formatPrice(it.price, venue.currency)}
-                          </span>
-                        )}
-                      </div>
-                      {it.description && (
-                        <p className="mt-0.5 line-clamp-2 text-sm" style={{ color: design.mutedTextColor }}>
-                          {it.description}
-                        </p>
+        {groupCategories(categories).map((group) => {
+          if (group.kind === 'plain') {
+            const c = group.category;
+            const itemList = (
+              <ul style={{ display: 'grid', gridTemplateColumns: design.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${design.itemSpacing}px` }}>
+                {c.items.map((it) => (
+                  <li key={it.id}>
+                    <button
+                      onClick={() => openItem(it)}
+                      className={`flex w-full items-start gap-3 text-left transition ${design.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`}
+                      style={{ backgroundColor: design.layout === 'single' ? hexToRgba(design.cardColor, design.cardOpacity) : 'transparent', borderRadius: design.layout === 'single' ? `${design.cardRadius}px` : 0, borderBottom: `1px ${design.layout === 'two-column' ? 'dashed' : 'solid'} ${hexToRgba(design.dividerColor, design.dividerOpacity)}` }}
+                    >
+                      {it.imageUrl && design.layout === 'single' && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={it.imageUrl}
+                          alt={it.name}
+                          className="h-16 w-16 shrink-0 object-cover"
+                          style={{ borderRadius: `${Math.min(design.cardRadius, 16)}px` }}
+                        />
                       )}
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        {it.dietaryCodes.map((code) => (
-                          <DietaryChip key={code} code={code} />
-                        ))}
-                        {it.calories != null && (
-                          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-500">
-                            {it.calories} kcal
-                          </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <h3 className="font-semibold" style={{ color: design.textColor }}>{it.name}</h3>
+                          {it.price != null && (
+                            <span className="shrink-0 font-semibold" style={{ color: design.primaryColor }}>
+                              {formatPrice(it.price, venue.currency)}
+                            </span>
+                          )}
+                        </div>
+                        {it.description && (
+                          <p className="mt-0.5 line-clamp-2 text-sm" style={{ color: design.mutedTextColor }}>
+                            {it.description}
+                          </p>
                         )}
-                        {it.allergenCodes.map((code) => (
-                          <AllergenChip key={code} code={code} />
-                        ))}
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          {it.dietaryCodes.map((code) => (
+                            <DietaryChip key={code} code={code} />
+                          ))}
+                          {it.calories != null && (
+                            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-500">
+                              {it.calories} kcal
+                            </span>
+                          )}
+                          {it.allergenCodes.map((code) => (
+                            <AllergenChip key={code} code={code} />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          );
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            );
 
-          /** Hero: her ürün fotoğrafın üzerine kendi gri/şeffaf camsı kartıyla
-           * biner — kartlar arasında boşluk bırakılır ki fotoğraf aralardan
-           * görünsün (tek bir düz beyaz panel DEĞİL). Fotoğraf sabit yükseklikte
-           * ve mutlak konumlu; ürünler normal akışta üstüne yığılır, taşan
-           * ürünler fotoğrafın altında düz sayfa üzerinde devam eder. */
-          const heroList = (
-            <ul className="relative space-y-2 px-0.5 pb-1">
-              {c.items.map((it) => (
-                <li key={it.id}>
-                  <button
-                    onClick={() => openItem(it)}
-                    className="flex w-full items-start gap-3 px-3.5 py-3 text-left shadow-sm backdrop-blur-[3px] transition"
-                    style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px`, borderBottom: `1px solid ${hexToRgba(design.dividerColor, design.dividerOpacity)}` }}
-                  >
-                    {it.imageUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
+            return (
+              <section
+                key={c.id}
+                id={`cat-${c.id}`}
+                ref={(el) => {
+                  sectionRefs.current[c.id] = el;
+                }}
+                className="scroll-mt-16 pt-6"
+              >
+                {c.backgroundUrl ? (
+                  <>
+                    <div className="relative mb-3 h-28 overflow-hidden rounded-2xl">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={it.imageUrl}
-                        alt={it.name}
-                        className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                        src={c.backgroundUrl}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
                       />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <h3 className="font-semibold" style={{ color: design.textColor }}>{it.name}</h3>
-                        {it.price != null && (
-                          <span className="shrink-0 font-semibold" style={{ color: design.primaryColor }}>
-                            {formatPrice(it.price, venue.currency)}
-                          </span>
-                        )}
-                      </div>
-                      {it.description && (
-                        <p className="mt-0.5 line-clamp-2 text-sm" style={{ color: design.mutedTextColor }}>
-                          {it.description}
-                        </p>
-                      )}
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        {it.dietaryCodes.map((code) => (
-                          <DietaryChip key={code} code={code} />
-                        ))}
-                        {it.calories != null && (
-                          <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: hexToRgba(design.surfaceColor, 68), color: design.textColor }}>
-                            {it.calories} kcal
-                          </span>
-                        )}
-                        {it.allergenCodes.map((code) => (
-                          <AllergenChip key={code} code={code} />
-                        ))}
-                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                      <h2 className="absolute bottom-2 left-3 text-xl font-bold text-white drop-shadow-md" style={{ fontFamily: design.headingFont }}>
+                        {c.name}
+                      </h2>
                     </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          );
+                    {itemList}
+                  </>
+                ) : (
+                  <div className={design.layout === 'two-column' ? 'p-3 shadow-sm' : ''} style={design.layout === 'two-column' ? { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px` } : undefined}>
+                    <h2 className="mb-2 px-1 font-bold" style={{ color: design.textColor, fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale}px` }}>{c.name}</h2>
+                    {itemList}
+                  </div>
+                )}
+              </section>
+            );
+          }
 
+          /**
+           * Hero grubu: ardışık tüm 'hero' kategoriler TEK bir sticky fotoğraf
+           * katmanını paylaşır. Katman nav'ın hemen altında (top-14) SABİTTİR —
+           * grup içinde hangi kategori arasında geçiş yapılırsa yapılsın resim
+           * hiç yer değiştirmez, yalnızca aktif kategoriye göre crossfade
+           * (yumuşak opaklık geçişi) ile bir sonraki fotoğrafa/başlığa geçer.
+           * Her ürün, kendi gri/şeffaf camsı kartıyla listenin ilk kategorisinde
+           * fotoğrafın üzerine biner; sonraki kategorilerin ürünleri sabit
+           * fotoğrafın altında normal akışta devam eder.
+           */
+          const cats = group.categories;
           return (
-            <section
-              key={c.id}
-              id={`cat-${c.id}`}
-              ref={(el) => {
-                sectionRefs.current[c.id] = el;
-              }}
-              className="scroll-mt-16 pt-6"
-            >
-              {isHero ? (
-                <div className="relative">
-                  {/* Sabit (sticky) arka plan. ÖNEMLİ: resmin kendi kutusu normal
-                      akışta KALIR (negatif margin YOK) — sticky'nin "durabileceği"
-                      alanı, aşağıdaki içerik bloğunun kendi yüksekliğinden gelir.
-                      İçerik bloğu negatif üst-margin ile fotoğrafın üzerine biner;
-                      böylece resim, bu kategorinin ürünleri kaydırılırken ekranda
-                      GERÇEKTEN sabit kalır (nav'ın hemen altında, top-14) ve ancak
-                      bu bölümün sonuna gelinince bırakılır. `active` (scroll-spy)
-                      state'i üzerinden opacity geçişiyle bir sonraki kategorinin
-                      fotoğrafına yumuşak (crossfade) geçilir. */}
+            <div key={`hero-${cats[0].id}`} className="relative">
+              <div className="sticky top-14 z-0 h-72 overflow-hidden rounded-2xl sm:h-80" aria-hidden>
+                {cats.map((c) => (
                   <div
-                    className={`sticky top-14 z-0 h-72 overflow-hidden rounded-2xl transition-opacity duration-700 ease-in-out sm:h-80 ${
+                    key={c.id}
+                    className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
                       c.id === active ? 'opacity-100' : 'opacity-0'
                     }`}
-                    aria-hidden
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -373,40 +378,83 @@ export function GuestMenu({
                       className="absolute inset-0 h-full w-full object-cover opacity-90"
                     />
                     <div className="absolute inset-0 bg-black/30" />
-                  </div>
-                  <div className="relative z-10 -mt-72 sm:-mt-80">
-                    <div className="px-1 pb-3 pt-8 text-center">
+                    <div className="absolute inset-x-0 top-8 px-1 text-center">
                       <h2 className="text-xl font-bold uppercase tracking-wide text-white drop-shadow-lg sm:text-2xl" style={{ fontFamily: design.headingFont }}>
                         {c.name}
                       </h2>
                       <span className="mx-auto mt-1.5 block h-0.5 w-10 bg-white/70" />
                     </div>
-                    {heroList}
                   </div>
-                </div>
-              ) : c.backgroundUrl ? (
-                <>
-                  <div className="relative mb-3 h-28 overflow-hidden rounded-2xl">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={c.backgroundUrl}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                    <h2 className="absolute bottom-2 left-3 text-xl font-bold text-white drop-shadow-md" style={{ fontFamily: design.headingFont }}>
-                      {c.name}
-                    </h2>
-                  </div>
-                  {itemList}
-                </>
-              ) : (
-                <div className={design.layout === 'two-column' ? 'p-3 shadow-sm' : ''} style={design.layout === 'two-column' ? { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px` } : undefined}>
-                  <h2 className="mb-2 px-1 font-bold" style={{ color: design.textColor, fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale}px` }}>{c.name}</h2>
-                  {itemList}
-                </div>
-              )}
-            </section>
+                ))}
+              </div>
+              <div className="relative z-10 -mt-72 sm:-mt-80">
+                {cats.map((c, index) => {
+                  const heroList = (
+                    <ul className="relative space-y-2 px-0.5 pb-1">
+                      {c.items.map((it) => (
+                        <li key={it.id}>
+                          <button
+                            onClick={() => openItem(it)}
+                            className="flex w-full items-start gap-3 px-3.5 py-3 text-left shadow-sm backdrop-blur-[3px] transition"
+                            style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px`, borderBottom: `1px solid ${hexToRgba(design.dividerColor, design.dividerOpacity)}` }}
+                          >
+                            {it.imageUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={it.imageUrl}
+                                alt={it.name}
+                                className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <h3 className="font-semibold" style={{ color: design.textColor }}>{it.name}</h3>
+                                {it.price != null && (
+                                  <span className="shrink-0 font-semibold" style={{ color: design.primaryColor }}>
+                                    {formatPrice(it.price, venue.currency)}
+                                  </span>
+                                )}
+                              </div>
+                              {it.description && (
+                                <p className="mt-0.5 line-clamp-2 text-sm" style={{ color: design.mutedTextColor }}>
+                                  {it.description}
+                                </p>
+                              )}
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                {it.dietaryCodes.map((code) => (
+                                  <DietaryChip key={code} code={code} />
+                                ))}
+                                {it.calories != null && (
+                                  <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: hexToRgba(design.surfaceColor, 68), color: design.textColor }}>
+                                    {it.calories} kcal
+                                  </span>
+                                )}
+                                {it.allergenCodes.map((code) => (
+                                  <AllergenChip key={code} code={code} />
+                                ))}
+                              </div>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+
+                  return (
+                    <section
+                      key={c.id}
+                      id={`cat-${c.id}`}
+                      ref={(el) => {
+                        sectionRefs.current[c.id] = el;
+                      }}
+                      className={index === 0 ? 'scroll-mt-16 pt-20 sm:pt-24' : 'scroll-mt-16 pt-6'}
+                    >
+                      {heroList}
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </main>
