@@ -10,6 +10,8 @@ export type ImgCategory = {
   name: string;
   backgroundUrl: string | null;
   backgroundStyle: BackgroundStyle;
+  /** Görselin dikey kadrajı: 0 = üst, 50 = orta (varsayılan), 100 = alt. */
+  backgroundPositionY: number;
   items: ImgItem[];
 };
 
@@ -33,6 +35,7 @@ export function ImageManager({
   const [err, setErr] = useState<Record<string, string | null>>({});
   const uploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const enhanceRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const positionTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const totalItems = cats.reduce((n, c) => n + c.items.length, 0);
   const itemsWithImg = cats.reduce((n, c) => n + c.items.filter((i) => i.imageUrl).length, 0);
@@ -64,6 +67,28 @@ export function ImageManager({
       setCats((cs) => cs.map((c) => (c.id === categoryId ? { ...c, backgroundStyle: prev } : c)));
       fail(categoryId, 'Görünüm kaydedilemedi.');
     }
+  }
+
+  /**
+   * Görselin dikey kadrajını (object-position) ayarlar. Sürükleme sırasında
+   * her adımda API'yi yormamak için 400ms debounce uygulanır; ekran anında
+   * güncellenir (iyimser).
+   */
+  function setPosition(categoryId: string, positionY: number) {
+    setCats((cs) => cs.map((c) => (c.id === categoryId ? { ...c, backgroundPositionY: positionY } : c)));
+    if (positionTimers.current[categoryId]) clearTimeout(positionTimers.current[categoryId]);
+    positionTimers.current[categoryId] = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/category/background-style', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoryId, positionY }),
+        });
+        if (!res.ok) throw new Error();
+      } catch {
+        fail(categoryId, 'Görsel konumu kaydedilemedi.');
+      }
+    }, 400);
   }
 
   async function generate(kind: Kind, id: string) {
@@ -273,7 +298,12 @@ export function ImageManager({
             <div className="relative mb-4 h-24 overflow-hidden rounded-xl bg-stone-100">
               {c.backgroundUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.backgroundUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <img
+                  src={c.backgroundUrl}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{ objectPosition: `center ${c.backgroundPositionY}%` }}
+                />
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-brand-100 to-stone-100" />
               )}
@@ -314,6 +344,32 @@ export function ImageManager({
                   >
                     Arka plan (büyük)
                   </button>
+                </div>
+              )}
+              {c.backgroundUrl && (
+                <div className="mt-3 max-w-xs">
+                  <label className="mb-1 flex items-center justify-between text-xs font-medium text-stone-600">
+                    <span>Görselin dikey konumu</span>
+                    <span className="tabular-nums text-stone-400">{c.backgroundPositionY}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={c.backgroundPositionY}
+                    onChange={(e) => setPosition(c.id, Number(e.target.value))}
+                    className="h-2 w-full cursor-pointer accent-orange-600"
+                  />
+                  <div className="mt-1 flex justify-between text-[10px] text-stone-400">
+                    <span>Üst</span>
+                    <span>Orta</span>
+                    <span>Alt</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-stone-400">
+                    {c.backgroundStyle === 'strip'
+                      ? 'Şerit dar olduğu için görselin görünecek kısmını buradan seç.'
+                      : 'Büyük arka planda da görselin odak noktasını ayarlar.'}
+                  </p>
                 </div>
               )}
             </div>

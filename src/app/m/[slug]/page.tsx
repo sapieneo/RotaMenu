@@ -130,7 +130,7 @@ export default async function GuestMenuPage({
   const { data: categories } = menuIds.length
     ? await supabase
         .from('categories')
-        .select('id, name, sort_order, background_url, background_style')
+        .select('id, name, sort_order, background_url, background_style, background_position_y')
         .in('menu_id', menuIds)
         .eq('is_active', true)
         .order('sort_order')
@@ -141,6 +141,7 @@ export default async function GuestMenuPage({
           sort_order: number;
           background_url: string | null;
           background_style: string | null;
+          background_position_y: number | null;
         }[],
       };
   const catIds = (categories ?? []).map((c) => c.id);
@@ -232,6 +233,7 @@ export default async function GuestMenuPage({
       name: categoryTranslationMap.get(c.id) ?? c.name,
       backgroundUrl: c.background_url ?? null,
       backgroundStyle: (c.background_style as 'strip' | 'hero' | null) ?? 'strip',
+      backgroundPositionY: c.background_position_y ?? 50,
       items: byCat.get(c.id) ?? [],
     }))
     .filter((c) => c.items.length > 0);

@@ -25,6 +25,8 @@ export type GuestCategory = {
   /** 'strip' = küçük şerit banner (varsayılan). 'hero' = tam boy arka plan;
    *  ürün listesi üzerine yarı saydam kart olarak biner. */
   backgroundStyle: 'strip' | 'hero';
+  /** Görselin dikey kadrajı: 0 = üst, 50 = orta (varsayılan), 100 = alt. */
+  backgroundPositionY: number;
   items: GuestItem[];
 };
 
@@ -324,28 +326,15 @@ export function GuestMenu({
                 }}
                 className="scroll-mt-16 pt-6"
               >
-                {c.backgroundUrl ? (
-                  <>
-                    <div className="relative mb-3 h-28 overflow-hidden rounded-2xl">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={c.backgroundUrl}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                      <h2 className="absolute bottom-2 left-3 text-xl font-bold text-white drop-shadow-md" style={{ fontFamily: design.headingFont }}>
-                        {c.name}
-                      </h2>
-                    </div>
-                    {itemList}
-                  </>
-                ) : (
-                  <div className={design.layout === 'two-column' ? 'p-3 shadow-sm' : ''} style={design.layout === 'two-column' ? { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px` } : undefined}>
-                    <h2 className="mb-2 px-1 font-bold" style={{ color: design.textColor, fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale}px` }}>{c.name}</h2>
-                    {itemList}
-                  </div>
-                )}
+                <CategoryStrip
+                  name={c.name}
+                  design={design}
+                  backgroundUrl={c.backgroundStyle === 'strip' ? c.backgroundUrl : null}
+                  positionY={c.backgroundPositionY}
+                />
+                <div className={design.layout === 'two-column' ? 'p-3 shadow-sm' : ''} style={design.layout === 'two-column' ? { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px` } : undefined}>
+                  {itemList}
+                </div>
               </section>
             );
           }
@@ -376,14 +365,9 @@ export function GuestMenu({
                       src={c.backgroundUrl!}
                       alt=""
                       className="absolute inset-0 h-full w-full object-cover opacity-90"
+                      style={{ objectPosition: `center ${c.backgroundPositionY}%` }}
                     />
-                    <div className="absolute inset-0 bg-black/30" />
-                    <div className="absolute inset-x-0 top-8 px-1 text-center">
-                      <h2 className="text-xl font-bold uppercase tracking-wide text-white drop-shadow-lg sm:text-2xl" style={{ fontFamily: design.headingFont }}>
-                        {c.name}
-                      </h2>
-                      <span className="mx-auto mt-1.5 block h-0.5 w-10 bg-white/70" />
-                    </div>
+                    <div className="absolute inset-0 bg-black/20" />
                   </div>
                 ))}
               </div>
@@ -449,6 +433,7 @@ export function GuestMenu({
                       }}
                       className={index === 0 ? 'scroll-mt-16 pt-20 sm:pt-24' : 'scroll-mt-16 pt-6'}
                     >
+                      <CategoryStrip name={c.name} design={design} translucent />
                       {heroList}
                     </section>
                   );
@@ -464,6 +449,57 @@ export function GuestMenu({
       {selected && (
         <ItemModal item={selected} currency={venue.currency} onClose={() => setSelected(null)} />
       )}
+    </div>
+  );
+}
+
+/**
+ * Kategori adının her zaman göründüğü, ortalanmış şerit alanı. Ürün grubu
+ * geçişlerinde konumu hep aynıdır: bir arka plan görseli varsa (yalnızca
+ * 'strip' stilinde) onun üzerine biner; yoksa (ya da 'hero' stilinde —
+ * o zaman büyük görsel ayrı, sabit bir alanda gösterilir) düz temalı bir
+ * çubuk olarak kalır. Metin her koşulda şeridin tam ortasındadır.
+ */
+function CategoryStrip({
+  name,
+  design,
+  backgroundUrl,
+  positionY = 50,
+  translucent = false,
+}: {
+  name: string;
+  design: MenuDesignSettings;
+  backgroundUrl?: string | null;
+  positionY?: number;
+  translucent?: boolean;
+}) {
+  if (backgroundUrl) {
+    return (
+      <div className="relative mb-3 h-28 overflow-hidden rounded-2xl">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={backgroundUrl}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ objectPosition: `center ${positionY}%` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-black/25" />
+        <div className="absolute inset-0 flex items-center justify-center px-4 text-center">
+          <h2 className="text-xl font-bold text-white drop-shadow-md" style={{ fontFamily: design.headingFont }}>
+            {name}
+          </h2>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`mb-3 flex h-14 items-center justify-center rounded-2xl px-4 text-center ${translucent ? 'shadow-sm backdrop-blur-[3px]' : ''}`}
+      style={{ backgroundColor: hexToRgba(design.cardColor, translucent ? design.cardOpacity : 100) }}
+    >
+      <h2 className="font-bold" style={{ color: design.textColor, fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale}px` }}>
+        {name}
+      </h2>
     </div>
   );
 }

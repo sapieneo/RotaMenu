@@ -35,11 +35,11 @@ export default async function DesignPage({ searchParams }: { searchParams?: { ve
   const { data: categories } = menuIds.length
     ? await supabase
         .from('categories')
-        .select('id, name, sort_order, background_url, background_style')
+        .select('id, name, sort_order, background_url, background_style, background_position_y')
         .in('menu_id', menuIds)
         .eq('is_active', true)
         .order('sort_order')
-    : { data: [] as { id: string; name: string; sort_order: number; background_url: string | null; background_style: string | null }[] };
+    : { data: [] as { id: string; name: string; sort_order: number; background_url: string | null; background_style: string | null; background_position_y: number | null }[] };
   const categoryIds = (categories ?? []).map((category) => category.id);
   const { data: items } = categoryIds.length
     ? await supabase
@@ -68,6 +68,7 @@ export default async function DesignPage({ searchParams }: { searchParams?: { ve
       name: category.name,
       backgroundUrl: category.background_url ?? null,
       backgroundStyle: (category.background_style as 'strip' | 'hero' | null) ?? 'strip',
+      backgroundPositionY: category.background_position_y ?? 50,
       items: byCategory.get(category.id) ?? [],
     }))
     .filter((category) => category.items.length > 0)

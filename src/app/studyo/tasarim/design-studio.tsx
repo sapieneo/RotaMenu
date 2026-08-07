@@ -22,6 +22,7 @@ export type DesignPreviewCategory = {
   name: string;
   backgroundUrl: string | null;
   backgroundStyle: 'strip' | 'hero';
+  backgroundPositionY: number;
   items: { id: string; name: string; description: string | null; price: number | null; imageUrl: string | null }[];
 };
 
@@ -271,7 +272,7 @@ export function DesignStudio({
 const PREVIEW_SCALE = 0.6667;
 
 function PhonePreview({ venue, categories, settings }: { venue: { name: string; description: string | null; currency: string; logoUrl: string | null; coverUrl: string | null }; categories: DesignPreviewCategory[]; settings: MenuDesignSettings }) {
-  const previewCategories = useMemo(() => categories.length ? categories : [{ id: 'sample', name: 'Menü', backgroundUrl: null, backgroundStyle: 'strip' as const, items: [{ id: '1', name: 'İmza Tabağı', description: 'Mevsim ürünleriyle hazırlanan özel lezzet', price: 320, imageUrl: null }, { id: '2', name: 'Günün Çorbası', description: 'Her gün taze hazırlanır', price: 120, imageUrl: null }] }], [categories]);
+  const previewCategories = useMemo(() => categories.length ? categories : [{ id: 'sample', name: 'Menü', backgroundUrl: null, backgroundStyle: 'strip' as const, backgroundPositionY: 50, items: [{ id: '1', name: 'İmza Tabağı', description: 'Mevsim ürünleriyle hazırlanan özel lezzet', price: 320, imageUrl: null }, { id: '2', name: 'Günün Çorbası', description: 'Her gün taze hazırlanır', price: 120, imageUrl: null }] }], [categories]);
   const [activeCategory, setActiveCategory] = useState(previewCategories[0]?.id ?? '');
   const previewNavRef = useRef<HTMLDivElement | null>(null);
   const previewTabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -318,23 +319,26 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
           </nav>
           <div className="space-y-7 px-3 py-5">
             {previewCategories.map((category) => {
-              const hasHeroBackground = Boolean(category.backgroundUrl) && category.backgroundStyle === 'hero';
+              const stripBackground = category.backgroundStyle === 'strip' ? category.backgroundUrl : null;
               return <section
                 key={category.id}
                 ref={(element) => { previewSectionRefs.current[category.id] = element; }}
                 className={settings.layout === 'two-column' ? 'p-3 shadow-sm' : ''}
-                style={{
-                  ...(hasHeroBackground ? {
-                    backgroundImage: `linear-gradient(rgba(0, 0, 0, .35), rgba(0, 0, 0, .35)), url("${category.backgroundUrl}")`,
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: 'cover',
-                    padding: '12px',
-                  } : {}),
-                  ...(settings.layout === 'two-column' ? { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), borderRadius: `${settings.cardRadius}px` } : {}),
-                }}
+                style={settings.layout === 'two-column' ? { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), borderRadius: `${settings.cardRadius}px` } : undefined}
               >
-              <h3 className="mb-2 px-1 font-bold" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
+              {stripBackground ? (
+                <div className="relative mb-2 h-16 overflow-hidden rounded-xl">
+                  <img src={stripBackground} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `center ${category.backgroundPositionY}%` }} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-black/20" />
+                  <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
+                    <h3 className="font-bold text-white drop-shadow" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-2 flex h-8 items-center justify-center rounded-xl px-2 text-center" style={{ backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity) }}>
+                  <h3 className="font-bold" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: settings.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${settings.itemSpacing}px` }}>
                 {category.items.slice(0, 6).map((item) => <div key={item.id} className={`flex items-start gap-3 ${settings.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`} style={{ backgroundColor: settings.layout === 'single' ? hexToRgba(settings.cardColor, settings.cardOpacity) : 'transparent', borderRadius: settings.layout === 'single' ? `${settings.cardRadius}px` : 0, borderBottom: `1px dashed ${hexToRgba(settings.dividerColor, settings.dividerOpacity)}` }}>
                   {item.imageUrl && settings.layout === 'single' && <img src={item.imageUrl} alt="" className="h-14 w-14 shrink-0 object-cover" style={{ borderRadius: `${Math.min(settings.cardRadius, 14)}px` }} />}
