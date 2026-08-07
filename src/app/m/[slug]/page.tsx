@@ -162,7 +162,7 @@ export default async function GuestMenuPage({
   const rows = (itemRows ?? []) as unknown as Record<string, unknown>[];
 
   const itemIds = rows.map((item) => item.id as string);
-  const [{ data: categoryTranslations }, { data: itemTranslations }, { data: complianceRows }] = await Promise.all([
+  const [{ data: categoryTranslations }, { data: itemTranslations }, { data: complianceRows }, { data: completedJobs }] = await Promise.all([
     catIds.length
       ? supabase.from('category_translations').select('category_id, locale, name').in('category_id', catIds)
       : Promise.resolve({ data: [] as { category_id: string; locale: string; name: string }[] }),
@@ -172,16 +172,32 @@ export default async function GuestMenuPage({
     itemIds.length
       ? createAdminClient().from('item_compliance').select('item_id, calories_review').in('item_id', itemIds)
       : Promise.resolve({ data: [] as { item_id: string; calories_review: string }[] }),
+    // Dil seçici, kategori/ürün çevirilerinin tek tek TAM eşleşmesini beklemek
+    // yerine (yeni eklenen bir ürün çevrilmeden diğer her şeyi gizlerdi) dil
+    // yönetimi ekranındaki "tamamlandı" işaretine bakar — misafir görmesin
+    // diye anon RLS bu tabloyu kapatıyor, o yüzden admin client kullanılır.
+    menuIds.length
+      ? createAdminClient()
+          .from('menu_translation_jobs')
+          .select('locale')
+          .in('menu_id', menuIds)
+          .eq('job_type', 'translation')
+          .eq('status', 'completed')
+      : Promise.resolve({ data: [] as { locale: string }[] }),
   ]);
   const confirmedCalories = new Set(
     (complianceRows ?? [])
       .filter((row) => row.calories_review === 'confirmed')
       .map((row) => row.item_id)
   );
-  const categoryLocaleCounts = countLocales(categoryTranslations ?? [], 'category_id');
-  const itemLocaleCounts = countLocales(itemTranslations ?? [], 'item_id');
-  const availableLocaleCodes = [...MENU_LANGUAGE_BY_CODE.keys()].filter(
-    (locale) => categoryLocaleCounts.get(locale) === catIds.length && itemLocaleCounts.get(locale) === itemIds.length
+  const categoryTranslationsList = categoryTranslations ?? [];
+  const itemTranslationsList = itemTranslations ?? [];
+  const availableLocaleCodes = [...new Set((completedJobs ?? []).map((job) => job.locale))].filter(
+    (locale) =>
+      MENU_LANGUAGE_BY_CODE.has(locale) &&
+      // Tamamlanmış iş var ama hiç çeviri satırı yoksa (silinmiş/boş menü)
+      // dil seçiciyi kirletmesin.
+      (categoryTranslationsList.some((row) => row.locale === locale) || itemTranslationsList.some((row) => row.locale === locale))
   );
   const requestedLocale = searchParams?.lang ?? SOURCE_LANGUAGE.code;
   const currentLocale = availableLocaleCodes.includes(requestedLocale) ? requestedLocale : SOURCE_LANGUAGE.code;
@@ -331,15 +347,4 @@ function SuspendedNotice({
       </div>
     </main>
   );
-}
-
-function countLocales(rows: Record<string, unknown>[], idKey: string) {
-  const unique = new Map<string, Set<string>>();
-  for (const row of rows) {
-    const locale = row.locale as string;
-    const ids = unique.get(locale) ?? new Set<string>();
-    ids.add(row[idKey] as string);
-    unique.set(locale, ids);
-  }
-  return new Map([...unique].map(([locale, ids]) => [locale, ids.size]));
 }

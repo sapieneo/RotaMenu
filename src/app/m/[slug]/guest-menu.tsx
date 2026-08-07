@@ -192,20 +192,8 @@ export function GuestMenu({
           className="h-40 w-full bg-cover bg-center sm:rounded-t-2xl"
           style={venue.coverUrl ? { backgroundImage: `url(${venue.coverUrl})` } : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }}
         />
-        <div className="px-5 pb-4">
-          <div className="-mt-10 flex items-end gap-3">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden border-4 shadow-md" style={{ borderColor: design.surfaceColor, backgroundColor: design.surfaceColor, borderRadius: `${Math.min(design.cardRadius, 24)}px` }}>
-              {venue.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={venue.logoUrl} alt={venue.name} className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-2xl font-bold" style={{ color: design.primaryColor }}>
-                  {venue.name.slice(0, 2).toUpperCase()}
-                </span>
-              )}
-            </div>
-          </div>
-          <h1 className="mt-3 font-bold tracking-tight" style={{ fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale * 1.35}px` }}>{venue.name}</h1>
+        <div className="px-5 pt-4 pb-4">
+          <h1 className="font-bold tracking-tight" style={{ fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale * 1.35}px` }}>{venue.name}</h1>
           {venue.description && (
             <p className="mt-1 text-sm" style={{ color: design.mutedTextColor }}>{venue.description}</p>
           )}
