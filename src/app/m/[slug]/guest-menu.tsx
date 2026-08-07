@@ -314,15 +314,15 @@ export function GuestMenu({
                 }}
                 className="scroll-mt-16 pt-6"
               >
-                <CategoryStrip
-                  name={c.name}
-                  design={design}
-                  backgroundUrl={c.backgroundStyle === 'strip' ? c.backgroundUrl : null}
-                  positionY={c.backgroundPositionY}
-                />
-                <div className={design.layout === 'two-column' ? 'p-3 shadow-sm' : ''} style={design.layout === 'two-column' ? { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px` } : undefined}>
-                  {itemList}
-                </div>
+                <CategoryFrame design={design}>
+                  <CategoryStrip
+                    name={c.name}
+                    design={design}
+                    backgroundUrl={c.backgroundStyle === 'strip' ? c.backgroundUrl : null}
+                    positionY={c.backgroundPositionY}
+                  />
+                  <div className="p-3">{itemList}</div>
+                </CategoryFrame>
               </section>
             );
           }
@@ -422,8 +422,10 @@ export function GuestMenu({
                       }}
                       className={index === 0 ? 'scroll-mt-16 pt-28 sm:pt-32' : 'scroll-mt-16 pt-6'}
                     >
-                      <CategoryStrip name={c.name} design={design} translucent />
-                      {heroList}
+                      <CategoryFrame design={design}>
+                        <CategoryStrip name={c.name} design={design} />
+                        <div className="p-3">{heroList}</div>
+                      </CategoryFrame>
                     </section>
                   );
                 })}
@@ -454,17 +456,15 @@ function CategoryStrip({
   design,
   backgroundUrl,
   positionY = 50,
-  translucent = false,
 }: {
   name: string;
   design: MenuDesignSettings;
   backgroundUrl?: string | null;
   positionY?: number;
-  translucent?: boolean;
 }) {
   if (backgroundUrl) {
     return (
-      <div className="relative mb-3 h-28 overflow-hidden rounded-2xl">
+      <div className="relative h-28 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={backgroundUrl}
@@ -481,14 +481,32 @@ function CategoryStrip({
       </div>
     );
   }
+  // Görselsiz şerit: markanın ana rengiyle dolu, kontrastlı yazılı belirgin
+  // bir bant — arka plandaki kart/sayfa renkleriyle karışıp kaybolmasın diye.
   return (
-    <div
-      className={`mb-3 flex h-14 items-center justify-center rounded-2xl px-4 text-center ${translucent ? 'shadow-sm backdrop-blur-[3px]' : ''}`}
-      style={{ backgroundColor: hexToRgba(design.cardColor, translucent ? design.cardOpacity : 100) }}
-    >
-      <h2 className="font-bold" style={{ color: design.textColor, fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale}px` }}>
+    <div className="flex h-12 items-center justify-center px-4 text-center" style={{ backgroundColor: design.primaryColor }}>
+      <h2
+        className="font-bold uppercase"
+        style={{ color: design.surfaceColor, fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale * 0.85}px`, letterSpacing: '0.03em' }}
+      >
         {name}
       </h2>
+    </div>
+  );
+}
+
+/** Her kategoriyi (şerit + ürün listesi) şık, çerçeveli tek bir kart olarak
+ * gruplar — kategoriler arası geçiş net görünsün diye kenarlık + gölge kullanılır. */
+function CategoryFrame({ design, children }: { design: MenuDesignSettings; children: React.ReactNode }) {
+  return (
+    <div
+      className="overflow-hidden rounded-2xl border shadow-sm"
+      style={{
+        borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 45)),
+        backgroundColor: hexToRgba(design.cardColor, Math.max(design.cardOpacity, 55)),
+      }}
+    >
+      {children}
     </div>
   );
 }

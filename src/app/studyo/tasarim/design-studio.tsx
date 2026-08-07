@@ -323,11 +323,11 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
               return <section
                 key={category.id}
                 ref={(element) => { previewSectionRefs.current[category.id] = element; }}
-                className={settings.layout === 'two-column' ? 'p-3 shadow-sm' : ''}
-                style={settings.layout === 'two-column' ? { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), borderRadius: `${settings.cardRadius}px` } : undefined}
+                className="overflow-hidden rounded-xl border shadow-sm"
+                style={{ borderColor: hexToRgba(settings.dividerColor, Math.max(settings.dividerOpacity, 45)), backgroundColor: hexToRgba(settings.cardColor, Math.max(settings.cardOpacity, 55)) }}
               >
               {stripBackground ? (
-                <div className="relative mb-2 h-16 overflow-hidden rounded-xl">
+                <div className="relative h-16 overflow-hidden">
                   <img src={stripBackground} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `center ${category.backgroundPositionY}%` }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-black/20" />
                   <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
@@ -335,11 +335,11 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
                   </div>
                 </div>
               ) : (
-                <div className="mb-2 flex h-8 items-center justify-center rounded-xl px-2 text-center" style={{ backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity) }}>
-                  <h3 className="font-bold" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
+                <div className="flex h-9 items-center justify-center px-2 text-center" style={{ backgroundColor: settings.primaryColor }}>
+                  <h3 className="font-bold uppercase" style={{ color: settings.surfaceColor, fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale * 0.85}px`, letterSpacing: '0.03em' }}>{category.name}</h3>
                 </div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: settings.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${settings.itemSpacing}px` }}>
+              <div className="p-3" style={{ display: 'grid', gridTemplateColumns: settings.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${settings.itemSpacing}px` }}>
                 {category.items.slice(0, 6).map((item) => <div key={item.id} className={`flex items-start gap-3 ${settings.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`} style={{ backgroundColor: settings.layout === 'single' ? hexToRgba(settings.cardColor, settings.cardOpacity) : 'transparent', borderRadius: settings.layout === 'single' ? `${settings.cardRadius}px` : 0, borderBottom: `1px dashed ${hexToRgba(settings.dividerColor, settings.dividerOpacity)}` }}>
                   {item.imageUrl && settings.layout === 'single' && <img src={item.imageUrl} alt="" className="h-14 w-14 shrink-0 object-cover" style={{ borderRadius: `${Math.min(settings.cardRadius, 14)}px` }} />}
                   <div className="min-w-0 flex-1"><div className="flex items-baseline justify-between gap-2"><p className="font-semibold leading-tight">{item.name}</p>{item.price != null && <span className="shrink-0 text-xs font-bold" style={{ color: settings.primaryColor }}>{formatPrice(item.price, venue.currency)}</span>}</div>{item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-snug" style={{ color: settings.mutedTextColor }}>{item.description}</p>}</div>
