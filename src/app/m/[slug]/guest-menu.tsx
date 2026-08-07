@@ -187,7 +187,7 @@ export function GuestMenu({
       )}
 
       {/* Hero */}
-      <header className="relative" style={{ backgroundColor: design.surfaceColor }}>
+      <header className="relative z-30" style={{ backgroundColor: design.surfaceColor }}>
         <div
           className="h-40 w-full bg-cover bg-center sm:rounded-t-2xl"
           style={venue.coverUrl ? { backgroundImage: `url(${venue.coverUrl})` } : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }}
