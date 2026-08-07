@@ -321,7 +321,7 @@ export function ComplianceReviewer({
         {grouped.map(([cat, catItems]) => (
           <section key={cat} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
             <h2 className="text-lg font-semibold">{cat}</h2>
-            <ul className="mt-2 divide-y divide-stone-100">
+            <ul className="mt-3 space-y-3">
               {catItems.map((item: ItemState) => (
                 <ItemCard
                   key={item.id}
@@ -376,7 +376,13 @@ function ItemCard({
   revert: (item: ItemState) => void;
 }) {
   return (
-    <li className="py-4">
+    <li
+      className={`rounded-2xl border p-4 shadow-sm transition ${
+        item.confirmed
+          ? 'border-emerald-200 bg-emerald-50/40'
+          : 'border-stone-200 bg-white'
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium">{item.name}</p>
