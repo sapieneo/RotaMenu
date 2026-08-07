@@ -329,18 +329,19 @@ export function GuestMenu({
 
           /**
            * Hero grubu: ardışık tüm 'hero' kategoriler TEK bir sticky fotoğraf
-           * katmanını paylaşır. Katman nav'ın hemen altında (top-14) SABİTTİR —
-           * grup içinde hangi kategori arasında geçiş yapılırsa yapılsın resim
-           * hiç yer değiştirmez, yalnızca aktif kategoriye göre crossfade
-           * (yumuşak opaklık geçişi) ile bir sonraki fotoğrafa/başlığa geçer.
-           * Her ürün, kendi gri/şeffaf camsı kartıyla listenin ilk kategorisinde
-           * fotoğrafın üzerine biner; sonraki kategorilerin ürünleri sabit
-           * fotoğrafın altında normal akışta devam eder.
+           * katmanını paylaşır. Katman `top-[50vh] -translate-y-1/2` ile ekranın
+           * DİKEY ORTASINDA sabitlenir (eskiden nav'ın hemen altındaydı) — grup
+           * içinde hangi kategori arasında geçiş yapılırsa yapılsın resim yer
+           * değiştirmez, yalnızca aktif kategoriye göre crossfade (yumuşak
+           * opaklık geçişi) ile bir sonraki fotoğrafa geçer. Yükseklik eski
+           * h-72/h-80'den %40 artırıldı (25.2rem/28rem). Alttaki içerik bloğu
+           * bu yüksekliğe eşit negatif üst boşlukla (-mt) yukarı çekilir; ilk
+           * kategorinin ürünleri kendi camsı kartlarıyla fotoğrafın üzerine biner.
            */
           const cats = group.categories;
           return (
             <div key={`hero-${cats[0].id}`} className="relative">
-              <div className="sticky top-14 z-0 h-72 overflow-hidden rounded-2xl sm:h-80" aria-hidden>
+              <div className="sticky top-[50vh] z-0 h-[25.2rem] -translate-y-1/2 overflow-hidden rounded-2xl sm:h-[28rem]" aria-hidden>
                 {cats.map((c) => (
                   <div
                     key={c.id}
@@ -359,7 +360,7 @@ export function GuestMenu({
                   </div>
                 ))}
               </div>
-              <div className="relative z-10 -mt-72 sm:-mt-80">
+              <div className="relative z-10 -mt-[25.2rem] sm:-mt-[28rem]">
                 {cats.map((c, index) => {
                   const heroList = (
                     <ul className="relative space-y-2 px-0.5 pb-1">
@@ -419,7 +420,7 @@ export function GuestMenu({
                       ref={(el) => {
                         sectionRefs.current[c.id] = el;
                       }}
-                      className={index === 0 ? 'scroll-mt-16 pt-20 sm:pt-24' : 'scroll-mt-16 pt-6'}
+                      className={index === 0 ? 'scroll-mt-16 pt-28 sm:pt-32' : 'scroll-mt-16 pt-6'}
                     >
                       <CategoryStrip name={c.name} design={design} translucent />
                       {heroList}
