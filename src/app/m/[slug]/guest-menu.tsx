@@ -500,11 +500,8 @@ function CategoryStrip({
 function CategoryFrame({ design, children }: { design: MenuDesignSettings; children: React.ReactNode }) {
   return (
     <div
-      className="overflow-hidden rounded-2xl border shadow-sm"
-      style={{
-        borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 45)),
-        backgroundColor: hexToRgba(design.cardColor, Math.max(design.cardOpacity, 55)),
-      }}
+      className="overflow-hidden rounded-2xl border-2 bg-transparent shadow-sm"
+      style={{ borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)) }}
     >
       {children}
     </div>

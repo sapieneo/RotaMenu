@@ -323,8 +323,8 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
               return <section
                 key={category.id}
                 ref={(element) => { previewSectionRefs.current[category.id] = element; }}
-                className="overflow-hidden rounded-xl border shadow-sm"
-                style={{ borderColor: hexToRgba(settings.dividerColor, Math.max(settings.dividerOpacity, 45)), backgroundColor: hexToRgba(settings.cardColor, Math.max(settings.cardOpacity, 55)) }}
+                className="overflow-hidden rounded-xl border-2 bg-transparent shadow-sm"
+                style={{ borderColor: hexToRgba(settings.dividerColor, Math.max(settings.dividerOpacity, 55)) }}
               >
               {stripBackground ? (
                 <div className="relative h-16 overflow-hidden">
