@@ -239,6 +239,16 @@ export default async function AdminPanelPage() {
                         </a>
                       )}
                       {venue && (
+                        <a
+                          href={`/studyo/pano?venue=${venue.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-50"
+                        >
+                          Panoya git
+                        </a>
+                      )}
+                      {venue && (
                         <DeleteVenueButton
                           venueId={venue.id}
                           venueName={venue.name || organization?.name || 'Bu işletme'}

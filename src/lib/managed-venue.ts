@@ -1,6 +1,10 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { isAdminSession } from '@/lib/admin-auth';
 
 type ServerClient = ReturnType<typeof createClient>;
+
+const VENUE_COLUMNS =
+  'id, org_id, slug, name, description, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, currency_code, is_published, published_at';
 
 export type ManagedVenue = {
   id: string;
@@ -29,6 +33,18 @@ export async function resolveManagedVenue(
   supabase: ServerClient,
   requestedVenueId?: string | null
 ): Promise<ManagedVenue | null> {
+  // Süper-admin panelindeki "Panoya git" gibi bağlantılar org üyeliğinden
+  // bağımsızdır (tek sahip tüm kiracıları yönetir) — geçerli bir admin
+  // oturumu varsa service-role ile doğrudan venue id'sine göre okunur.
+  if (requestedVenueId && isAdminSession()) {
+    const { data } = await createAdminClient()
+      .from('venues')
+      .select(VENUE_COLUMNS)
+      .eq('id', requestedVenueId)
+      .maybeSingle();
+    return (data as ManagedVenue | null) ?? null;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -43,9 +59,7 @@ export async function resolveManagedVenue(
 
   let query = supabase
     .from('venues')
-    .select(
-      'id, org_id, slug, name, description, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, currency_code, is_published, published_at'
-    )
+    .select(VENUE_COLUMNS)
     .in('org_id', orgIds);
 
   if (requestedVenueId) {
