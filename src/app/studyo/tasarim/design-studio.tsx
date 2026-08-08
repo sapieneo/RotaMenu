@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatPrice } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
 import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
@@ -43,10 +43,6 @@ export function DesignStudio({
   const [saved, setSaved] = useState(initial);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'error'>('idle');
-  // Sağdaki maket artık gerçek /m/[slug] sayfasını iframe içinde gösteriyor
-  // (pano'daki teknikle birebir aynı) — kayıttan sonra bu sayaç artırılıp
-  // iframe'in `key`'i değiştirilerek taze veriyle yeniden yüklenmesi sağlanır.
-  const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
 
@@ -80,7 +76,6 @@ export function DesignStudio({
       if (!response.ok) throw new Error(body.error ?? 'Tasarım kaydedilemedi.');
       setSaved(settingsToSave);
       setSaveState('saved');
-      setPreviewReloadKey((key) => key + 1);
       return true;
     } catch {
       setSaveState('error');
@@ -263,10 +258,10 @@ export function DesignStudio({
 
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="mb-3 flex items-center justify-between px-1">
-            <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">Canlı önizleme</p><p className="mt-0.5 text-xs text-stone-500">{dirty ? 'Kaydettiğinde burada da güncellenir' : 'Gerçek misafir menünle birebir aynı'}</p></div>
+            <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">Canlı önizleme</p><p className="mt-0.5 text-xs text-stone-500">Değişiklikler anında görünür — gerçek misafir menünle birebir aynı</p></div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Canlı</span>
           </div>
-          <LivePreview slug={venue.slug} reloadKey={previewReloadKey} />
+          <LivePreview slug={venue.slug} settings={settings} />
         </aside>
       </div>
     </main>
@@ -274,18 +269,31 @@ export function DesignStudio({
 }
 
 /**
- * Sağdaki maket — artık gerçek /m/[slug] misafir menü sayfasını iframe
- * içinde gösterir (pano'daki PhonePreview ile birebir aynı teknik). Önceden
- * burada kategori/ürün render mantığı elle ikinci kez yazılmıştı; her yeni
- * misafir menüsü özelliğinde (hero arka plan, kategori çerçevesi, vb.) bu
- * kopya senkron kalmayı unutup "yanlış" görünüyordu. Gerçek sayfayı
- * gömünce bu sınıf tamamen ortadan kalkar — ne gösteriliyorsa o.
+ * Sağdaki maket — gerçek /m/[slug] misafir menü sayfasını iframe içinde
+ * gösterir (pano'daki PhonePreview ile birebir aynı teknik), böylece her
+ * zaman gerçek sayfayla senkron kalır (elle ikinci kez yazılan kategori/ürün
+ * render kodu artık yok).
+ *
+ * "Anında" hissi için henüz KAYDEDİLMEMİŞ ayarlar da veritabanına hiç
+ * yazılmadan `?previewDesign=<json>` parametresiyle sayfaya taşınır — sunucu
+ * tarafında yalnızca işletme sahibinin isteğinde bu değerler geçici olarak
+ * kayıtlı tasarımın yerine kullanılır (bkz. m/[slug]/page.tsx). Her tuş
+ * vuruşunda iframe'i yeniden yüklememek için 300ms debounce uygulanır.
  */
-function LivePreview({ slug, reloadKey }: { slug: string; reloadKey: number }) {
+function LivePreview({ slug, settings }: { slug: string; settings: MenuDesignSettings }) {
+  const [debounced, setDebounced] = useState(settings);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(settings), 300);
+    return () => window.clearTimeout(timer);
+  }, [settings]);
+
+  const src = `/m/${slug}?previewDesign=${encodeURIComponent(JSON.stringify(debounced))}`;
+
   return (
     <PhoneFrame>
       <PhoneScaledContent>
-        <iframe key={reloadKey} src={`/m/${slug}`} title="Menü canlı önizleme" className="h-full w-full border-0" />
+        <iframe src={src} title="Menü canlı önizleme" className="h-full w-full border-0" />
       </PhoneScaledContent>
     </PhoneFrame>
   );

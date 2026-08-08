@@ -48,7 +48,7 @@ export default async function GuestMenuPage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams?: { lang?: string };
+  searchParams?: { lang?: string; previewDesign?: string };
 }) {
   const supabase = createClient();
 
@@ -96,6 +96,20 @@ export default async function GuestMenuPage({
         .limit(1)
         .maybeSingle();
       isOwnerViewing = Boolean(membership);
+    }
+  }
+
+  // Tasarım Stüdyosu'ndaki canlı maket: kaydedilmemiş taslak ayarları burada
+  // hiçbir şey veritabanına yazmadan, yalnızca bu isteğin render'ında
+  // önizleyebilsin diye ?previewDesign=<json> ile gönderiliyor. Yalnız
+  // işletme sahibi için geçerli — başkası bu parametreyle menünün
+  // görünümünü değiştiremez.
+  let previewDesignOverride: unknown = null;
+  if (isOwnerViewing && searchParams?.previewDesign) {
+    try {
+      previewDesignOverride = JSON.parse(searchParams.previewDesign);
+    } catch {
+      previewDesignOverride = null;
     }
   }
 
@@ -269,7 +283,7 @@ export default async function GuestMenuPage({
     openingHours: venue.opening_hours ?? null,
     isPublished: Boolean(venue.is_published),
     showBadge,
-    design: normalizeMenuDesign(venue.design_settings),
+    design: normalizeMenuDesign(previewDesignOverride ?? venue.design_settings),
   };
 
   // 'menu_view' — yalnız YAYINDAKİ menüde sayılır. Sahibin önizlemesi
