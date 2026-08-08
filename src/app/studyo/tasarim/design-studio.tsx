@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { formatPrice } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
 import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
@@ -43,6 +43,10 @@ export function DesignStudio({
   const [saved, setSaved] = useState(initial);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'error'>('idle');
+  // Sağdaki maket artık gerçek /m/[slug] sayfasını iframe içinde gösteriyor
+  // (pano'daki teknikle birebir aynı) — kayıttan sonra bu sayaç artırılıp
+  // iframe'in `key`'i değiştirilerek taze veriyle yeniden yüklenmesi sağlanır.
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
 
@@ -76,6 +80,7 @@ export function DesignStudio({
       if (!response.ok) throw new Error(body.error ?? 'Tasarım kaydedilemedi.');
       setSaved(settingsToSave);
       setSaveState('saved');
+      setPreviewReloadKey((key) => key + 1);
       return true;
     } catch {
       setSaveState('error');
@@ -258,103 +263,29 @@ export function DesignStudio({
 
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="mb-3 flex items-center justify-between px-1">
-            <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">Canlı önizleme</p><p className="mt-0.5 text-xs text-stone-500">Değişiklikler anında görünür</p></div>
+            <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">Canlı önizleme</p><p className="mt-0.5 text-xs text-stone-500">{dirty ? 'Kaydettiğinde burada da güncellenir' : 'Gerçek misafir menünle birebir aynı'}</p></div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Canlı</span>
           </div>
-          <PhonePreview venue={venue} categories={categories} settings={settings} />
+          <LivePreview slug={venue.slug} reloadKey={previewReloadKey} />
         </aside>
       </div>
     </main>
   );
 }
 
-/** Ölçekleme sabiti — pano'daki iframe tekniğiyle aynı: 260 / 390. */
-const PREVIEW_SCALE = 0.6667;
-
-function PhonePreview({ venue, categories, settings }: { venue: { name: string; description: string | null; currency: string; logoUrl: string | null; coverUrl: string | null }; categories: DesignPreviewCategory[]; settings: MenuDesignSettings }) {
-  const previewCategories = useMemo(() => categories.length ? categories : [{ id: 'sample', name: 'Menü', backgroundUrl: null, backgroundStyle: 'strip' as const, backgroundPositionY: 50, items: [{ id: '1', name: 'İmza Tabağı', description: 'Mevsim ürünleriyle hazırlanan özel lezzet', price: 320, imageUrl: null }, { id: '2', name: 'Günün Çorbası', description: 'Her gün taze hazırlanır', price: 120, imageUrl: null }] }], [categories]);
-  const [activeCategory, setActiveCategory] = useState(previewCategories[0]?.id ?? '');
-  const previewNavRef = useRef<HTMLDivElement | null>(null);
-  const previewTabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const previewSectionRefs = useRef<Record<string, HTMLElement | null>>({});
-
-  useEffect(() => {
-    setActiveCategory(previewCategories[0]?.id ?? '');
-  }, [previewCategories]);
-
-  useEffect(() => {
-    const nav = previewNavRef.current;
-    const tab = previewTabRefs.current[activeCategory];
-    if (!nav || !tab) return;
-    nav.scrollTo({ left: tab.offsetLeft - nav.clientWidth / 2 + tab.clientWidth / 2, behavior: 'smooth' });
-  }, [activeCategory]);
-
-  function trackPreviewScroll(event: React.UIEvent<HTMLDivElement>) {
-    // rect.top zaten dış scale(0.6667) çerçevesinden geçtiği için görsel
-    // (ölçeklenmiş) koordinatta gelir — eşik sabiti de aynı oranda ölçeklenir.
-    const viewportTop = event.currentTarget.getBoundingClientRect().top + 80 * PREVIEW_SCALE;
-    const visible = previewCategories
-      .map((category) => ({ id: category.id, top: previewSectionRefs.current[category.id]?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY }))
-      .filter((category) => category.top <= viewportTop)
-      .sort((a, b) => b.top - a.top)[0];
-    if (visible) setActiveCategory(visible.id);
-  }
-
+/**
+ * Sağdaki maket — artık gerçek /m/[slug] misafir menü sayfasını iframe
+ * içinde gösterir (pano'daki PhonePreview ile birebir aynı teknik). Önceden
+ * burada kategori/ürün render mantığı elle ikinci kez yazılmıştı; her yeni
+ * misafir menüsü özelliğinde (hero arka plan, kategori çerçevesi, vb.) bu
+ * kopya senkron kalmayı unutup "yanlış" görünüyordu. Gerçek sayfayı
+ * gömünce bu sınıf tamamen ortadan kalkar — ne gösteriliyorsa o.
+ */
+function LivePreview({ slug, reloadKey }: { slug: string; reloadKey: number }) {
   return (
     <PhoneFrame>
       <PhoneScaledContent>
-        <div onScroll={trackPreviewScroll} className="relative h-full w-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ ...menuBackgroundStyle(settings), color: settings.textColor, fontFamily: settings.bodyFont, fontSize: `${settings.baseFontSize}px` }}>
-          <header style={{ backgroundColor: settings.surfaceColor }}>
-            <div className="h-28 bg-cover bg-center" style={venue.coverUrl ? { backgroundImage: `linear-gradient(0deg, rgba(0,0,0,.18), rgba(0,0,0,.18)), url(${venue.coverUrl})` } : { background: `linear-gradient(135deg, ${settings.primaryColor}, ${settings.accentColor})` }} />
-            <div className="px-5 pb-4">
-              <div className="-mt-8 flex h-16 w-16 items-center justify-center overflow-hidden border-4 text-xl font-bold shadow" style={{ borderColor: settings.surfaceColor, backgroundColor: settings.surfaceColor, color: settings.primaryColor, borderRadius: `${Math.min(settings.cardRadius, 20)}px` }}>
-                {venue.logoUrl ? <img src={venue.logoUrl} alt="" className="h-full w-full object-cover" /> : venue.name.slice(0, 2).toUpperCase()}
-              </div>
-              <h2 className="mt-3 font-bold tracking-tight" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale * 1.35}px` }}>{venue.name}</h2>
-              {venue.description && <p className="mt-1 line-clamp-2 text-xs" style={{ color: settings.mutedTextColor }}>{venue.description}</p>}
-            </div>
-          </header>
-          <nav ref={previewNavRef} className="sticky top-0 z-20 flex gap-2 overflow-x-auto px-3 py-2 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ backgroundColor: hexToRgba(settings.surfaceColor, 94) }}>
-            {previewCategories.map((category) => <button key={category.id} ref={(element) => { previewTabRefs.current[category.id] = element; }} type="button" onClick={() => previewSectionRefs.current[category.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold" style={category.id === activeCategory ? { backgroundColor: settings.primaryColor, color: settings.surfaceColor } : { backgroundColor: hexToRgba(settings.cardColor, settings.cardOpacity), color: settings.mutedTextColor }}>{category.name}</button>)}
-          </nav>
-          <div className="space-y-7 px-3 py-5">
-            {previewCategories.map((category) => {
-              // Küçük maket önizlemesinde 'hero' (büyük arka plan) kategorileri de
-              // resmini göstersin — misafir menüsündeki tam sticky/crossfade
-              // efektini burada birebir taklit etmiyoruz ama en azından görsel
-              // kayıp olmasın diye 'strip' ile aynı mantıkla, biraz daha
-              // yüksek bir kutuda gösteriyoruz.
-              const categoryImage = category.backgroundUrl;
-              const isHero = category.backgroundStyle === 'hero' && Boolean(categoryImage);
-              return <section
-                key={category.id}
-                ref={(element) => { previewSectionRefs.current[category.id] = element; }}
-                className="overflow-hidden rounded-xl border-2 bg-transparent shadow-sm"
-                style={{ borderColor: hexToRgba(settings.dividerColor, Math.max(settings.dividerOpacity, 55)) }}
-              >
-              {categoryImage ? (
-                <div className={`relative overflow-hidden ${isHero ? 'h-32' : 'h-16'}`}>
-                  <img src={categoryImage} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `center ${category.backgroundPositionY}%` }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-black/20" />
-                  <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
-                    <h3 className="font-bold text-white drop-shadow" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex h-9 items-center justify-center px-2 text-center" style={{ backgroundColor: settings.primaryColor }}>
-                  <h3 className="font-bold uppercase" style={{ color: settings.surfaceColor, fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale * 0.85}px`, letterSpacing: '0.03em' }}>{category.name}</h3>
-                </div>
-              )}
-              <div className="p-3" style={{ display: 'grid', gridTemplateColumns: settings.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${settings.itemSpacing}px` }}>
-                {category.items.slice(0, 6).map((item) => <div key={item.id} className={`flex items-start gap-3 ${settings.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`} style={{ backgroundColor: settings.layout === 'single' ? hexToRgba(settings.cardColor, settings.cardOpacity) : 'transparent', borderRadius: settings.layout === 'single' ? `${settings.cardRadius}px` : 0, borderBottom: `1px dashed ${hexToRgba(settings.dividerColor, settings.dividerOpacity)}` }}>
-                  {item.imageUrl && settings.layout === 'single' && <img src={item.imageUrl} alt="" className="h-14 w-14 shrink-0 object-cover" style={{ borderRadius: `${Math.min(settings.cardRadius, 14)}px` }} />}
-                  <div className="min-w-0 flex-1"><div className="flex items-baseline justify-between gap-2"><p className="font-semibold leading-tight">{item.name}</p>{item.price != null && <span className="shrink-0 text-xs font-bold" style={{ color: settings.primaryColor }}>{formatPrice(item.price, venue.currency)}</span>}</div>{item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-snug" style={{ color: settings.mutedTextColor }}>{item.description}</p>}</div>
-                </div>)}
-              </div>
-            </section>;
-            })}
-          </div>
-        </div>
+        <iframe key={reloadKey} src={`/m/${slug}`} title="Menü canlı önizleme" className="h-full w-full border-0" />
       </PhoneScaledContent>
     </PhoneFrame>
   );
