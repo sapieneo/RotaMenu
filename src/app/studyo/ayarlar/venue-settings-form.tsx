@@ -105,14 +105,22 @@ export function VenueSettingsForm({
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <header className="mb-6">
-        <p className="text-sm font-medium text-brand-600">
-          {pub.isPublished ? 'İşletme ayarları' : 'Adım 4 / 4 · Yayınla'}
-        </p>
-        <h1 className="mt-1 text-2xl font-bold">{v.name || 'İşletmem'}</h1>
-        <p className="mt-1 text-sm text-stone-500">
-          Bu bilgiler misafir menünün başlığında ve iletişim bölümünde görünür.
-        </p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-brand-600">
+            {pub.isPublished ? 'İşletme ayarları' : 'Adım 4 / 4 · Yayınla'}
+          </p>
+          <h1 className="mt-1 text-2xl font-bold">{v.name || 'İşletmem'}</h1>
+          <p className="mt-1 text-sm text-stone-500">
+            Bu bilgiler misafir menünün başlığında ve iletişim bölümünde görünür.
+          </p>
+        </div>
+        <a
+          href={`/studyo/pano?venue=${v.id}`}
+          className="shrink-0 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+        >
+          📊 Panoya dön
+        </a>
       </header>
 
       <PublishCard
