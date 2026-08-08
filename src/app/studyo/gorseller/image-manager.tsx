@@ -23,10 +23,12 @@ const MAX_BYTES = 10 * 1024 * 1024;
 
 export function ImageManager({
   orgId,
+  venueId,
   slug,
   categories,
 }: {
   orgId: string;
+  venueId: string;
   slug: string;
   categories: ImgCategory[];
 }) {
@@ -266,6 +268,12 @@ export function ImageManager({
       <main className="mx-auto max-w-2xl px-4 py-8 text-center">
         <h1 className="text-2xl font-bold">Görseller</h1>
         <p className="mt-2 text-stone-500">Menünde görsel eklenecek ürün yok.</p>
+        <a
+          href={`/studyo/pano?venue=${encodeURIComponent(venueId)}`}
+          className="mt-4 inline-block rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+        >
+          ← Panoya dön
+        </a>
       </main>
     );
   }
@@ -281,14 +289,22 @@ export function ImageManager({
             AI ile üret, yeniden üret ya da kendi fotoğrafını yükle.
           </p>
         </div>
-        <a
-          href={`/m/${slug}`}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-lg border border-brand-300 px-4 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
-        >
-          👁 Misafir menüsünü önizle
-        </a>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <a
+            href={`/m/${slug}`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg border border-brand-300 px-4 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
+          >
+            👁 Misafir menüsünü önizle
+          </a>
+          <a
+            href={`/studyo/pano?venue=${encodeURIComponent(venueId)}`}
+            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+          >
+            ← Panoya dön
+          </a>
+        </div>
       </header>
 
       <div className="space-y-6">

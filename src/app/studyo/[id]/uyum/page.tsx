@@ -53,12 +53,18 @@ export default async function CompliancePage({ params }: { params: { id: string 
     .eq('menu_id', menuId)
     .order('sort_order');
   const catIds = (categories ?? []).map((c) => c.id);
+  // Kategori sırası: ürünler düz listede `sort_order`'a göre geliyor ve HER
+  // kategorinin ürünleri 0'dan başlıyor. Bu yüzden ürünleri kategori sırasına
+  // göre yeniden dizmezsek gruplar rastgele sırayla çıkıyor (bkz. aşağıdaki
+  // sıralama). İşletme kendi menü sırasını takip edebilsin diye kategori
+  // sırasını burada bir haritaya alıp ürünleri ona göre diziyoruz.
+  const catOrder = new Map((categories ?? []).map((c, index) => [c.id, index]));
 
   const { data: itemRows } = catIds.length
     ? await supabase
         .from('items')
         .select(
-          'id, name, category_id, calories_kcal, ingredients, allergens_confirmed, sort_order, ' +
+          'id, name, category_id, price, calories_kcal, ingredients, allergens_confirmed, sort_order, ' +
             'item_allergens(allergen_id, state), item_dietary(tag_id, state), ' +
             'item_compliance(allergen_review, calories_review, reviewed_at)'
         )
@@ -68,7 +74,11 @@ export default async function CompliancePage({ params }: { params: { id: string 
 
   const catName = new Map((categories ?? []).map((c) => [c.id, c.name]));
 
-  const rows = (itemRows ?? []) as unknown as Record<string, unknown>[];
+  const rows = ((itemRows ?? []) as unknown as Record<string, unknown>[]).sort((a, b) => {
+    const catDelta =
+      (catOrder.get(a.category_id as string) ?? 0) - (catOrder.get(b.category_id as string) ?? 0);
+    return catDelta !== 0 ? catDelta : ((a.sort_order as number) ?? 0) - ((b.sort_order as number) ?? 0);
+  });
   const items: ReviewItem[] = rows.map((it) => {
     const algRows = (it.item_allergens as { allergen_id: number; state: string }[]) ?? [];
     const dietRows = (it.item_dietary as { tag_id: number; state: string }[]) ?? [];
@@ -80,7 +90,9 @@ export default async function CompliancePage({ params }: { params: { id: string 
     return {
       id: it.id as string,
       name: it.name as string,
+      categoryId: it.category_id as string,
       categoryName: catName.get(it.category_id as string) ?? '—',
+      price: it.price == null ? null : Number(it.price),
       calories: (it.calories_kcal as number | null) ?? null,
       ingredients: (it.ingredients as string | null) ?? null,
       allergenCodes: algRows

@@ -94,6 +94,7 @@ export function GuestMenu({
 }) {
   const [active, setActive] = useState(categories[0]?.id ?? '');
   const [selected, setSelected] = useState<GuestItem | null>(null);
+  const [categoryListOpen, setCategoryListOpen] = useState(false);
   const seenItems = useRef<Set<string>>(new Set());
 
   /**
@@ -223,10 +224,11 @@ export function GuestMenu({
 
       {/* Yapışkan kategori sekmeleri */}
       <nav className="sticky top-0 z-20 border-b backdrop-blur" style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), backgroundColor: hexToRgba(design.surfaceColor, 95) }}>
-        <div
-          ref={navRef}
-          className="flex gap-1 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
+        <div className="flex items-center gap-1 px-3 py-2">
+          <div
+            ref={navRef}
+            className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
           {categories.map((c) => {
             const isActive = c.id === active;
             return (
@@ -245,8 +247,36 @@ export function GuestMenu({
               </button>
             );
           })}
+          </div>
+          {/* Uzun menülerde yatay şerit yetmiyor: 28 kategorili bir menüde
+              misafir "Kırmızı Şarap"a ulaşmak için uzun uzun kaydırıyordu.
+              8'den fazla kategori varsa tam listeyi açan bir düğme çıkar. */}
+          {categories.length > 8 && (
+            <button
+              type="button"
+              onClick={() => setCategoryListOpen(true)}
+              aria-label="Tüm kategoriler"
+              className="shrink-0 rounded-full px-2.5 py-1.5 text-sm font-medium transition"
+              style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.textColor }}
+            >
+              ☰
+            </button>
+          )}
         </div>
       </nav>
+
+      {categoryListOpen && (
+        <CategoryListSheet
+          categories={categories}
+          design={design}
+          activeId={active}
+          onPick={(id) => {
+            setCategoryListOpen(false);
+            goTo(id);
+          }}
+          onClose={() => setCategoryListOpen(false)}
+        />
+      )}
 
       {/* Kategoriler + ürünler */}
       <main className="px-4">
@@ -508,6 +538,93 @@ function CategoryFrame({ design, children }: { design: MenuDesignSettings; child
   );
 }
 
+/**
+ * Uzun menüler için kategori listesi. Yatay şerit 20+ kategoride kullanışsız
+ * kalıyor; burada hepsi tek ekranda, aranabilir şekilde listelenir.
+ */
+function CategoryListSheet({
+  categories,
+  design,
+  activeId,
+  onPick,
+  onClose,
+}: {
+  categories: GuestCategory[];
+  design: MenuDesignSettings;
+  activeId: string;
+  onPick: (id: string) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  const needle = query.trim().toLocaleLowerCase('tr');
+  const shown = needle
+    ? categories.filter((c) => c.name.toLocaleLowerCase('tr').includes(needle))
+    : categories;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Kategoriler"
+    >
+      <div
+        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-t-3xl bg-white sm:rounded-3xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 border-b border-stone-100 p-4">
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Kategori ara…"
+            aria-label="Kategori ara"
+            className="min-w-0 flex-1 rounded-xl border border-stone-300 px-3 py-2 text-base outline-none focus:border-stone-500"
+          />
+          <button
+            onClick={onClose}
+            aria-label="Kapat"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-500 hover:bg-stone-200"
+          >
+            ✕
+          </button>
+        </div>
+        <ul className="min-h-0 flex-1 overflow-y-auto p-2">
+          {shown.map((c) => (
+            <li key={c.id}>
+              <button
+                onClick={() => onPick(c.id)}
+                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-base transition hover:bg-stone-50 ${
+                  c.id === activeId ? 'font-semibold' : ''
+                }`}
+                style={c.id === activeId ? { color: design.primaryColor } : undefined}
+              >
+                <span className="min-w-0 truncate text-stone-800">{c.name}</span>
+                <span className="shrink-0 text-xs text-stone-400">{c.items.length}</span>
+              </button>
+            </li>
+          ))}
+          {shown.length === 0 && (
+            <li className="px-3 py-6 text-center text-sm text-stone-400">Eşleşen kategori yok.</li>
+          )}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 function DietaryChip({ code }: { code: string }) {
   const d = (DIETARY as Record<string, { tr: string; emoji: string } | undefined>)[code];
   if (!d) return null;
@@ -541,13 +658,41 @@ function ItemModal({
   currency: string;
   onClose: () => void;
 }) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  // Esc + odak tuzağı: modal açıkken Tab, arkadaki sayfa içeriğine kaçmasın.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const focusables = () =>
+      Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      );
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return onClose();
+      if (e.key !== 'Tab') return;
+      const list = focusables();
+      if (!list.length) return;
+      const first = list[0]!;
+      const last = list[list.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
+    focusables()[0]?.focus();
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
+      previouslyFocused?.focus?.();
     };
   }, [onClose]);
 
@@ -560,6 +705,7 @@ function ItemModal({
       aria-label={item.name}
     >
       <div
+        ref={panelRef}
         className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >

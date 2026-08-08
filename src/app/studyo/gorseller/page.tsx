@@ -114,5 +114,12 @@ export default async function ImagesPage({ searchParams }: { searchParams?: { ve
     }))
     .filter((c) => c.items.length > 0);
 
-  return <ImageManager orgId={venue.org_id} slug={venue.slug} categories={imgCategories} />;
+  return (
+    <ImageManager
+      orgId={venue.org_id}
+      venueId={venue.id}
+      slug={venue.slug}
+      categories={imgCategories}
+    />
+  );
 }

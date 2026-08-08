@@ -10,3 +10,6 @@ devserver.log
 build.log
 tsc.log
 gen.log
+
+# Yerel yardımcı script (kişisel deploy kısayolu)
+gonder.bat

@@ -68,10 +68,13 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
   const catIds = (cats ?? []).map((c) => c.id);
 
   const { data: items } = catIds.length
-    ? await supabase.from('items').select('id').in('category_id', catIds)
-    : { data: [] as { id: string }[] };
+    ? await supabase.from('items').select('id, image_url').in('category_id', catIds)
+    : { data: [] as { id: string; image_url: string | null }[] };
   const itemIds = (items ?? []).map((i) => i.id);
   const itemCount = itemIds.length;
+  // Görsel kapsamı: özellik çalışıyor ama kullanıcı ona yönlendirilmiyordu —
+  // canlı bir menüde 168 üründen yalnızca 10'unda görsel vardı.
+  const itemsWithImage = (items ?? []).filter((i) => i.image_url).length;
 
   const { count: confirmedCount } = itemIds.length
     ? await supabase
@@ -135,6 +138,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
     publishedAt: venue.published_at ?? null,
     isAnonymous,
     itemCount,
+    itemsWithImage,
     pendingCount,
     qrActive: qrActive ?? 0,
     plan: {

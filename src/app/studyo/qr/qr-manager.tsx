@@ -76,13 +76,21 @@ export function QrManager({ venueId, venueName, venueSlug, isPublished, initial 
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <header className="mb-6">
-        <p className="text-sm font-medium text-brand-600">QR kodları</p>
-        <h1 className="mt-1 text-2xl font-bold">{venueName}</h1>
-        <p className="mt-1 text-sm text-stone-500">
-          QR kodları kalıcıdır. Menü adresini (<code className="rounded bg-stone-100 px-1">{venueSlug}</code>)
-          sonradan değiştirsen bile basılı QR çalışmaya devam eder.
-        </p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-brand-600">QR kodları</p>
+          <h1 className="mt-1 text-2xl font-bold">{venueName}</h1>
+          <p className="mt-1 text-sm text-stone-500">
+            QR kodları kalıcıdır. Menü adresini (<code className="rounded bg-stone-100 px-1">{venueSlug}</code>)
+            sonradan değiştirsen bile basılı QR çalışmaya devam eder.
+          </p>
+        </div>
+        <a
+          href={`/studyo/pano?venue=${encodeURIComponent(venueId)}`}
+          className="shrink-0 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+        >
+          ← Panoya dön
+        </a>
       </header>
 
       {!isPublished && (

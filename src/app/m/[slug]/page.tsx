@@ -9,6 +9,7 @@ import { DIETARY_CODE_BY_ID } from '@/lib/dietary';
 import { MENU_LANGUAGE_BY_CODE, SOURCE_LANGUAGE } from '@/lib/languages';
 import { GuestMenu, type GuestCategory, type GuestVenue } from './guest-menu';
 import { normalizeMenuDesign } from '@/lib/themes';
+import { parsePreviewDesign } from '@/lib/schemas/design';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,13 +34,34 @@ export async function generateMetadata({
   const supabase = createClient();
   const { data: venue } = await supabase
     .from('venues')
-    .select('name, description')
+    .select('name, description, cover_url, logo_url')
     .eq('slug', params.slug)
     .maybeSingle();
   if (!venue) return { title: 'Menü bulunamadı' };
+
+  const title = `${venue.name} — Menü`;
+  const description = venue.description ?? `${venue.name} dijital menüsü.`;
+  // İşletmeler menü linkini WhatsApp/Instagram'da paylaşıyor; kapak (yoksa
+  // logo) görselini OG olarak vermezsek çıplak bir bağlantı görünüyor.
+  const image = venue.cover_url ?? venue.logo_url ?? null;
+
   return {
-    title: `${venue.name} — Menü`,
-    description: venue.description ?? `${venue.name} dijital menüsü.`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      locale: 'tr_TR',
+      siteName: venue.name,
+      ...(image ? { images: [{ url: image }] } : {}),
+    },
+    twitter: {
+      card: image ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      ...(image ? { images: [image] } : {}),
+    },
   };
 }
 
@@ -103,15 +125,14 @@ export default async function GuestMenuPage({
   // hiçbir şey veritabanına yazmadan, yalnızca bu isteğin render'ında
   // önizleyebilsin diye ?previewDesign=<json> ile gönderiliyor. Yalnız
   // işletme sahibi için geçerli — başkası bu parametreyle menünün
-  // görünümünü değiştiremez.
-  let previewDesignOverride: unknown = null;
-  if (isOwnerViewing && searchParams?.previewDesign) {
-    try {
-      previewDesignOverride = JSON.parse(searchParams.previewDesign);
-    } catch {
-      previewDesignOverride = null;
-    }
-  }
+  // görünümünü değiştiremez. Kaydetme yoluyla AYNI zod şemasından geçer.
+  const previewDesignOverride = isOwnerViewing
+    ? parsePreviewDesign(searchParams?.previewDesign)
+    : null;
+  // Önizleme modunda tam menüyü çekmek gereksiz: stüdyoda kaydırıcı her
+  // oynadığında bu sorgu tekrar koşuyor. Tasarımı değerlendirmek için
+  // kategori başına birkaç ürün yeterli.
+  const isDesignPreview = previewDesignOverride !== null;
 
   // Plan → misafir menüsünde "RestaurantOS" rozeti yalnız ücretsiz planda görünür.
   // DİKKAT: organizations RLS'i anonim misafire okuma vermez. Plan/deneme
@@ -230,6 +251,9 @@ export default async function GuestMenuPage({
   const byCat = new Map<string, GuestCategory['items']>();
   for (const it of rows) {
     const catId = it.category_id as string;
+    // Tasarım önizlemesinde kategori başına birkaç ürün yeter — 168 ürünlük
+    // bir menüyü her kaydırıcı hareketinde baştan render etmeyelim.
+    if (isDesignPreview && (byCat.get(catId)?.length ?? 0) >= 4) continue;
     const alg = ((it.item_allergens as AllergenRow[]) ?? [])
       .filter((r) => r.state === 'confirmed')
       .map((r) => CODE_BY_ID[r.allergen_id])

@@ -108,7 +108,7 @@ export function VenueSettingsForm({
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-brand-600">
-            {pub.isPublished ? 'İşletme ayarları' : 'Adım 4 / 4 · Yayınla'}
+            {pub.isPublished ? 'İşletme ayarları' : 'Adım 4 / 5 · Yayınla'}
           </p>
           <h1 className="mt-1 text-2xl font-bold">{v.name || 'İşletmem'}</h1>
           <p className="mt-1 text-sm text-stone-500">
@@ -422,9 +422,9 @@ function PublishCard({
           </button>
           <a
             href={`/studyo/qr?venue=${encodeURIComponent(venueId)}`}
-            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+            className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
           >
-            QR kodu al
+            Adım 5/5: QR kodu al →
           </a>
         </div>
       )}

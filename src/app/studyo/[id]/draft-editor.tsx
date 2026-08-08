@@ -245,7 +245,7 @@ export function DraftEditor({
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-brand-600">Adım 2 / 4 · Menüyü düzenle</p>
+          <p className="text-sm font-medium text-brand-600">Adım 2 / 5 · Menüyü düzenle</p>
           <label className="mt-1 block text-xs font-medium text-stone-400">
             İşletme adı <span className="text-red-500">*</span>
           </label>

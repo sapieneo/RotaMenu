@@ -25,6 +25,7 @@ export type DashboardData = {
   publishedAt: string | null;
   isAnonymous: boolean;
   itemCount: number;
+  itemsWithImage: number;
   pendingCount: number;
   qrActive: number;
   plan: PlanInfo;
@@ -87,6 +88,27 @@ export function Dashboard({ data }: { data: DashboardData }) {
         <StatCard label="Aktif QR" value={data.qrActive} href={venueHref('/studyo/qr')} />
         <StatCard label="30 gün tarama" value={data.stats.scans} />
       </section>
+
+      {/* Görsel kapsamı — özellik kullanılmadan kalmasın diye açık çağrı. */}
+      {data.itemCount > 0 && data.itemsWithImage < data.itemCount && (
+        <a
+          href={venueHref('/studyo/gorseller')}
+          className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 transition hover:border-brand-300 hover:bg-brand-50/40"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-stone-800">
+              {data.itemsWithImage} / {data.itemCount} üründe görsel var
+            </p>
+            <p className="mt-0.5 text-xs text-stone-500">
+              Görselli ürünler misafirin gözünde belirgin biçimde öne çıkar — eksikleri yapay
+              zekâyla tek tek üretebilirsin.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white">
+            Görselleri tamamla →
+          </span>
+        </a>
+      )}
 
       {/* Plan & kullanım */}
       <PlanCard plan={data.plan} itemCount={data.itemCount} venueId={data.venueId} />
@@ -254,12 +276,25 @@ function NextActionCard({ action }: { action: NextAction }) {
   );
 }
 
+/**
+ * Kurulum ilerlemesi — sihirbazın adım numaralarıyla BİREBİR aynı olmalı.
+ * Önceden burada farklı bir dörtlü (Menü/Kontrol/Yayın/QR) vardı; sihirbaz ise
+ * 1 Yükle → 2 Düzenle → 3 Uyum → 4 Yayınla diyordu. Menüsünü yayınlayan
+ * kullanıcı panoda hâlâ "3/4" görüp neyin eksik olduğunu anlayamıyordu.
+ * QR artık yayından SONRAKİ 5. adım olarak ayrı duruyor.
+ */
 function SetupProgress({ data }: { data: DashboardData }) {
+  const venueHref = (path: string) => `${path}?venue=${encodeURIComponent(data.venueId)}`;
   const steps = [
-    { label: 'Menü', done: data.itemCount > 0 },
-    { label: 'Kontrol', done: data.itemCount > 0 && data.pendingCount === 0 },
-    { label: 'Yayın', done: data.isPublished },
-    { label: 'QR', done: data.qrActive > 0 },
+    { label: 'Menüyü yükle', done: data.itemCount > 0, href: '/studyo' },
+    { label: 'Düzenle', done: data.itemCount > 0, href: venueHref('/studyo/uyum') },
+    {
+      label: 'Uyum onayı',
+      done: data.itemCount > 0 && data.pendingCount === 0,
+      href: venueHref('/studyo/uyum'),
+    },
+    { label: 'Yayınla', done: data.isPublished, href: venueHref('/studyo/ayarlar') },
+    { label: 'QR', done: data.qrActive > 0, href: venueHref('/studyo/qr') },
   ];
   const completed = steps.filter((step) => step.done).length;
 
@@ -269,13 +304,15 @@ function SetupProgress({ data }: { data: DashboardData }) {
         <span className="font-semibold text-stone-600">Kurulum ilerlemesi</span>
         <span className="text-stone-400">{completed} / {steps.length}</span>
       </div>
-      <ol className="grid grid-cols-4 gap-2">
-        {steps.map((step) => (
+      <ol className="grid grid-cols-5 gap-2">
+        {steps.map((step, index) => (
           <li key={step.label} className="min-w-0">
-            <div className={`h-1.5 rounded-full ${step.done ? 'bg-emerald-500' : 'bg-stone-200'}`} />
-            <p className={`mt-1 truncate text-[11px] ${step.done ? 'font-medium text-emerald-700' : 'text-stone-400'}`}>
-              {step.done ? '✓ ' : ''}{step.label}
-            </p>
+            <a href={step.href} className="block group">
+              <div className={`h-1.5 rounded-full transition ${step.done ? 'bg-emerald-500' : 'bg-stone-200 group-hover:bg-stone-300'}`} />
+              <p className={`mt-1 truncate text-[11px] ${step.done ? 'font-medium text-emerald-700' : 'text-stone-400'}`}>
+                {step.done ? '✓ ' : `${index + 1}. `}{step.label}
+              </p>
+            </a>
           </li>
         ))}
       </ol>

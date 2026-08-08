@@ -132,11 +132,17 @@ export default function StudyoPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-6 px-6 py-12">
+      {/* Menüsü olan kullanıcı için burası artık bir sihirbaz adımı değil,
+          "sayfa ekleme" ekranı — başlık buna göre değişir. */}
       <div>
-        <p className="text-sm font-medium text-brand-600">Adım 1 / 4 · Menüyü yükle</p>
-        <h1 className="text-2xl font-bold">Menünü yükle</h1>
+        <p className="text-sm font-medium text-brand-600">
+          {hasMenu ? 'Menüne sayfa ekle' : 'Adım 1 / 5 · Menüyü yükle'}
+        </p>
+        <h1 className="text-2xl font-bold">{hasMenu ? 'Yeni sayfa yükle' : 'Menünü yükle'}</h1>
         <p className="mt-1 text-stone-600">
-          Mevcut menünün fotoğrafını veya PDF&apos;ini yükle; gerisini yapay zeka halletsin.
+          {hasMenu
+            ? 'Yüklediğin sayfalar mevcut menüne eklenir; var olan ürünler silinmez.'
+            : 'Mevcut menünün fotoğrafını veya PDF’ini yükle; gerisini yapay zeka halletsin.'}
         </p>
       </div>
 

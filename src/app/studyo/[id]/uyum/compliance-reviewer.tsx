@@ -9,7 +9,10 @@ import { matchNutrition, kcalForGrams, suggestGrams } from '@/lib/nutrition';
 export type ReviewItem = {
   id: string;
   name: string;
+  /** Gruplama kimlikle yapılır — aynı ada sahip iki kategori birleşmesin diye. */
+  categoryId: string;
   categoryName: string;
+  price: number | null;
   calories: number | null;
   ingredients: string | null;
   allergenCodes: string[];
@@ -44,6 +47,66 @@ function splitIngredients(s: string | null): string[] {
     .split(/[,;]/)
     .map((x) => x.trim())
     .filter(Boolean);
+}
+
+/**
+ * Yapay zekâ çıkarımının gözden kaçan hataları. Uyum ekranı alerjen/kaloriye
+ * odaklandığı için fiyat ve yapı hataları onaydan sessizce geçebiliyordu
+ * (canlı bir menüde "Soda 350 ₺" — aynı ürün başka kategoride 40 ₺ — bu
+ * şekilde yayına çıkmıştı). Burada üç ucuz sinyal arıyoruz.
+ */
+type DataIssue = { kind: 'price-missing' | 'price-outlier' | 'duplicate-category'; text: string };
+
+function findDataIssues(items: ReviewItem[]): DataIssue[] {
+  const issues: DataIssue[] = [];
+
+  const noPrice = items.filter((item) => item.price == null);
+  if (noPrice.length) {
+    issues.push({
+      kind: 'price-missing',
+      text: `${noPrice.length} üründe fiyat yok — misafir menüsünde fiyatsız görünürler: ${noPrice
+        .slice(0, 6)
+        .map((item) => item.name)
+        .join(', ')}${noPrice.length > 6 ? ` ve ${noPrice.length - 6} tane daha` : ''}.`,
+    });
+  }
+
+  // Aynı ada sahip ürünler arasında 5 kattan fazla fiyat farkı → büyük ihtimalle
+  // basamak hatası (35 yerine 350 okunması gibi).
+  const byName = new Map<string, ReviewItem[]>();
+  for (const item of items) {
+    if (item.price == null) continue;
+    const key = item.name.trim().toLocaleLowerCase('tr');
+    byName.set(key, [...(byName.get(key) ?? []), item]);
+  }
+  for (const sameName of byName.values()) {
+    if (sameName.length < 2) continue;
+    const prices = sameName.map((item) => item.price!);
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    if (min > 0 && max / min >= 5) {
+      issues.push({
+        kind: 'price-outlier',
+        text: `"${sameName[0]!.name}" iki yerde çok farklı fiyatlarla geçiyor (${min} ₺ ve ${max} ₺). Basamak hatası olabilir.`,
+      });
+    }
+  }
+
+  const catNames = new Map<string, Set<string>>();
+  for (const item of items) {
+    const key = item.categoryName.trim().toLocaleLowerCase('tr');
+    catNames.set(key, new Set([...(catNames.get(key) ?? []), item.categoryId]));
+  }
+  for (const [name, ids] of catNames) {
+    if (ids.size > 1) {
+      issues.push({
+        kind: 'duplicate-category',
+        text: `"${name}" adında ${ids.size} ayrı kategori var — menüde tekrar eden başlık olarak görünür.`,
+      });
+    }
+  }
+
+  return issues;
 }
 
 /** Mevzuat takvimi — Tarım ve Orman Bakanlığı, menüde 14 alerjen + kalori. */
@@ -83,6 +146,11 @@ export function ComplianceReviewer({
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
 
+  // Stüdyo bağlantıları işletme kimliğini TAŞIMALI: birden çok işletmesi olan
+  // kullanıcı (ve admin panelinden gelen süper-admin) aksi halde yanlış —
+  // ya da hiç — işletmeye düşüyor.
+  const venueLink = (path: string) => `${path}?venue=${encodeURIComponent(venueId)}`;
+  const dataIssues = useMemo(() => findDataIssues(initial), [initial]);
   const confirmedCount = items.filter((i) => i.confirmed).length;
   const total = items.length;
   const pct = total ? Math.round((confirmedCount / total) * 100) : 0;
@@ -204,11 +272,13 @@ export function ComplianceReviewer({
     }
   }
 
+  // Gruplama kategori KİMLİĞİyle yapılır. Ada göre gruplanırsa aynı isimli
+  // iki farklı kategori (ör. iki ayrı "İçecekler") tek başlıkta birleşiyordu.
   const grouped = useMemo(() => {
-    const map = new Map<string, ItemState[]>();
+    const map = new Map<string, { name: string; items: ItemState[] }>();
     for (const it of items) {
-      if (!map.has(it.categoryName)) map.set(it.categoryName, []);
-      map.get(it.categoryName)!.push(it);
+      if (!map.has(it.categoryId)) map.set(it.categoryId, { name: it.categoryName, items: [] });
+      map.get(it.categoryId)!.items.push(it);
     }
     return Array.from(map.entries());
   }, [items]);
@@ -217,14 +287,14 @@ export function ComplianceReviewer({
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-brand-600">Adım 3 / 4 · Uyum onayı</p>
+          <p className="text-sm font-medium text-brand-600">Adım 3 / 5 · Uyum onayı</p>
           <h1 className="mt-1 text-2xl font-bold">{venueName} · Alerjen &amp; kalori onayı</h1>
           <p className="mt-1 text-sm text-stone-500">
             Her ürünün alerjenlerini onayla. Misafir menüsünde <b>yalnızca onayladığın</b> bilgi görünür.
           </p>
         </div>
         <a
-          href={`/studyo/pano?venue=${venueId}`}
+          href={venueLink('/studyo/pano')}
           className="shrink-0 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
         >
           📊 Panoya git
@@ -266,13 +336,13 @@ export function ComplianceReviewer({
             </button>
           )}
           <a
-            href="/studyo/gorseller"
+            href={venueLink('/studyo/gorseller')}
             className="ml-auto rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
           >
             🖼 Görseller
           </a>
           <a
-            href="/studyo/ayarlar"
+            href={venueLink('/studyo/ayarlar')}
             className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
           >
             ⚙ İşletme ayarları
@@ -305,15 +375,39 @@ export function ComplianceReviewer({
             ✓ Tüm ürünler onaylandı — sıradaki ve son adım menünü yayınlamak.
           </p>
           <a
-            href="/studyo/ayarlar"
+            href={venueLink('/studyo/ayarlar')}
             className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
           >
-            Adım 4/4: Menüyü yayınla →
+            Adım 4/5: Menüyü yayınla →
           </a>
         </div>
       ) : (
         <div className="mb-6 rounded-2xl border border-dashed border-stone-300 px-4 py-3 text-sm text-stone-500">
-          Adım 4/4 (yayınlama) burada açılır — önce yukarıdaki {pending.length} ürünü onayla.
+          Adım 4/5 (yayınlama) burada açılır — önce yukarıdaki {pending.length} ürünü onayla.
+        </div>
+      )}
+
+      {/* Yapay zekâ çıkarımında gözden kaçmış olabilecek veri hataları */}
+      {dataIssues.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3">
+          <p className="text-sm font-semibold text-orange-900">
+            ⚠ Kontrol etmek isteyebileceğin {dataIssues.length} nokta
+          </p>
+          <ul className="mt-2 space-y-1.5 text-sm text-orange-800">
+            {dataIssues.map((issue, index) => (
+              <li key={index} className="flex gap-2">
+                <span aria-hidden>·</span>
+                <span>{issue.text}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-orange-700">
+            Bunlar yapay zekânın menünü okurken yapmış olabileceği hatalar. Düzeltmek için{' '}
+            <a href={`/studyo/${ingestionId}`} className="font-semibold underline">
+              taslak düzenleme ekranına
+            </a>{' '}
+            dönebilirsin.
+          </p>
         </div>
       )}
 
@@ -346,11 +440,11 @@ export function ComplianceReviewer({
 
       {/* Ürün listesi */}
       <div className="space-y-6">
-        {grouped.map(([cat, catItems]) => (
-          <section key={cat} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-semibold">{cat}</h2>
+        {grouped.map(([catId, group]) => (
+          <section key={catId} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+            <h2 className="text-lg font-semibold">{group.name}</h2>
             <ul className="mt-3 space-y-3">
-              {catItems.map((item: ItemState) => (
+              {group.items.map((item: ItemState) => (
                 <ItemCard
                   key={item.id}
                   item={item}
@@ -374,10 +468,10 @@ export function ComplianceReviewer({
         </a>
         {auditReady && (
           <a
-            href="/studyo/ayarlar"
+            href={venueLink('/studyo/ayarlar')}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
           >
-            Adım 4/4: Menüyü yayınla →
+            Adım 4/5: Menüyü yayınla →
           </a>
         )}
       </div>
