@@ -106,7 +106,9 @@ export function VenueSettingsForm({
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <header className="mb-6">
-        <p className="text-sm font-medium text-brand-600">İşletme ayarları</p>
+        <p className="text-sm font-medium text-brand-600">
+          {pub.isPublished ? 'İşletme ayarları' : 'Adım 4 / 4 · Yayınla'}
+        </p>
         <h1 className="mt-1 text-2xl font-bold">{v.name || 'İşletmem'}</h1>
         <p className="mt-1 text-sm text-stone-500">
           Bu bilgiler misafir menünün başlığında ve iletişim bölümünde görünür.

@@ -215,12 +215,20 @@ export function ComplianceReviewer({
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <header className="mb-4">
-        <p className="text-sm font-medium text-brand-600">Adım 3 / 4 · Uyum onayı</p>
-        <h1 className="mt-1 text-2xl font-bold">{venueName} · Alerjen &amp; kalori onayı</h1>
-        <p className="mt-1 text-sm text-stone-500">
-          Her ürünün alerjenlerini onayla. Misafir menüsünde <b>yalnızca onayladığın</b> bilgi görünür.
-        </p>
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-brand-600">Adım 3 / 4 · Uyum onayı</p>
+          <h1 className="mt-1 text-2xl font-bold">{venueName} · Alerjen &amp; kalori onayı</h1>
+          <p className="mt-1 text-sm text-stone-500">
+            Her ürünün alerjenlerini onayla. Misafir menüsünde <b>yalnızca onayladığın</b> bilgi görünür.
+          </p>
+        </div>
+        <a
+          href={`/studyo/pano?venue=${venueId}`}
+          className="shrink-0 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+        >
+          📊 Panoya git
+        </a>
       </header>
 
       {/* İlerleme + denetim durumu */}
@@ -289,6 +297,26 @@ export function ComplianceReviewer({
         {bulkError && <p className="mt-3 text-sm font-medium text-red-600">{bulkError}</p>}
       </div>
 
+      {/* Sıradaki adım — burada olmadan önce kullanıcı "4/4 ne?" diye
+          takılıyordu; onay bitince yayınlama adımına açıkça yönlendirir. */}
+      {auditReady ? (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <p className="text-sm font-medium text-emerald-800">
+            ✓ Tüm ürünler onaylandı — sıradaki ve son adım menünü yayınlamak.
+          </p>
+          <a
+            href="/studyo/ayarlar"
+            className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+          >
+            Adım 4/4: Menüyü yayınla →
+          </a>
+        </div>
+      ) : (
+        <div className="mb-6 rounded-2xl border border-dashed border-stone-300 px-4 py-3 text-sm text-stone-500">
+          Adım 4/4 (yayınlama) burada açılır — önce yukarıdaki {pending.length} ürünü onayla.
+        </div>
+      )}
+
       {/* Mevzuat takvimi */}
       <div className="mb-6 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
         <p className="font-medium">Yönetmelik takvimi — menüde 14 alerjen + kalori zorunluluğu</p>
@@ -340,14 +368,17 @@ export function ComplianceReviewer({
         ))}
       </div>
 
-      <div className="mt-8 flex justify-between text-sm">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 text-sm">
         <a href={`/studyo/${ingestionId}`} className="text-stone-500 hover:text-stone-700">
           ← Taslağa dön
         </a>
         {auditReady && (
-          <span className="font-medium text-emerald-600">
-            Tüm ürünler onaylandı — yayına hazır (M3).
-          </span>
+          <a
+            href="/studyo/ayarlar"
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+          >
+            Adım 4/4: Menüyü yayınla →
+          </a>
         )}
       </div>
     </main>
