@@ -319,16 +319,22 @@ function PhonePreview({ venue, categories, settings }: { venue: { name: string; 
           </nav>
           <div className="space-y-7 px-3 py-5">
             {previewCategories.map((category) => {
-              const stripBackground = category.backgroundStyle === 'strip' ? category.backgroundUrl : null;
+              // Küçük maket önizlemesinde 'hero' (büyük arka plan) kategorileri de
+              // resmini göstersin — misafir menüsündeki tam sticky/crossfade
+              // efektini burada birebir taklit etmiyoruz ama en azından görsel
+              // kayıp olmasın diye 'strip' ile aynı mantıkla, biraz daha
+              // yüksek bir kutuda gösteriyoruz.
+              const categoryImage = category.backgroundUrl;
+              const isHero = category.backgroundStyle === 'hero' && Boolean(categoryImage);
               return <section
                 key={category.id}
                 ref={(element) => { previewSectionRefs.current[category.id] = element; }}
                 className="overflow-hidden rounded-xl border-2 bg-transparent shadow-sm"
                 style={{ borderColor: hexToRgba(settings.dividerColor, Math.max(settings.dividerOpacity, 55)) }}
               >
-              {stripBackground ? (
-                <div className="relative h-16 overflow-hidden">
-                  <img src={stripBackground} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `center ${category.backgroundPositionY}%` }} />
+              {categoryImage ? (
+                <div className={`relative overflow-hidden ${isHero ? 'h-32' : 'h-16'}`}>
+                  <img src={categoryImage} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `center ${category.backgroundPositionY}%` }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-black/20" />
                   <div className="absolute inset-0 flex items-center justify-center px-2 text-center">
                     <h3 className="font-bold text-white drop-shadow" style={{ fontFamily: settings.headingFont, fontSize: `${settings.baseFontSize * settings.headingScale}px` }}>{category.name}</h3>
