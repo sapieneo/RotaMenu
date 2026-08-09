@@ -407,26 +407,26 @@ export function ImageManager({
             <ul className="divide-y divide-stone-100 border-t border-stone-100">
               {c.items.map((it) => (
                 <li key={it.id} className="flex items-center gap-3 py-3">
-                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-stone-100">
+                  <button
+                    type="button"
+                    onClick={() => it.imageUrl && setLightbox({ url: it.imageUrl, alt: it.name })}
+                    disabled={!it.imageUrl}
+                    className={`group relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-stone-100 ${it.imageUrl ? 'cursor-zoom-in' : 'cursor-default'}`}
+                  >
                     {it.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={it.imageUrl} alt={it.name} className="h-full w-full object-cover" />
+                      <img src={it.imageUrl} alt={it.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                     ) : (
                       <span className="flex h-full w-full items-center justify-center text-2xl text-stone-300">
                         🍽
                       </span>
                     )}
-                    {busy[it.id] && busy[it.id] !== 'gen' && (
+                    {busy[it.id] && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/70">
                         <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-300 border-t-brand-600" />
                       </div>
                     )}
-                    {busy[it.id] === 'gen' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-white/70">
-                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-300 border-t-brand-600" />
-                      </div>
-                    )}
-                  </div>
+                  </button>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-stone-800">{it.name}</p>
                     <div className="mt-1.5">
@@ -451,7 +451,48 @@ export function ImageManager({
         <LivePreview slug={slug} categories={cats} />
       </aside>
       </div>
+
+      {lightbox && <Lightbox url={lightbox.url} alt={lightbox.alt} onClose={() => setLightbox(null)} />}
     </main>
+  );
+}
+
+/** Küçük görsele tıklayınca büyük halini gösteren tam ekran önizleme. */
+function Lightbox({ url, alt, onClose }: { url: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={alt}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Kapat"
+        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl text-white hover:bg-white/20"
+      >
+        ✕
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={alt}
+        className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
   );
 }
 
