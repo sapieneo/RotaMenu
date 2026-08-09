@@ -98,7 +98,7 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
     backgroundColor: '#f5f5f4', surfaceColor: '#ffffff', primaryColor: '#ea580c', accentColor: '#fb923c',
     textColor: '#1c1917', mutedTextColor: '#78716c', headingFont: FONT_OPTIONS[0].value,
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.2, cardColor: '#ffffff',
-    cardOpacity: 100, cardRadius: 16, itemSpacing: 12, dividerColor: '#e7e5e4', dividerOpacity: 100,
+    cardOpacity: 25, cardRadius: 16, itemSpacing: 12, dividerColor: '#e7e5e4', dividerOpacity: 100,
     texture: 'none', textureOpacity: 0, backgroundImageUrl: null, backgroundImageOpacity: 100,
     backgroundImageMode: 'cover', layout: 'single',
   },
