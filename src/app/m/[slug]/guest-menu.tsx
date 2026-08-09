@@ -81,7 +81,7 @@ function groupCategories(categories: GuestCategory[]): CategoryGroup[] {
 
 export function GuestMenu({
   venue: initialVenue,
-  categories,
+  categories: initialCategories,
   venueId,
   availableLocales,
   currentLocale,
@@ -92,19 +92,51 @@ export function GuestMenu({
   availableLocales: { code: string; name: string }[];
   currentLocale: string;
 }) {
-  // Tasarım Stüdyosu'ndaki maket bu bileşeni YALNIZCA bir kez (ilk yüklemede,
-  // ?previewDesign ile) yükler; sonraki her ayar değişikliği tam sayfa
-  // yeniden yükleme yerine postMessage ile buraya iletilir ve doğrudan bu
-  // state'i günceller — network/DB round-trip olmadığı için anında yansır.
-  // (bkz. studyo/tasarim/design-studio.tsx → LivePreview)
+  // Tasarım Stüdyosu'ndaki VE Görseller sayfasındaki maket bu bileşeni
+  // YALNIZCA bir kez (ilk yüklemede) yükler; sonraki her değişiklik tam
+  // sayfa yeniden yükleme yerine postMessage ile buraya iletilir ve
+  // doğrudan bu state'leri günceller — network/DB round-trip olmadığı için
+  // anında yansır. (bkz. studyo/tasarim/design-studio.tsx ve
+  // studyo/gorseller/image-manager.tsx → LivePreview)
   const [design, setDesign] = useState<MenuDesignSettings>(initialVenue.design);
   const venue = useMemo(() => ({ ...initialVenue, design }), [initialVenue, design]);
+  const [categories, setCategories] = useState<GuestCategory[]>(initialCategories);
 
   useEffect(() => {
     function handlePreviewMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin) return;
-      if (!event.data || event.data.type !== 'ros:design-preview') return;
-      setDesign(normalizeMenuDesign(event.data.design));
+      if (!event.data) return;
+      if (event.data.type === 'ros:design-preview') {
+        setDesign(normalizeMenuDesign(event.data.design));
+        return;
+      }
+      if (event.data.type === 'ros:categories-preview') {
+        const overrides = event.data.categories as {
+          id: string;
+          backgroundUrl?: string | null;
+          backgroundStyle?: 'strip' | 'hero';
+          backgroundPositionY?: number;
+          items?: { id: string; imageUrl: string | null }[];
+        }[];
+        setCategories((current) =>
+          current.map((c) => {
+            const o = overrides.find((x) => x.id === c.id);
+            if (!o) return c;
+            return {
+              ...c,
+              backgroundUrl: o.backgroundUrl !== undefined ? o.backgroundUrl : c.backgroundUrl,
+              backgroundStyle: o.backgroundStyle ?? c.backgroundStyle,
+              backgroundPositionY: o.backgroundPositionY ?? c.backgroundPositionY,
+              items: o.items
+                ? c.items.map((it) => {
+                    const io = o.items!.find((x) => x.id === it.id);
+                    return io ? { ...it, imageUrl: io.imageUrl } : it;
+                  })
+                : c.items,
+            };
+          })
+        );
+      }
     }
     window.addEventListener('message', handlePreviewMessage);
     return () => window.removeEventListener('message', handlePreviewMessage);

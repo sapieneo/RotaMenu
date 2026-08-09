@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
 
 export type ImgItem = { id: string; name: string; imageUrl: string | null };
 export type BackgroundStyle = 'strip' | 'hero';
@@ -35,6 +36,7 @@ export function ImageManager({
   const [cats, setCats] = useState<ImgCategory[]>(categories);
   const [busy, setBusy] = useState<Record<string, Busy>>({});
   const [err, setErr] = useState<Record<string, string | null>>({});
+  const [lightbox, setLightbox] = useState<{ url: string; alt: string } | null>(null);
   const uploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const enhanceRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const positionTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -279,7 +281,7 @@ export function ImageManager({
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-brand-600">Görseller</p>
@@ -307,17 +309,23 @@ export function ImageManager({
         </div>
       </header>
 
-      <div className="space-y-6">
+      <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_320px] xl:justify-between">
+      <div className="min-w-0 max-w-2xl space-y-6">
         {cats.map((c) => (
           <section key={c.id} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
             {/* Kategori arka planı */}
-            <div className="relative mb-4 h-24 overflow-hidden rounded-xl bg-stone-100">
+            <button
+              type="button"
+              onClick={() => c.backgroundUrl && setLightbox({ url: c.backgroundUrl, alt: c.name })}
+              disabled={!c.backgroundUrl}
+              className={`group relative mb-4 h-24 w-full overflow-hidden rounded-xl bg-stone-100 text-left ${c.backgroundUrl ? 'cursor-zoom-in' : 'cursor-default'}`}
+            >
               {c.backgroundUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={c.backgroundUrl}
                   alt=""
-                  className="absolute inset-0 h-full w-full object-cover"
+                  className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-105"
                   style={{ objectPosition: `center ${c.backgroundPositionY}%` }}
                 />
               ) : (
@@ -327,12 +335,17 @@ export function ImageManager({
               <h2 className="absolute bottom-2 left-3 text-lg font-bold text-white drop-shadow">
                 {c.name}
               </h2>
+              {c.backgroundUrl && (
+                <span className="absolute right-2 top-2 rounded-full bg-black/40 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                  🔍 Büyüt
+                </span>
+              )}
               {busy[c.id] === 'gen' && (
                 <div className="absolute inset-0 flex items-center justify-center bg-white/60">
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-300 border-t-brand-600" />
                 </div>
               )}
-            </div>
+            </button>
             <div className="mb-4">
               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-400">
                 Kategori arka planı
@@ -426,6 +439,60 @@ export function ImageManager({
           </section>
         ))}
       </div>
+
+      <aside className="lg:sticky lg:top-8 lg:self-start">
+        <div className="mb-3 flex items-center justify-between px-1">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">Canlı önizleme</p>
+            <p className="mt-0.5 text-xs text-stone-500">Değişiklikler anında görünür — gerçek misafir menünle birebir aynı</p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Canlı</span>
+        </div>
+        <LivePreview slug={slug} categories={cats} />
+      </aside>
+      </div>
     </main>
+  );
+}
+
+/**
+ * Sağdaki maket — gerçek /m/[slug] misafir menü sayfasını iframe içinde
+ * gösterir (Tasarım Stüdyosu'ndaki teknikle aynı, bkz. studyo/tasarim/
+ * design-studio.tsx → LivePreview). Iframe yalnızca BİR KEZ yüklenir;
+ * kategori arka planı / ürün görseli değişince tam yeniden yükleme yerine
+ * `postMessage` ile guest-menu.tsx'e iletilir — bu yüzden gerçekten anında
+ * yansır (görsel üretimi/yükleme sırasındaki gecikme dışında).
+ */
+function LivePreview({ slug, categories }: { slug: string; categories: ImgCategory[] }) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [src] = useState(() => `/m/${slug}`);
+
+  function sendPreview() {
+    iframeRef.current?.contentWindow?.postMessage(
+      {
+        type: 'ros:categories-preview',
+        categories: categories.map((c) => ({
+          id: c.id,
+          backgroundUrl: c.backgroundUrl,
+          backgroundStyle: c.backgroundStyle,
+          backgroundPositionY: c.backgroundPositionY,
+          items: c.items.map((it) => ({ id: it.id, imageUrl: it.imageUrl })),
+        })),
+      },
+      window.location.origin
+    );
+  }
+
+  useEffect(() => {
+    sendPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories]);
+
+  return (
+    <PhoneFrame>
+      <PhoneScaledContent>
+        <iframe ref={iframeRef} src={src} title="Menü canlı önizleme" className="h-full w-full border-0" onLoad={sendPreview} />
+      </PhoneScaledContent>
+    </PhoneFrame>
   );
 }

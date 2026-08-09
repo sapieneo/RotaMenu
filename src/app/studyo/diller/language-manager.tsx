@@ -46,8 +46,14 @@ export function LanguageManager({
   );
   const [selected, setSelected] = useState<string[]>(completed);
   const [submitting, setSubmitting] = useState(false);
+  const [generatingDescriptions, setGeneratingDescriptions] = useState(false);
+  // İşaretlenirse, eksik açıklamalar varken de Çevir'e izin verilir — çeviri
+  // isteği açıklamaları kendi içinde otomatik üretip zincirler (bkz.
+  // /api/menu/translate). İşaretlenmezse önce açıklamalar ayrı tamamlanmalı.
+  const [includeDescriptions, setIncludeDescriptions] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const active = jobs.some((job) => job.status === 'pending' || job.status === 'processing');
+  const translateReady = missingDescriptions === 0 || includeDescriptions;
 
   useEffect(() => {
     if (!active) return;
@@ -69,6 +75,7 @@ export function LanguageManager({
 
   async function start() {
     if (!selected.length) return setMessage('En az bir hedef dil seçin.');
+    if (!translateReady) return setMessage('Önce açıklamaları üretin ya da aşağıdaki kutuyu işaretleyin.');
     setSubmitting(true);
     setMessage(null);
     try {
@@ -85,6 +92,27 @@ export function LanguageManager({
       setMessage(error instanceof Error ? error.message : 'Çeviri başlatılamadı.');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  /** Açıklama üretimini ÇEVİRİDEN AYRI, tek başına başlatır (Adım 1). */
+  async function generateDescriptions() {
+    setGeneratingDescriptions(true);
+    setMessage(null);
+    try {
+      const response = await fetch('/api/menu/generate-descriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? 'Açıklamalar üretilemedi.');
+      setMessage('Açıklamalar üretiliyor. Bu sayfadan ayrılsanız da arka planda devam eder.');
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Açıklamalar üretilemedi.');
+    } finally {
+      setGeneratingDescriptions(false);
     }
   }
 
@@ -112,6 +140,37 @@ export function LanguageManager({
         <InfoCard label="Hazır çeviri" value={`${completed.length} dil`} />
       </section>
 
+      {missingDescriptions > 0 && (
+        <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-amber-900">1. Adım — Açıklamalar</p>
+              <p className="mt-1 text-sm text-amber-800">
+                {missingDescriptions} üründe açıklama eksik. Çeviri, açıklamalar tamamlanınca aktifleşir —
+                önce burada üretebilir, ya da aşağıdaki kutuyu işaretleyip çeviriyle birlikte otomatik
+                oluşturulmasını sağlayabilirsiniz.
+              </p>
+            </div>
+            <button
+              onClick={generateDescriptions}
+              disabled={generatingDescriptions || active}
+              className="shrink-0 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {generatingDescriptions ? 'Başlatılıyor…' : '✨ Açıklamaları üret'}
+            </button>
+          </div>
+          <label className="mt-3 flex items-center gap-2 text-sm font-medium text-amber-900">
+            <input
+              type="checkbox"
+              checked={includeDescriptions}
+              onChange={(event) => setIncludeDescriptions(event.target.checked)}
+              className="h-4 w-4 rounded border-amber-400 accent-amber-600"
+            />
+            Eksik açıklamaları çeviriyle birlikte otomatik oluştur
+          </label>
+        </section>
+      )}
+
       {descriptionJob && descriptionJob.status !== 'completed' && (
         <JobBanner label="Ürün açıklamaları" job={descriptionJob} />
       )}
@@ -122,14 +181,24 @@ export function LanguageManager({
       <div className="sticky bottom-4 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-lg backdrop-blur">
         <div>
           <p className="font-semibold text-stone-800">{selected.length} hedef dil seçildi</p>
-          <p className="text-xs text-stone-500">Türkçe kaynak dil olarak her zaman korunur.</p>
+          <p className="text-xs text-stone-500">
+            {!translateReady
+              ? 'Çeviri, açıklamalar tamamlanınca ya da yukarıdaki kutu işaretlenince aktifleşir.'
+              : 'Türkçe kaynak dil olarak her zaman korunur.'}
+          </p>
         </div>
         <button
           onClick={start}
-          disabled={submitting || active || !selected.length}
+          disabled={submitting || active || !selected.length || !translateReady}
           className="rounded-xl bg-brand-600 px-5 py-3 font-semibold text-white shadow transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {active ? 'Çeviri sürüyor…' : submitting ? 'Başlatılıyor…' : 'Açıklamaları üret ve çevir'}
+          {active
+            ? 'Çeviri sürüyor…'
+            : submitting
+            ? 'Başlatılıyor…'
+            : includeDescriptions && missingDescriptions > 0
+            ? 'Açıklamaları üret ve çevir'
+            : 'Çevir'}
         </button>
       </div>
       {message && <p className="mt-3 rounded-xl bg-stone-100 px-4 py-3 text-sm text-stone-700">{message}</p>}
