@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ALLERGENS } from '@/lib/allergens';
 import { DIETARY } from '@/lib/dietary';
 import { formatPrice } from '@/lib/currency';
-import { hexToRgba, menuBackgroundStyle, type MenuDesignSettings } from '@/lib/themes';
+import { hexToRgba, menuBackgroundStyle, normalizeMenuDesign, type MenuDesignSettings } from '@/lib/themes';
 
 export type GuestItem = {
   id: string;
@@ -80,7 +80,7 @@ function groupCategories(categories: GuestCategory[]): CategoryGroup[] {
 }
 
 export function GuestMenu({
-  venue,
+  venue: initialVenue,
   categories,
   venueId,
   availableLocales,
@@ -92,6 +92,24 @@ export function GuestMenu({
   availableLocales: { code: string; name: string }[];
   currentLocale: string;
 }) {
+  // Tasarım Stüdyosu'ndaki maket bu bileşeni YALNIZCA bir kez (ilk yüklemede,
+  // ?previewDesign ile) yükler; sonraki her ayar değişikliği tam sayfa
+  // yeniden yükleme yerine postMessage ile buraya iletilir ve doğrudan bu
+  // state'i günceller — network/DB round-trip olmadığı için anında yansır.
+  // (bkz. studyo/tasarim/design-studio.tsx → LivePreview)
+  const [design, setDesign] = useState<MenuDesignSettings>(initialVenue.design);
+  const venue = useMemo(() => ({ ...initialVenue, design }), [initialVenue, design]);
+
+  useEffect(() => {
+    function handlePreviewMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.type !== 'ros:design-preview') return;
+      setDesign(normalizeMenuDesign(event.data.design));
+    }
+    window.addEventListener('message', handlePreviewMessage);
+    return () => window.removeEventListener('message', handlePreviewMessage);
+  }, []);
+
   const [active, setActive] = useState(categories[0]?.id ?? '');
   const [selected, setSelected] = useState<GuestItem | null>(null);
   const [categoryListOpen, setCategoryListOpen] = useState(false);
@@ -165,8 +183,6 @@ export function GuestMenu({
       </main>
     );
   }
-
-  const design = venue.design;
 
   return (
     <div

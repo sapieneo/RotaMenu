@@ -274,26 +274,45 @@ export function DesignStudio({
  * zaman gerçek sayfayla senkron kalır (elle ikinci kez yazılan kategori/ürün
  * render kodu artık yok).
  *
- * "Anında" hissi için henüz KAYDEDİLMEMİŞ ayarlar da veritabanına hiç
- * yazılmadan `?previewDesign=<json>` parametresiyle sayfaya taşınır — sunucu
- * tarafında yalnızca işletme sahibinin isteğinde bu değerler geçici olarak
- * kayıtlı tasarımın yerine kullanılır (bkz. m/[slug]/page.tsx). Her tuş
- * vuruşunda iframe'i yeniden yüklememek için 300ms debounce uygulanır.
+ * Iframe yalnızca BİR KEZ, ilk kayıtlı/taslak ayarlarla yüklenir
+ * (`?previewDesign=<json>` — sunucu tarafında yalnızca işletme sahibinin
+ * isteğinde geçerli, bkz. m/[slug]/page.tsx). Bundan sonraki HER değişiklik
+ * iframe'i yeniden yüklemek yerine `postMessage` ile içerideki sayfaya
+ * iletilir; guest-menu.tsx bunu dinleyip kendi state'ini güncelliyor —
+ * network/DB round-trip olmadığı için gerçekten anında yansıyor (eskiden
+ * her değişiklik iframe'i tam sayfa yeniden yüklüyordu, bu da veri
+ * çekildikten sonra görünen bir gecikmeye yol açıyordu).
  */
 function LivePreview({ slug, settings }: { slug: string; settings: MenuDesignSettings }) {
-  const [debounced, setDebounced] = useState(settings);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  // Yalnızca ilk render'da hesaplanır — sonraki `settings` değişiklikleri
+  // src'yi GÜNCELLEMEZ (bu da iframe'in yeniden yüklenmesini tetikler).
+  const [initialSrc] = useState(
+    () => `/m/${slug}?previewDesign=${encodeURIComponent(JSON.stringify(settings))}`
+  );
+
+  function sendPreview() {
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: 'ros:design-preview', design: settings },
+      window.location.origin
+    );
+  }
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(settings), 300);
-    return () => window.clearTimeout(timer);
+    sendPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
-
-  const src = `/m/${slug}?previewDesign=${encodeURIComponent(JSON.stringify(debounced))}`;
 
   return (
     <PhoneFrame>
       <PhoneScaledContent>
-        <iframe src={src} title="Menü canlı önizleme" className="h-full w-full border-0" />
+        <iframe
+          ref={iframeRef}
+          src={initialSrc}
+          title="Menü canlı önizleme"
+          className="h-full w-full border-0"
+          onLoad={sendPreview}
+        />
       </PhoneScaledContent>
     </PhoneFrame>
   );
