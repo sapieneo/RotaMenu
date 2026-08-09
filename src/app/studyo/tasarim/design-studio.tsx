@@ -244,7 +244,6 @@ export function DesignStudio({
             <RangeField label="Kart görünürlüğü" value={settings.cardOpacity} min={0} max={100} suffix="%" onChange={(value) => update('cardOpacity', value)} />
             <RangeField label="Köşe yuvarlaklığı" value={settings.cardRadius} min={0} max={32} suffix=" px" onChange={(value) => update('cardRadius', value)} />
             <RangeField label="Ürünler arası boşluk" value={settings.itemSpacing} min={6} max={28} suffix=" px" onChange={(value) => update('itemSpacing', value)} />
-            <RangeField label="Ayırıcı görünürlüğü" value={settings.dividerOpacity} min={0} max={100} suffix="%" onChange={(value) => update('dividerOpacity', value)} />
           </ControlSection>
 
           {saveState === 'error' && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Tasarım kaydedilemedi. Bağlantını kontrol edip tekrar dene.</p>}

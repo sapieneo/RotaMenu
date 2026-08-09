@@ -409,7 +409,7 @@ export function GuestMenu({
               <div className="relative z-10 -mt-[25.2rem] sm:-mt-[28rem]">
                 {cats.map((c, index) => {
                   const heroList = (
-                    <ul className="relative space-y-2 px-0.5 pb-1">
+                    <ul className="relative flex flex-col px-0.5 pb-1" style={{ gap: `${design.itemSpacing}px` }}>
                       {c.items.map((it) => (
                         <li key={it.id}>
                           <button
