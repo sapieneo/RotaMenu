@@ -5,6 +5,8 @@ import { ALLERGENS } from '@/lib/allergens';
 import { DIETARY } from '@/lib/dietary';
 import { formatPrice } from '@/lib/currency';
 import { hexToRgba, menuBackgroundStyle, normalizeMenuDesign, type MenuDesignSettings } from '@/lib/themes';
+import { Sheet } from '@/components/ui/sheet';
+import { Pressable } from '@/components/ui/pressable';
 
 export type GuestItem = {
   id: string;
@@ -280,19 +282,19 @@ export function GuestMenu({
           {categories.map((c) => {
             const isActive = c.id === active;
             return (
-              <button
+              <Pressable
                 key={c.id}
                 ref={(el) => {
                   tabRefs.current[c.id] = el;
                 }}
                 onClick={() => goTo(c.id)}
-                className="whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition"
+                className="whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium"
                 style={isActive
                   ? { backgroundColor: design.primaryColor, color: design.surfaceColor }
                   : { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.mutedTextColor }}
               >
                 {c.name}
-              </button>
+              </Pressable>
             );
           })}
           </div>
@@ -300,15 +302,15 @@ export function GuestMenu({
               misafir "Kırmızı Şarap"a ulaşmak için uzun uzun kaydırıyordu.
               8'den fazla kategori varsa tam listeyi açan bir düğme çıkar. */}
           {categories.length > 8 && (
-            <button
+            <Pressable
               type="button"
               onClick={() => setCategoryListOpen(true)}
               aria-label="Tüm kategoriler"
-              className="shrink-0 rounded-full px-2.5 py-1.5 text-sm font-medium transition"
+              className="shrink-0 rounded-full px-2.5 py-1.5 text-sm font-medium"
               style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.textColor }}
             >
               ☰
-            </button>
+            </Pressable>
           )}
         </div>
       </nav>
@@ -335,9 +337,10 @@ export function GuestMenu({
               <ul style={{ display: 'grid', gridTemplateColumns: design.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${design.itemSpacing}px` }}>
                 {c.items.map((it) => (
                   <li key={it.id}>
-                    <button
+                    <Pressable
+                      variant="dim"
                       onClick={() => openItem(it)}
-                      className={`flex w-full items-start gap-3 text-left transition ${design.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`}
+                      className={`flex w-full items-start gap-3 text-left ${design.layout === 'single' ? 'p-3 shadow-sm' : 'py-2'}`}
                       style={{ backgroundColor: design.layout === 'single' ? hexToRgba(design.cardColor, design.cardOpacity) : 'transparent', borderRadius: design.layout === 'single' ? `${design.cardRadius}px` : 0, borderBottom: `1px ${design.layout === 'two-column' ? 'dashed' : 'solid'} ${hexToRgba(design.dividerColor, design.dividerOpacity)}` }}
                     >
                       {it.imageUrl && design.layout === 'single' && (
@@ -377,7 +380,7 @@ export function GuestMenu({
                           ))}
                         </div>
                       </div>
-                    </button>
+                    </Pressable>
                   </li>
                 ))}
               </ul>
@@ -444,9 +447,10 @@ export function GuestMenu({
                     <ul className="relative flex flex-col px-0.5 pb-1" style={{ gap: `${design.itemSpacing}px` }}>
                       {c.items.map((it) => (
                         <li key={it.id}>
-                          <button
+                          <Pressable
+                            variant="dim"
                             onClick={() => openItem(it)}
-                            className="flex w-full items-start gap-3 px-3.5 py-3 text-left shadow-sm backdrop-blur-[3px] transition"
+                            className="flex w-full items-start gap-3 px-3.5 py-3 text-left shadow-sm backdrop-blur-[3px]"
                             style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px`, borderBottom: `1px solid ${hexToRgba(design.dividerColor, design.dividerOpacity)}` }}
                           >
                             {it.imageUrl && (
@@ -485,7 +489,7 @@ export function GuestMenu({
                                 ))}
                               </div>
                             </div>
-                          </button>
+                          </Pressable>
                         </li>
                       ))}
                     </ul>
@@ -516,7 +520,12 @@ export function GuestMenu({
       <ContactFooter venue={venue} />
 
       {selected && (
-        <ItemModal item={selected} currency={venue.currency} onClose={() => setSelected(null)} />
+        <ItemModal
+          item={selected}
+          currency={venue.currency}
+          design={design}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );
@@ -604,67 +613,26 @@ function CategoryListSheet({
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
-  const panelRef = useRef<HTMLDivElement | null>(null);
-
-  // Esc + odak tuzağı + odağı geri verme — ItemModal'daki yaklaşımın aynısı.
-  // Eskiden burada yalnız Esc vardı: Tab ile odak arkadaki menüye kaçıyor,
-  // pencere kapanınca da ☰ düğmesine geri dönmüyordu. Klavye/ekran okuyucu
-  // kullanan misafir "kayboluyordu".
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const focusables = () =>
-      Array.from(
-        panelRef.current?.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        ) ?? []
-      );
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') return onClose();
-      if (e.key !== 'Tab') return;
-      const list = focusables();
-      if (!list.length) return;
-      const first = list[0]!;
-      const last = list[list.length - 1]!;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-      previouslyFocused?.focus?.();
-    };
-  }, [onClose]);
 
   const needle = query.trim().toLocaleLowerCase('tr');
   const shown = needle
     ? categories.filter((c) => c.name.toLocaleLowerCase('tr').includes(needle))
     : categories;
 
+  // Esc, odak tuzağı, odağı ☰ düğmesine geri verme ve sürükleyip kapatma
+  // artık ortak Sheet'te (bkz. components/ui/sheet.tsx).
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Kategoriler"
+    <Sheet
+      open
+      onClose={onClose}
+      label="Kategoriler"
+      placement="bottom"
+      panelClassName="ros-draggable flex max-h-[80vh] w-full max-w-lg flex-col rounded-t-3xl shadow-2xl sm:rounded-3xl"
+      // Sabit beyaz yerine menünün kendi yüzey rengi — koyu/markalı
+      // tasarımlarda pencere artık menüden görsel olarak kopmuyor.
+      panelStyle={{ backgroundColor: design.surfaceColor, color: design.textColor }}
     >
-      <div
-        ref={panelRef}
-        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-t-3xl sm:rounded-3xl"
-        // Sabit beyaz yerine menünün kendi yüzey rengi — koyu/markalı
-        // tasarımlarda pencere artık menüden görsel olarak kopmuyor.
-        style={{ backgroundColor: design.surfaceColor, color: design.textColor }}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <>
         <div
           className="flex items-center gap-3 border-b p-4"
           style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity) }}
@@ -682,24 +650,25 @@ function CategoryListSheet({
               color: design.textColor,
             }}
           />
-          <button
+          <Pressable
             onClick={onClose}
             aria-label="Kapat"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
             style={{
               backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
               color: design.mutedTextColor,
             }}
           >
             ✕
-          </button>
+          </Pressable>
         </div>
         <ul className="min-h-0 flex-1 overflow-y-auto p-2">
           {shown.map((c) => (
             <li key={c.id}>
-              <button
+              <Pressable
+                variant="dim"
                 onClick={() => onPick(c.id)}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-base transition ${
+                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-base ${
                   c.id === activeId ? 'font-semibold' : ''
                 }`}
                 style={c.id === activeId ? { color: design.primaryColor } : { color: design.textColor }}
@@ -708,7 +677,7 @@ function CategoryListSheet({
                 <span className="shrink-0 text-xs" style={{ color: design.mutedTextColor }}>
                   {c.items.length}
                 </span>
-              </button>
+              </Pressable>
             </li>
           ))}
           {shown.length === 0 && (
@@ -717,8 +686,8 @@ function CategoryListSheet({
             </li>
           )}
         </ul>
-      </div>
-    </div>
+      </>
+    </Sheet>
   );
 }
 
@@ -746,84 +715,56 @@ function AllergenChip({ code }: { code: string }) {
   );
 }
 
+/**
+ * Ürün detayı. Artık ortak `Sheet` kullanıyor: aşağı sürükleyerek kapanır,
+ * kapanırken yakalanıp geri çekilebilir, bırakma hızı yayı besler. Esc, odak
+ * tuzağı ve odağı geri verme Sheet'in içinde (bkz. components/ui/sheet.tsx).
+ */
 function ItemModal({
   item,
   currency,
+  design,
   onClose,
 }: {
   item: GuestItem;
   currency: string;
+  design: MenuDesignSettings;
   onClose: () => void;
 }) {
-  const panelRef = useRef<HTMLDivElement | null>(null);
-
-  // Esc + odak tuzağı: modal açıkken Tab, arkadaki sayfa içeriğine kaçmasın.
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const focusables = () =>
-      Array.from(
-        panelRef.current?.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        ) ?? []
-      );
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') return onClose();
-      if (e.key !== 'Tab') return;
-      const list = focusables();
-      if (!list.length) return;
-      const first = list[0]!;
-      const last = list[list.length - 1]!;
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    focusables()[0]?.focus();
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-      previouslyFocused?.focus?.();
-    };
-  }, [onClose]);
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={item.name}
+    <Sheet
+      open
+      onClose={onClose}
+      label={item.name}
+      placement="bottom"
+      panelClassName="ros-draggable max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-3xl shadow-2xl sm:rounded-3xl"
+      panelStyle={{ backgroundColor: design.surfaceColor, color: design.textColor }}
     >
-      <div
-        ref={panelRef}
-        className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white sm:rounded-3xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div>
         {item.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={item.imageUrl} alt={item.name} className="h-52 w-full object-cover" />
         )}
         <div className="p-5">
           <div className="flex items-start justify-between gap-3">
-            <h2 className="text-xl font-bold text-stone-900">{item.name}</h2>
-            <button
+            <h2 className="text-xl font-bold" style={{ fontFamily: design.headingFont }}>
+              {item.name}
+            </h2>
+            <Pressable
               onClick={onClose}
               aria-label="Kapat"
-              className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-500 hover:bg-stone-200"
+              className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+              style={{
+                backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+                color: design.mutedTextColor,
+              }}
             >
               ✕
-            </button>
+            </Pressable>
           </div>
 
           {item.price != null && (
-            <p className="mt-1 text-lg font-semibold text-brand-700">
+            <p className="mt-1 text-lg font-semibold" style={{ color: design.primaryColor }}>
               {formatPrice(item.price, currency)}
             </p>
           )}
@@ -837,30 +778,35 @@ function ItemModal({
           )}
 
           {item.description && (
-            <p className="mt-3 text-sm leading-relaxed text-stone-600">{item.description}</p>
+            <p className="mt-3 text-sm leading-relaxed" style={{ color: design.mutedTextColor }}>
+              {item.description}
+            </p>
           )}
 
           {item.ingredients && (
-            <ModalSection title="İÇİNDEKİLER">
-              <p className="text-sm leading-relaxed text-stone-600">{item.ingredients}</p>
+            <ModalSection title="İÇİNDEKİLER" design={design}>
+              <p className="text-sm leading-relaxed" style={{ color: design.mutedTextColor }}>
+                {item.ingredients}
+              </p>
             </ModalSection>
           )}
 
           {item.calories != null && (
-            <ModalSection title="KALORİ (PORSİYON)">
-              <p className="text-sm font-medium text-stone-700">{item.calories} kcal</p>
+            <ModalSection title="KALORİ (PORSİYON)" design={design}>
+              <p className="text-sm font-medium">{item.calories} kcal</p>
             </ModalSection>
           )}
 
           {item.allergenCodes.length > 0 && (
-            <ModalSection title="ALERJENLER">
+            <ModalSection title="ALERJENLER" design={design}>
               <div className="flex flex-wrap gap-1.5">
                 {item.allergenCodes.map((code) => {
                   const a = (ALLERGENS as Record<string, { tr: string } | undefined>)[code];
                   return (
                     <span
                       key={code}
-                      className="rounded-lg bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600"
+                      className="rounded-lg px-2.5 py-1 text-xs font-medium"
+                      style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity) }}
                     >
                       {a?.tr ?? code}
                     </span>
@@ -870,20 +816,39 @@ function ItemModal({
             </ModalSection>
           )}
 
-          <p className="mt-5 border-t border-stone-100 pt-3 text-xs leading-relaxed text-stone-400">
+          <p
+            className="mt-5 border-t pt-3 text-xs leading-relaxed"
+            style={{
+              borderColor: hexToRgba(design.dividerColor, design.dividerOpacity),
+              color: design.mutedTextColor,
+            }}
+          >
             Alerjen ve diyet bilgileri işletme beyanına dayanır. Ağır alerjiniz varsa lütfen
             personele danışın.
           </p>
         </div>
       </div>
-    </div>
+    </Sheet>
   );
 }
 
-function ModalSection({ title, children }: { title: string; children: React.ReactNode }) {
+function ModalSection({
+  title,
+  design,
+  children,
+}: {
+  title: string;
+  design: MenuDesignSettings;
+  children: React.ReactNode;
+}) {
   return (
     <div className="mt-4">
-      <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wide text-stone-400">{title}</h3>
+      <h3
+        className="mb-1.5 text-xs font-bold uppercase tracking-wide"
+        style={{ color: design.mutedTextColor }}
+      >
+        {title}
+      </h3>
       {children}
     </div>
   );

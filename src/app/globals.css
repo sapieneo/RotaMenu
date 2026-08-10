@@ -2,6 +2,141 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   RestaurantOS — Tasarım temeli (Apple "Designing Fluid Interfaces" uyarlaması)
+   Bileşen stilleri Tailwind'de; burada yalnız GLOBAL davranış ve tercihler.
+   ========================================================================== */
+
 body {
   @apply bg-stone-50 text-stone-900 antialiased;
+}
+
+/* --------------------------------------------------------------------------
+   §15 Tipografi — tracking BOYUTA ÖZELDİR, tek bir değer her yerde yanlıştır.
+   Büyüdükçe harfler birbirinden fazla uzak okunur → büyük metinde NEGATİF
+   tracking. Küçük metinde okunurluk için hafif POZİTİF. Gövde 0'a yakın.
+   Leading ters yönde: büyük başlık sıkı, gövde ferah.
+   -------------------------------------------------------------------------- */
+h1,
+.text-4xl,
+.text-3xl {
+  letter-spacing: -0.021em;
+  line-height: 1.1;
+}
+
+h2,
+.text-2xl {
+  letter-spacing: -0.016em;
+  line-height: 1.2;
+}
+
+h3,
+.text-xl,
+.text-lg {
+  letter-spacing: -0.011em;
+  line-height: 1.3;
+}
+
+/* Küçük etiket/rozet metni: okunurluk için hafif açılır. */
+.text-xs,
+.text-\[11px\],
+.text-\[10px\] {
+  letter-spacing: 0.006em;
+}
+
+/* Değişken font varsa optik boyutlandırma açık kalsın. */
+html {
+  font-optical-sizing: auto;
+  /* iOS'ta yatay çevirmede metnin kendiliğinden büyümesini engelle. */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   §1 Basış geri bildirimi — Pressable bileşeninin taşıyıcı stili.
+   Ölçek/opaklık React tarafında veriliyor; geçiş süresi burada.
+   100ms: basış anında "hemen" okunacak kadar hızlı, sıçramayacak kadar yumuşak.
+   -------------------------------------------------------------------------- */
+.ros-pressable {
+  transition: transform 100ms ease-out, opacity 100ms ease-out;
+  /* Dokunmatikte basış sırasında tarayıcının gri vurgusu bizim geri
+     bildirimimizle çakışıyor — kapatıyoruz. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* çift dokunma ile yakınlaştırma gecikmesini kaldırır */
+}
+
+/* Sürüklenebilir yüzeylerde tarayıcının kendi kaydırma/seçim davranışı
+   jestle çakışır — Sheet paneli bunu kendi içinde yönetir. */
+.ros-draggable {
+  touch-action: none;
+  user-select: none;
+}
+
+/* --------------------------------------------------------------------------
+   §14 Erişilebilirlik tercihleri — ÜÇÜ BİRDEN, bağımsız sinyaller.
+   -------------------------------------------------------------------------- */
+
+/* Hareket azaltma: "hiç geri bildirim yok" DEĞİL — vestibüler olmayan,
+   daha yumuşak bir eşdeğer. Opaklık/renk değişimi anlamaya yardım ettiği
+   için KALIR; kayma, yaylanma, paralaks kalkar. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.15s !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Basış geri bildirimi ölçek yerine yalnız hafif karartmaya iner. */
+  .ros-pressable {
+    transform: none !important;
+  }
+}
+
+/* Şeffaflık azaltma: cam yüzeyler donuklaşır — bulanıklık kalkar,
+   arka plan opaklığı yükselir. */
+@media (prefers-reduced-transparency: reduce) {
+  .ros-material,
+  .ros-material-strong {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* Yüksek kontrast: neredeyse opak zemin + tanımlı kenarlık. */
+@media (prefers-contrast: more) {
+  .ros-material,
+  .ros-material-strong {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: 1px solid currentColor;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   §12 Malzeme — translusent katmanlar. İçerik ALTINDAN akar, opak bir şerit
+   ekranı yemez. Büyük yüzey = daha kalın okunur: güçlü bulanıklık + derin
+   gölge. Üst kenardaki açık çizgi, malzemenin ışığı yakalaması.
+   DİKKAT: açık bir translusent yüzeyi bir başkasının ÜSTÜNE koyma —
+   okunabilirlik çöker.
+   -------------------------------------------------------------------------- */
+.ros-material {
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.ros-material-strong {
+  background-color: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.5) inset, 0 -12px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* §12 Kaydırma kenar efekti — sert 1px çizgi yerine yumuşak geçiş.
+   Yalnız yüzen arayüzün içeriğin üstüne bindiği yere konur. */
+.ros-scroll-edge {
+  mask-image: linear-gradient(to bottom, transparent, black 12px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 12px);
 }
