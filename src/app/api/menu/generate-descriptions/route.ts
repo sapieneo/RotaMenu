@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { signTranslationBackgroundPayload } from '@/lib/ai/background-auth';
 import { resolveManagedVenue } from '@/lib/managed-venue';
+import { aiTierFor, consumeAiQuota, quotaStatus, refundAiQuota } from '@/lib/ai-quota';
+import { normalizePlan } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 
@@ -49,6 +51,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ descriptions: 0, alreadyCompleted: true });
   }
 
+  // ── AI maliyet koruması ── (bkz. lib/ai-quota.ts)
+  const { data: orgRow } = await supabase
+    .from('organizations')
+    .select('plan')
+    .eq('id', venue.org_id)
+    .maybeSingle();
+  const tier = aiTierFor({
+    isAnonymous: Boolean(user.is_anonymous),
+    email: user.email,
+    basePlan: normalizePlan(orgRow?.plan),
+  });
+  const quota = await consumeAiQuota(venue.org_id, 'description', 1, tier);
+  if (!quota.ok) {
+    return NextResponse.json(
+      { error: quota.message, code: quota.reason === 'identity' ? 'account_required' : 'quota_exceeded' },
+      { status: quotaStatus(quota) }
+    );
+  }
+
   const { data: descriptionJob, error } = await supabase
     .from('menu_translation_jobs')
     .upsert(
@@ -69,12 +90,17 @@ export async function POST(request: NextRequest) {
     .select('id')
     .single();
   if (error || !descriptionJob) {
+    await refundAiQuota(venue.org_id, 'description', 1);
     return NextResponse.json({ error: 'Açıklama işi oluşturulamadı.' }, { status: 500 });
   }
 
   const origin = getNetlifyOrigin();
-  if (!origin) return NextResponse.json({ error: 'Arka plan servisi yapılandırılmamış.' }, { status: 503 });
+  if (!origin) {
+    await refundAiQuota(venue.org_id, 'description', 1);
+    return NextResponse.json({ error: 'Arka plan servisi yapılandırılmamış.' }, { status: 503 });
+  }
   if (!(await enqueue(origin, descriptionJob.id))) {
+    await refundAiQuota(venue.org_id, 'description', 1);
     return NextResponse.json({ error: 'Açıklama işi başlatılamadı.' }, { status: 502 });
   }
 

@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { upscaleImage, ImageError, isImageConfigured } from '@/lib/ai/image';
-import { UPGRADE_MESSAGES, resolvePlanContext } from '@/lib/plans';
+import { UPGRADE_MESSAGES, normalizePlan, resolvePlanContext } from '@/lib/plans';
+import { aiTierFor, consumeAiQuota, quotaStatus, refundAiQuota } from '@/lib/ai-quota';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -91,6 +92,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ── AI maliyet koruması ── (bkz. lib/ai-quota.ts; plan kapısı tek başına
+  // yetmez, deneme sürerken anonim kullanıcı da 'pro' sayılıyor)
+  const enhTier = aiTierFor({
+    isAnonymous: Boolean(user.is_anonymous),
+    email: user.email,
+    basePlan: normalizePlan(orgRow?.plan),
+  });
+  const enhQuota = await consumeAiQuota(row.org_id, 'image', 1, enhTier);
+  if (!enhQuota.ok) {
+    return NextResponse.json(
+      { error: enhQuota.message, code: enhQuota.reason === 'identity' ? 'account_required' : 'quota_exceeded' },
+      { status: quotaStatus(enhQuota) }
+    );
+  }
+
   try {
     const bytes = await upscaleImage(sourceUrl);
     const path = `${row.org_id}/${subdir}/${id}-${Date.now().toString(36)}.webp`;
@@ -112,6 +128,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ imageUrl: publicUrl });
   } catch (err) {
+    await refundAiQuota(row.org_id, 'image', 1);
     const message = err instanceof ImageError ? err.message : 'Görsel iyileştirilemedi.';
     return NextResponse.json({ error: message }, { status: 502 });
   }

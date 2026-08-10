@@ -30,6 +30,9 @@ export function AccountCard({
   const [banner, setBanner] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [phoneVerified, setPhoneVerified] = useState(Boolean(contactPhoneVerifiedAt));
   const [verifyBusy, setVerifyBusy] = useState(false);
+  /** Yayın şartı: kayıtlı e-posta + KAYDEDİLMİŞ telefon. Kutuya yazılıp henüz
+   *  kaydedilmemiş numara sayılmaz — sunucu da kayıtlı olanı arıyor. */
+  const hasPhone = Boolean(contactPhone?.trim());
 
   async function verifyPhoneBypass() {
     setVerifyBusy(true);
@@ -98,11 +101,13 @@ export function AccountCard({
     <main className="mx-auto max-w-2xl px-4 py-8">
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-brand-600">Ücretsiz Plan</p>
-          <h1 className="mt-1 text-2xl font-bold">Ücretsiz menü için kaydol</h1>
+          <p className="text-sm font-medium text-brand-600">Hesap</p>
+          <h1 className="mt-1 text-2xl font-bold">
+            {isAnonymous ? 'Hesabını oluştur' : 'Hesabın'}
+          </h1>
           <p className="mt-1 text-sm text-stone-500">
-            Menünü yayınlayabilmen için e-postanı ve bir iletişim telefonunu ekle — ikisi de ücretsiz
-            plana kayıt şartı.
+            Yayınlamak için iki şey gerekiyor: <strong>doğrulanmış e-posta</strong> ve{' '}
+            <strong>iletişim telefonu</strong>. İkisi de tamamlanmadan menü canlıya alınamaz.
           </p>
         </div>
         <a
@@ -126,16 +131,36 @@ export function AccountCard({
       )}
 
       {!isAnonymous ? (
-        <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 shadow-sm">
+        <section className={`rounded-2xl border p-5 shadow-sm ${hasPhone ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/60'}`}>
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
-              KAYITLI
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${hasPhone ? 'bg-emerald-600' : 'bg-amber-500'}`}>
+              {hasPhone ? 'KAYIT TAMAM' : 'SON BİR ADIM'}
             </span>
-            <h2 className="text-base font-bold text-stone-800">Ücretsiz plana kayıtlısın</h2>
+            <h2 className="text-base font-bold text-stone-800">
+              {hasPhone ? 'Yayına hazırsın' : 'Telefon numarası eksik'}
+            </h2>
           </div>
-          <p className="mt-1 text-sm text-stone-600">
-            Menün <strong>{email}</strong> adresine bağlı. Farklı bir cihazdan bu e-posta ile
-            giriş yaparak menüne ulaşabilirsin.
+
+          {/* Kayıt iki adımlıdır ve yayın İKİSİNİ birden ister. Eskiden burada
+              tek bir "KAYITLI" rozeti vardı; kullanıcı kaydını tamamlanmış
+              sanıp yayınlamaya gidince telefon yüzünden bloklanıyordu. */}
+          <ul className="mt-3 space-y-1.5 text-sm text-stone-700">
+            <li className="flex items-center gap-2">
+              <StepMark done />
+              <span>E-posta doğrulandı — <strong>{email}</strong></span>
+            </li>
+            <li className="flex items-center gap-2">
+              <StepMark done={hasPhone} />
+              <span>{hasPhone ? 'İletişim telefonu eklendi' : 'İletişim telefonu eklenmedi (yayın için gerekli)'}</span>
+            </li>
+          </ul>
+
+          <p className="mt-3 text-sm text-stone-600">
+            Menün bu e-postaya bağlı. Başka bir cihazda ya da tarayıcı verini sildiğinde{' '}
+            <a href="/giris" className="font-semibold text-brand-700 underline">
+              giriş sayfasından
+            </a>{' '}
+            bu e-posta ile menüne dönebilirsin.
           </p>
         </section>
       ) : (
@@ -237,5 +262,19 @@ export function AccountCard({
         </button>
       </div>
     </main>
+  );
+}
+
+/** Kayıt adımlarının yanındaki ✓ / ○ işareti. */
+function StepMark({ done }: { done?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+        done ? 'bg-emerald-600 text-white' : 'border border-amber-400 text-amber-600'
+      }`}
+    >
+      {done ? '✓' : ''}
+    </span>
   );
 }

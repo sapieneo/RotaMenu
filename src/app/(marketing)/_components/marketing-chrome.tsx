@@ -3,35 +3,68 @@ import Link from 'next/link';
 const WHATSAPP =
   'https://wa.me/905549438822?text=Merhaba%2C%20QR%20men%C3%BC%20hakk%C4%B1nda%20bilgi%20almak%20istiyorum.';
 
-/** Pazarlama sayfalarının üst çubuğu. */
+const NAV_LINKS = [
+  { href: '/#nasil-calisir', label: 'Nasıl çalışır' },
+  { href: '/#yonetmelik', label: 'Yönetmelik' },
+  { href: '/#fiyat', label: 'Fiyat' },
+  { href: '/#sss', label: 'SSS' },
+];
+
+/**
+ * Pazarlama sayfalarının üst çubuğu.
+ *
+ * Mobilde bölüm bağlantıları eskiden tamamen gizleniyordu (`hidden md:flex`) ve
+ * yerine hiçbir şey gelmiyordu; telefondan gelen ziyaretçi fiyat/SSS'e ancak
+ * uzun uzun kaydırarak ulaşabiliyordu. Artık ikinci bir satırda yatay
+ * kaydırılabilir şerit olarak duruyorlar — JS gerektirmeyen en sade çözüm.
+ *
+ * "Giriş yap" bilinçli olarak her boyutta görünür: kayıtlı kullanıcının
+ * hesabına dönebileceği tek görünür kapı burasıdır.
+ */
 export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-stone-50/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
-        <Link href="/" className="text-lg font-bold tracking-tight text-stone-900">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3">
+        <Link href="/" className="shrink-0 text-lg font-bold tracking-tight text-stone-900">
           Restaurant<span className="text-brand-600">OS</span>
         </Link>
         <nav className="hidden items-center gap-6 text-sm font-medium text-stone-600 md:flex">
-          <a href="/#nasil-calisir" className="transition hover:text-stone-900">
-            Nasıl çalışır
-          </a>
-          <a href="/#yonetmelik" className="transition hover:text-stone-900">
-            Yönetmelik
-          </a>
-          <a href="/#fiyat" className="transition hover:text-stone-900">
-            Fiyat
-          </a>
-          <a href="/#sss" className="transition hover:text-stone-900">
-            SSS
-          </a>
+          {NAV_LINKS.map((link) => (
+            <a key={link.href} href={link.href} className="transition hover:text-stone-900">
+              {link.label}
+            </a>
+          ))}
         </nav>
-        <Link
-          href="/studyo"
-          className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
-        >
-          Ücretsiz Dene
-        </Link>
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <Link
+            href="/giris"
+            className="rounded-xl px-2.5 py-2 text-sm font-semibold text-stone-600 transition hover:bg-stone-200/60 hover:text-stone-900 sm:px-3"
+          >
+            Giriş yap
+          </Link>
+          <Link
+            href="/studyo"
+            className="rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 sm:px-4"
+          >
+            Ücretsiz Dene
+          </Link>
+        </div>
       </div>
+
+      {/* Mobil bölüm şeridi — masaüstünde gizli, nav zaten yukarıda. */}
+      <nav className="border-t border-stone-200/70 md:hidden">
+        <div className="flex gap-1 overflow-x-auto px-4 py-2 text-sm font-medium text-stone-600 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {NAV_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="whitespace-nowrap rounded-full bg-white px-3 py-1.5 shadow-sm transition hover:text-stone-900"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+      </nav>
     </header>
   );
 }

@@ -2,9 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { isSupportedMenuLanguage } from '@/lib/languages';
-import { resolvePlanContext } from '@/lib/plans';
+import { normalizePlan, resolvePlanContext } from '@/lib/plans';
 import { signTranslationBackgroundPayload } from '@/lib/ai/background-auth';
 import { resolveManagedVenue } from '@/lib/managed-venue';
+import { aiTierFor, consumeAiQuota, quotaStatus, refundAiQuota } from '@/lib/ai-quota';
 
 export const runtime = 'nodejs';
 
@@ -68,6 +69,34 @@ export async function POST(request: NextRequest) {
   );
   const localesToRun = parsed.data.locales.filter((locale) => !completedLocales.has(locale));
 
+  // ── AI maliyet koruması ──────────────────────────────────────────────────
+  // Birim = gerçekten çalıştırılacak dil sayısı + (varsa) açıklama işi.
+  // Zaten tamamlanmış diller sayılmaz. Kota yetmezse OpenAI hiç çağrılmaz.
+  const aiTier = aiTierFor({
+    isAnonymous: Boolean(user.is_anonymous),
+    email: user.email,
+    basePlan: normalizePlan(organization?.plan),
+  });
+  if (localesToRun.length) {
+    const quota = await consumeAiQuota(venue.org_id, 'translate', localesToRun.length, aiTier);
+    if (!quota.ok) {
+      return NextResponse.json(
+        { error: quota.message, code: quota.reason === 'identity' ? 'account_required' : 'quota_exceeded' },
+        { status: quotaStatus(quota) }
+      );
+    }
+  }
+  if (missingDescriptionCount > 0) {
+    const descQuota = await consumeAiQuota(venue.org_id, 'description', 1, aiTier);
+    if (!descQuota.ok) {
+      await refundAiQuota(venue.org_id, 'translate', localesToRun.length);
+      return NextResponse.json(
+        { error: descQuota.message, code: descQuota.reason === 'identity' ? 'account_required' : 'quota_exceeded' },
+        { status: quotaStatus(descQuota) }
+      );
+    }
+  }
+
   const translationRows = localesToRun.map((locale) => ({
     org_id: venue.org_id,
     menu_id: menu.id,
@@ -87,12 +116,23 @@ export async function POST(request: NextRequest) {
         .select('id')
     : { data: [] as { id: string }[], error: null };
   const translationJobs = translationResult.data;
+
+  /** İş başlatılamadıysa tüketilen AI kotasını geri ver. */
+  const refundAll = async () => {
+    await refundAiQuota(venue.org_id, 'translate', localesToRun.length);
+    if (missingDescriptionCount > 0) await refundAiQuota(venue.org_id, 'description', 1);
+  };
+
   if (translationResult.error || !translationJobs) {
+    await refundAll();
     return NextResponse.json({ error: 'Çeviri işleri oluşturulamadı.' }, { status: 500 });
   }
 
   const origin = getNetlifyOrigin();
-  if (!origin) return NextResponse.json({ error: 'Arka plan servisi yapılandırılmamış.' }, { status: 503 });
+  if (!origin) {
+    await refundAll();
+    return NextResponse.json({ error: 'Arka plan servisi yapılandırılmamış.' }, { status: 503 });
+  }
   const followupJobIds = translationJobs.map((job) => job.id);
 
   if (!followupJobIds.length && missingDescriptionCount === 0) {
@@ -120,14 +160,17 @@ export async function POST(request: NextRequest) {
       .select('id')
       .single();
     if (error || !descriptionJob) {
+      await refundAll();
       return NextResponse.json({ error: 'Açıklama işi oluşturulamadı.' }, { status: 500 });
     }
     if (!(await enqueue(origin, descriptionJob.id, followupJobIds))) {
+      await refundAll();
       return NextResponse.json({ error: 'Açıklama işi başlatılamadı.' }, { status: 502 });
     }
   } else {
     const queued = await Promise.all(followupJobIds.map((jobId) => enqueue(origin, jobId)));
     if (queued.some((success) => !success)) {
+      await refundAll();
       return NextResponse.json({ error: 'Bazı çeviri işleri başlatılamadı. Lütfen tekrar deneyin.' }, { status: 502 });
     }
   }

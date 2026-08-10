@@ -5,6 +5,8 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import type { MenuPage } from '@/lib/ai/extract';
 import { signBackgroundPayload } from '@/lib/ai/background-auth';
 import { processMenuIngestion, type StoredMenuPage } from '@/lib/ai/process-menu-ingestion';
+import { aiTierFor, consumeAiQuota, quotaStatus, refundAiQuota } from '@/lib/ai-quota';
+import { normalizePlan } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120; // AI çıkarma 60 sn'yi bulabilir
@@ -83,6 +85,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id: existing.id, status: existing.status, deduplicated: true });
   }
 
+  // ── AI maliyet koruması ──────────────────────────────────────────────────
+  // Buradan sonrası OpenAI vision çağırır (sayfa başına ücret). Kota
+  // idempotency kontrolünden SONRA tüketilir: aynı menüyü tekrar yükleyen
+  // kullanıcı ikinci kez ödemez. Kota yetmezse AI hiç çağrılmaz.
+  const { data: quotaOrg } = await admin
+    .from('organizations')
+    .select('plan')
+    .eq('id', venue.org_id)
+    .maybeSingle();
+  const tier = aiTierFor({
+    isAnonymous: Boolean(user.is_anonymous),
+    email: user.email,
+    basePlan: normalizePlan(quotaOrg?.plan),
+  });
+  const quota = await consumeAiQuota(venue.org_id, 'ingest', pages.length, tier);
+  if (!quota.ok) {
+    return NextResponse.json(
+      { error: quota.message, code: quota.reason === 'identity' ? 'account_required' : 'quota_exceeded' },
+      { status: quotaStatus(quota) }
+    );
+  }
+
   const { data: ingestion, error: insErr } = await supabase
     .from('menu_ingestions')
     .insert({
@@ -97,6 +121,8 @@ export async function POST(request: NextRequest) {
     .select('id')
     .single();
   if (insErr || !ingestion) {
+    // İş hiç başlamadı → tüketilen kotayı geri ver.
+    await refundAiQuota(venue.org_id, 'ingest', pages.length);
     return NextResponse.json({ error: 'İçe aktarma başlatılamadı.' }, { status: 500 });
   }
 
@@ -106,6 +132,7 @@ export async function POST(request: NextRequest) {
     const queued = await enqueueBackgroundIngestion(netlifyOrigin, ingestion.id, storedPages);
     if (!queued) {
       const message = 'Menü çıkarma işi başlatılamadı. Lütfen tekrar deneyin.';
+      await refundAiQuota(venue.org_id, 'ingest', pages.length);
       await admin
         .from('menu_ingestions')
         .update({ status: 'failed', error_message: message })

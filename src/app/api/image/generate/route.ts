@@ -10,7 +10,8 @@ import {
   ImageError,
   isImageConfigured,
 } from '@/lib/ai/image';
-import { UPGRADE_MESSAGES, resolvePlanContext } from '@/lib/plans';
+import { UPGRADE_MESSAGES, normalizePlan, resolvePlanContext } from '@/lib/plans';
+import { aiTierFor, consumeAiQuota, quotaStatus, refundAiQuota } from '@/lib/ai-quota';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -119,6 +120,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ── AI maliyet koruması ──────────────────────────────────────────────────
+  // Plan kapısı deneme sürerken herkesi 'pro' saydığı için TEK BAŞINA yetmez:
+  // anonim ziyaretçi de görsel üretebiliyordu. Kimlik + günlük kota şart.
+  const imgTier = aiTierFor({
+    isAnonymous: Boolean(user.is_anonymous),
+    email: user.email,
+    basePlan: normalizePlan(orgRow?.plan),
+  });
+  const imgQuota = await consumeAiQuota(orgId, 'image', 1, imgTier);
+  if (!imgQuota.ok) {
+    return NextResponse.json(
+      { error: imgQuota.message, code: imgQuota.reason === 'identity' ? 'account_required' : 'quota_exceeded' },
+      { status: quotaStatus(imgQuota) }
+    );
+  }
+
   try {
     const bytes = await generateImage(prompt, dims);
     const path = `${orgId}/${subdir}/${targetId}-${Date.now().toString(36)}.webp`;
@@ -136,6 +153,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ imageUrl: publicUrl });
   } catch (err) {
+    // Sağlayıcı görseli üretemediyse kullanıcıdan kota düşmesin.
+    await refundAiQuota(orgId, 'image', 1);
     const message = err instanceof ImageError ? err.message : 'Görsel üretilemedi.';
     return NextResponse.json({ error: message }, { status: 502 });
   }

@@ -604,14 +604,43 @@ function CategoryListSheet({
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
+  // Esc + odak tuzağı + odağı geri verme — ItemModal'daki yaklaşımın aynısı.
+  // Eskiden burada yalnız Esc vardı: Tab ile odak arkadaki menüye kaçıyor,
+  // pencere kapanınca da ☰ düğmesine geri dönmüyordu. Klavye/ekran okuyucu
+  // kullanan misafir "kayboluyordu".
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const focusables = () =>
+      Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      );
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return onClose();
+      if (e.key !== 'Tab') return;
+      const list = focusables();
+      if (!list.length) return;
+      const first = list[0]!;
+      const last = list[list.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
+      previouslyFocused?.focus?.();
     };
   }, [onClose]);
 
@@ -629,22 +658,38 @@ function CategoryListSheet({
       aria-label="Kategoriler"
     >
       <div
-        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-t-3xl bg-white sm:rounded-3xl"
+        ref={panelRef}
+        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-t-3xl sm:rounded-3xl"
+        // Sabit beyaz yerine menünün kendi yüzey rengi — koyu/markalı
+        // tasarımlarda pencere artık menüden görsel olarak kopmuyor.
+        style={{ backgroundColor: design.surfaceColor, color: design.textColor }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-stone-100 p-4">
+        <div
+          className="flex items-center gap-3 border-b p-4"
+          style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity) }}
+        >
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Kategori ara…"
             aria-label="Kategori ara"
-            className="min-w-0 flex-1 rounded-xl border border-stone-300 px-3 py-2 text-base outline-none focus:border-stone-500"
+            className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-base outline-none"
+            style={{
+              borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 60)),
+              backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+              color: design.textColor,
+            }}
           />
           <button
             onClick={onClose}
             aria-label="Kapat"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-500 hover:bg-stone-200"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition"
+            style={{
+              backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+              color: design.mutedTextColor,
+            }}
           >
             ✕
           </button>
@@ -654,18 +699,22 @@ function CategoryListSheet({
             <li key={c.id}>
               <button
                 onClick={() => onPick(c.id)}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-base transition hover:bg-stone-50 ${
+                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-base transition ${
                   c.id === activeId ? 'font-semibold' : ''
                 }`}
-                style={c.id === activeId ? { color: design.primaryColor } : undefined}
+                style={c.id === activeId ? { color: design.primaryColor } : { color: design.textColor }}
               >
-                <span className="min-w-0 truncate text-stone-800">{c.name}</span>
-                <span className="shrink-0 text-xs text-stone-400">{c.items.length}</span>
+                <span className="min-w-0 truncate">{c.name}</span>
+                <span className="shrink-0 text-xs" style={{ color: design.mutedTextColor }}>
+                  {c.items.length}
+                </span>
               </button>
             </li>
           ))}
           {shown.length === 0 && (
-            <li className="px-3 py-6 text-center text-sm text-stone-400">Eşleşen kategori yok.</li>
+            <li className="px-3 py-6 text-center text-sm" style={{ color: design.mutedTextColor }}>
+              Eşleşen kategori yok.
+            </li>
           )}
         </ul>
       </div>

@@ -166,6 +166,20 @@ export default function StudyoPage() {
         </div>
       )}
 
+      {/* Anonim VE henüz menüsü yok → bu kişi ya ilk kez geliyor ya da
+          çerezini silmiş kayıtlı bir kullanıcı. İkincisine bir çıkış kapısı
+          bırakmazsak burada sessizce YENİ bir boş hesap açmış oluyoruz ve
+          kullanıcı menüsünü kaybettiğini sanıyor. */}
+      {isAnon && !hasMenu && (
+        <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-600">
+          Daha önce menü oluşturduysan{' '}
+          <a href="/giris" className="font-semibold text-brand-700 underline">
+            e-postanla giriş yap
+          </a>{' '}
+          — burada yeni bir menü başlatmak yerine kaldığın yerden devam edersin.
+        </div>
+      )}
+
       {isAnon && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <span>

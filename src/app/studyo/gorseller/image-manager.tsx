@@ -313,12 +313,25 @@ export function ImageManager({
       <div className="min-w-0 max-w-2xl space-y-6">
         {cats.map((c) => (
           <section key={c.id} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-            {/* Kategori arka planı */}
-            <button
-              type="button"
+            {/* Kategori arka planı.
+                DİKKAT: bu sarmalayıcı <div> OLMALI, <button> DEĞİL. Bir süre
+                <button> denendi ve görseller kayboldu: tarayıcılar <button>
+                içindeki yüzdelik ölçüleri (h-full / inset-0) güvenilir
+                çözmüyor. Tıklama bu yüzden div üzerinde role="button" ile
+                veriliyor. */}
+            <div
+              role={c.backgroundUrl ? 'button' : undefined}
+              tabIndex={c.backgroundUrl ? 0 : undefined}
+              aria-label={c.backgroundUrl ? `${c.name} arka planını büyüt` : undefined}
               onClick={() => c.backgroundUrl && setLightbox({ url: c.backgroundUrl, alt: c.name })}
-              disabled={!c.backgroundUrl}
-              className={`group relative mb-4 h-24 w-full overflow-hidden rounded-xl bg-stone-100 text-left ${c.backgroundUrl ? 'cursor-zoom-in' : 'cursor-default'}`}
+              onKeyDown={(e) => {
+                if (!c.backgroundUrl) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setLightbox({ url: c.backgroundUrl, alt: c.name });
+                }
+              }}
+              className={`group relative mb-4 h-24 overflow-hidden rounded-xl bg-stone-100 ${c.backgroundUrl ? 'cursor-zoom-in' : ''}`}
             >
               {c.backgroundUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -345,7 +358,7 @@ export function ImageManager({
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-300 border-t-brand-600" />
                 </div>
               )}
-            </button>
+            </div>
             <div className="mb-4">
               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-400">
                 Kategori arka planı
@@ -407,15 +420,29 @@ export function ImageManager({
             <ul className="divide-y divide-stone-100 border-t border-stone-100">
               {c.items.map((it) => (
                 <li key={it.id} className="flex items-center gap-3 py-3">
-                  <button
-                    type="button"
+                  {/* Sarmalayıcı <div> OLMALI — bkz. kategori arka planındaki
+                      not: <button> içinde h-full çözülmüyor, görsel kayboluyor. */}
+                  <div
+                    role={it.imageUrl ? 'button' : undefined}
+                    tabIndex={it.imageUrl ? 0 : undefined}
+                    aria-label={it.imageUrl ? `${it.name} görselini büyüt` : undefined}
                     onClick={() => it.imageUrl && setLightbox({ url: it.imageUrl, alt: it.name })}
-                    disabled={!it.imageUrl}
-                    className={`group relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-stone-100 ${it.imageUrl ? 'cursor-zoom-in' : 'cursor-default'}`}
+                    onKeyDown={(e) => {
+                      if (!it.imageUrl) return;
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setLightbox({ url: it.imageUrl, alt: it.name });
+                      }
+                    }}
+                    className={`group relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-stone-100 ${it.imageUrl ? 'cursor-zoom-in' : ''}`}
                   >
                     {it.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={it.imageUrl} alt={it.name} className="h-full w-full object-cover transition group-hover:scale-105" />
+                      <img
+                        src={it.imageUrl}
+                        alt={it.name}
+                        className="h-full w-full object-cover transition group-hover:scale-105"
+                      />
                     ) : (
                       <span className="flex h-full w-full items-center justify-center text-2xl text-stone-300">
                         🍽
@@ -426,7 +453,7 @@ export function ImageManager({
                         <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-300 border-t-brand-600" />
                       </div>
                     )}
-                  </button>
+                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-stone-800">{it.name}</p>
                     <div className="mt-1.5">
