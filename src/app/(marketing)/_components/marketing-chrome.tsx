@@ -23,42 +23,51 @@ const NAV_LINKS = [
  */
 export function MarketingHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-stone-50/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3">
-        <Link href="/" className="shrink-0 text-lg font-bold tracking-tight text-stone-900">
+    // §12 Malzeme: opak şerit değil translusent katman — içerik altından akar.
+    // Sert 1px çizgi yerine yalnız bulanıklık ayırıyor.
+    <header className="ros-material sticky top-0 z-40">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-md py-sm">
+        <Link
+          href="/"
+          className="ros-pressable shrink-0 text-lg font-semibold tracking-tight text-content active:scale-[0.98]"
+        >
           Restaurant<span className="text-brand-600">OS</span>
         </Link>
-        <nav className="hidden items-center gap-6 text-sm font-medium text-stone-600 md:flex">
+        <nav className="hidden items-center gap-lg text-footnote font-medium text-content-secondary md:flex">
           {NAV_LINKS.map((link) => (
-            <a key={link.href} href={link.href} className="transition hover:text-stone-900">
+            <a
+              key={link.href}
+              href={link.href}
+              className="ros-pressable inline-flex min-h-touch items-center transition hover:text-content"
+            >
               {link.label}
             </a>
           ))}
         </nav>
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="flex shrink-0 items-center gap-xs">
           <Link
             href="/giris"
-            className="rounded-xl px-2.5 py-2 text-sm font-semibold text-stone-600 transition hover:bg-stone-200/60 hover:text-stone-900 sm:px-3"
+            className="ros-pressable inline-flex min-h-touch items-center rounded-pill px-md text-footnote font-semibold text-content-secondary transition hover:text-content active:scale-[0.98]"
           >
             Giriş yap
           </Link>
           <Link
             href="/studyo"
-            className="rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 sm:px-4"
+            className="ros-pressable inline-flex min-h-touch items-center rounded-pill bg-brand-600 px-md text-footnote font-semibold text-white transition hover:bg-brand-700 active:scale-[0.98]"
           >
-            Ücretsiz Dene
+            Ücretsiz dene
           </Link>
         </div>
       </div>
 
       {/* Mobil bölüm şeridi — masaüstünde gizli, nav zaten yukarıda. */}
-      <nav className="border-t border-stone-200/70 md:hidden">
-        <div className="flex gap-1 overflow-x-auto px-4 py-2 text-sm font-medium text-stone-600 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <nav className="md:hidden">
+        <div className="flex gap-xs overflow-x-auto px-md pb-sm text-footnote font-medium text-content-secondary [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="whitespace-nowrap rounded-full bg-white px-3 py-1.5 shadow-sm transition hover:text-stone-900"
+              className="ros-pressable whitespace-nowrap rounded-pill bg-surface-raised px-md py-sm transition hover:text-content active:scale-[0.98]"
             >
               {link.label}
             </a>

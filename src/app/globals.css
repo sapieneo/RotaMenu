@@ -7,8 +7,52 @@
    Bileşen stilleri Tailwind'de; burada yalnız GLOBAL davranış ve tercihler.
    ========================================================================== */
 
+/* --------------------------------------------------------------------------
+   Anlamsal renk token'ları. Sayfalarda `bg-white` / `text-stone-900` DEĞİL,
+   `bg-surface-raised` / `text-content` kullanılır — aksi halde koyu modda
+   beyaz kart beyaz kalır. Değerler RGB kanalı olarak yazılır ki Tailwind'in
+   `/50` opaklık sözdizimi çalışsın.
+   -------------------------------------------------------------------------- */
+:root {
+  --surface: 250 250 249;        /* stone-50  — sayfa */
+  --surface-raised: 255 255 255; /* white     — kart */
+  --surface-sunken: 245 245 244; /* stone-100 — girinti */
+  --content: 28 25 23;           /* stone-900 */
+  --content-secondary: 87 83 78; /* stone-600 */
+  --content-muted: 120 113 108;  /* stone-500 */
+  --line: 231 229 228;           /* stone-200 */
+  --line-strong: 214 211 209;    /* stone-300 */
+}
+
+/* Koyu mod: Apple'ın yaklaşımı — saf siyah zemin, yükseldikçe açılan yüzey.
+   Metin saf beyaz DEĞİL (göz yorar), hafif kırık beyaz. */
+.dark {
+  --surface: 10 10 10;
+  --surface-raised: 28 25 23;
+  --surface-sunken: 0 0 0;
+  --content: 245 245 244;
+  --content-secondary: 168 162 158;
+  --content-muted: 120 113 108;
+  --line: 41 37 36;
+  --line-strong: 68 64 60;
+}
+
 body {
-  @apply bg-stone-50 text-stone-900 antialiased;
+  @apply bg-surface text-content antialiased;
+}
+
+/* Dokunma hedefi: ekranın kenarındaki 32px'lik bir ikon buton parmakla
+   ıskalanır. Etkileşimli her öğe en az 44×44 olmalı (WCAG 2.5.5 / HIG). */
+.ros-pressable,
+button,
+[role='button'],
+a[href] {
+  min-height: 0; /* varsayılanı bozma — yalnız ros-touch işaretlileri zorlanır */
+}
+
+.ros-touch {
+  min-width: theme('spacing.touch');
+  min-height: theme('spacing.touch');
 }
 
 /* --------------------------------------------------------------------------
