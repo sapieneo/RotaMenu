@@ -116,24 +116,36 @@ export function Sheet({
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
-          className={`fixed inset-0 z-50 flex justify-center ${isBottom ? 'items-end sm:items-center' : 'items-center'} p-0 ${isBottom ? '' : 'p-4'}`}
+        <div
+          key="sheet-root"
+          className={`fixed inset-0 z-50 flex justify-center ${isBottom ? 'items-end sm:items-center' : 'items-center p-4'}`}
           role="dialog"
           aria-modal="true"
           aria-label={label}
           onClick={onClose}
-          // Perde: modal görev olduğu için karartma var (§12 "odaklamak için karart").
-          initial={{ backgroundColor: 'rgba(0,0,0,0)' }}
-          animate={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
-          exit={{ backgroundColor: 'rgba(0,0,0,0)' }}
-          transition={CROSSFADE}
-          style={{ backdropFilter: 'blur(2px)' }}
         >
+          {/* Perde AYRI bir katman ve YALNIZ opacity animasyonlu.
+              §11: derleyici dostu olmayan `background-color` animasyonundan
+              kaçınılır — ayrıca Motion bunu bazı durumlarda hiç uygulamıyordu
+              ve perde şeffaf kalıyordu. §12: modal görev olduğu için karartma
+              + hafif bulanıklık var (odaklamak için karart). */}
+          <motion.div
+            className="absolute inset-0 bg-black/45"
+            style={{ backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={CROSSFADE}
+            aria-hidden
+          />
           <motion.div
             ref={panelRef}
             onClick={(e) => e.stopPropagation()}
             className={panelClassName}
-            style={panelStyle}
+            // `relative` ŞART: perde `absolute` olduğu için konumlandırılmış
+            // eleman sayılır ve DOM sırasından bağımsız olarak statik panelin
+            // ÜSTÜNE boyanır — panel perdenin altında kalırdı.
+            style={{ position: 'relative', ...panelStyle }}
             // §7: geldiği yoldan gider. Alttan gelen alta iner; ortadaki
             // yerinde ölçeklenir — çıkışta ters yol izlenmez.
             initial={
@@ -170,7 +182,7 @@ export function Sheet({
             )}
             {children}
           </motion.div>
-        </motion.div>
+        </div>
       )}
     </AnimatePresence>
   );
