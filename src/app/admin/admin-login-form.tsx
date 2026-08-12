@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { Pressable } from '@/components/ui/pressable';
 
 export function AdminLoginForm() {
   const [password, setPassword] = useState('');
@@ -27,9 +28,9 @@ export function AdminLoginForm() {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
+    <form onSubmit={submit} className="flex flex-col gap-md">
       <label className="block">
-        <span className="mb-1 block text-sm font-medium text-stone-600">Şifre</span>
+        <span className="mb-xs block text-footnote font-medium text-content-secondary">Şifre</span>
         <input
           type="password"
           value={password}
@@ -38,17 +39,17 @@ export function AdminLoginForm() {
             if (error) setError(null);
           }}
           autoFocus
-          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+          className="min-h-touch w-full rounded-card border border-line-strong bg-surface-raised px-md text-footnote text-content outline-none focus:border-brand-500"
         />
       </label>
-      {error && <p className="text-sm text-red-700">{error}</p>}
-      <button
+      {error && <p className="text-footnote text-red-600">{error}</p>}
+      <Pressable
         type="submit"
         disabled={busy || !password}
-        className="rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow transition hover:bg-brand-700 disabled:opacity-50"
+        className="min-h-touch rounded-pill bg-brand-600 px-lg text-body font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
       >
         {busy ? 'Giriş yapılıyor…' : 'Giriş'}
-      </button>
+      </Pressable>
     </form>
   );
 }

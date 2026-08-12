@@ -41,7 +41,15 @@ export default function StudyoPage() {
           const { error } = await supabase.auth.signInAnonymously();
           if (error) throw new Error('Oturum başlatılamadı.');
         }
-        const res = await fetch('/api/bootstrap', { method: 'POST' });
+        // Admin panelindeki "Menü üret" buraya `?venue=<id>` ile düşürüyor.
+        // Parametreyi bootstrap'a geçmezsek "en son oluşturulan işletme"
+        // seçilir ve arka arkaya iki işletme açıldığında yanlış olana girilir.
+        const requestedVenue = new URLSearchParams(window.location.search).get('venue');
+        const res = await fetch('/api/bootstrap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestedVenue ? { venueId: requestedVenue } : {}),
+        });
         const body = await res.json();
         if (!res.ok) throw new Error(body.error ?? 'Hazırlık başarısız.');
         // Anonim mi? Kalıcılaştırma çağrısı için uyarı bandı göster.

@@ -1,19 +1,124 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Sheet } from '@/components/ui/sheet';
+import { Pressable } from '@/components/ui/pressable';
+import { Icon } from '@/components/ui/icon';
 
 /**
- * Satır başına askıya alma anahtarı. İçerik (görsel + metin) burada DEĞİL;
- * panelin üstündeki ortak "Askıya alma ekranı" kartında tanımlanır.
+ * Satır taşma menüsü.
+ *
+ * NEDEN MENÜ: eskiden her satırda 5 kontrol yan yana duruyordu (Detay,
+ * Menüyü aç, Panoya git, Sil, askı anahtarı) ve hepsi eşit görsel ağırlıktaydı.
+ * Hiçbiri öne çıkmıyordu ve en tehlikelisi — kalıcı silme — gezinme
+ * düğmelerinin yanındaydı. Artık birincil eylem ("Panoya git") satırda kalıyor,
+ * gerisi buraya iniyor; yıkıcı işlem menünün en altında ve ayrılmış durumda.
  */
-export function SuspendToggle({
+export function RowMenu({
   venueId,
-  initialSuspended,
+  venueName,
+  slug,
+  suspended,
 }: {
   venueId: string;
-  initialSuspended: boolean;
+  venueName: string;
+  slug: string | null;
+  suspended: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Dışarı tıklama + Esc ile kapan.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <Pressable
+        onClick={() => setOpen((v) => !v)}
+        aria-label={`${venueName} için diğer işlemler`}
+        aria-expanded={open}
+        className="ros-touch flex items-center justify-center rounded-pill text-content-muted transition hover:bg-surface-sunken hover:text-content"
+      >
+        <Icon name="dots" size={20} />
+      </Pressable>
+
+      {open && (
+        // §7: menü tetikleyicisinden çıkıyor — transform-origin sağ üstte.
+        <div
+          className="absolute right-0 top-full z-30 mt-xs w-56 origin-top-right overflow-hidden rounded-card border border-line bg-surface-raised py-xs shadow-lg"
+          role="menu"
+        >
+          <a
+            href={`/admin/venue/${venueId}`}
+            role="menuitem"
+            className="ros-pressable flex min-h-touch items-center gap-sm px-md text-footnote text-content transition hover:bg-surface-sunken"
+          >
+            <Icon name="chart" size={18} className="text-content-muted" />
+            Detay ve istatistik
+          </a>
+          {slug && (
+            <a
+              href={`/m/${slug}`}
+              target="_blank"
+              rel="noreferrer"
+              role="menuitem"
+              className="ros-pressable flex min-h-touch items-center gap-sm px-md text-footnote text-content transition hover:bg-surface-sunken"
+            >
+              <Icon name="external" size={18} className="text-content-muted" />
+              Misafir menüsünü aç
+            </a>
+          )}
+
+          <div className="my-xs border-t border-line" />
+
+          <SuspendItem venueId={venueId} initialSuspended={suspended} />
+
+          <div className="my-xs border-t border-line" />
+
+          <Pressable
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              setConfirmDelete(true);
+            }}
+            className="flex w-full min-h-touch items-center gap-sm px-md text-left text-footnote text-red-600 transition hover:bg-red-50 dark:hover:bg-red-950/40"
+          >
+            <Icon name="trash" size={18} />
+            Kalıcı olarak sil
+          </Pressable>
+        </div>
+      )}
+
+      <DeleteDialog
+        open={confirmDelete}
+        venueId={venueId}
+        venueName={venueName}
+        onClose={() => setConfirmDelete(false)}
+      />
+    </div>
+  );
+}
+
+/**
+ * Askıya alma — menü içinde bir anahtar satırı. İçerik (görsel + metin)
+ * burada DEĞİL; panelin üstündeki ortak "Askıya alma ekranı" kartında.
+ */
+function SuspendItem({ venueId, initialSuspended }: { venueId: string; initialSuspended: boolean }) {
+  const router = useRouter();
   const [suspended, setSuspended] = useState(initialSuspended);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -30,6 +135,7 @@ export function SuspendToggle({
         body: JSON.stringify({ suspended: next }),
       });
       if (!res.ok) throw new Error();
+      router.refresh();
     } catch {
       setSuspended(previous);
       setError(true);
@@ -39,21 +145,16 @@ export function SuspendToggle({
   }
 
   return (
-    <label className="flex items-center gap-2 whitespace-nowrap text-xs font-semibold text-stone-700">
+    <label className="flex min-h-touch cursor-pointer items-center gap-sm px-md text-footnote text-content transition hover:bg-surface-sunken">
       <input
         type="checkbox"
         checked={suspended}
         disabled={busy}
         onChange={(e) => void toggle(e.target.checked)}
-        className="h-4 w-4 rounded border-stone-300 text-red-600 focus:ring-red-500"
+        className="h-4 w-4 rounded border-line-strong text-amber-600 focus:ring-amber-500"
       />
-      Askıya al
-      {suspended && (
-        <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
-          ASKIDA
-        </span>
-      )}
-      {error && <span className="text-[10px] font-medium text-red-600">hata</span>}
+      Menüyü askıya al
+      {error && <span className="ml-auto text-caption text-red-600">hata</span>}
     </label>
   );
 }
@@ -62,15 +163,18 @@ export function SuspendToggle({
  * Kalıcı silme. Onay penceresinde admin şifresi TEKRAR istenir — açık kalmış
  * bir sekmeden yanlışlıkla (ya da başkası tarafından) silinmesin.
  */
-export function DeleteVenueButton({
+function DeleteDialog({
+  open,
   venueId,
   venueName,
+  onClose,
 }: {
+  open: boolean;
   venueId: string;
   venueName: string;
+  onClose: () => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,8 +190,8 @@ export function DeleteVenueButton({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? 'Silinemedi.');
-      setOpen(false);
       setPassword('');
+      onClose();
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Silinemedi.');
@@ -97,60 +201,55 @@ export function DeleteVenueButton({
   }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-50"
-      >
-        Sil
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="text-base font-bold text-stone-900">Kalıcı olarak sil</h3>
-            <p className="mt-2 text-sm text-stone-600">
-              <strong>{venueName}</strong> ve bu işletmeye ait tüm menüler, ürünler, QR kodları
-              ve istatistikler kalıcı olarak silinecek. <strong>Bu işlem geri alınamaz.</strong>
-            </p>
-            <label className="mt-4 block text-xs font-medium text-stone-500">
-              Onaylamak için admin şifresini girin
-            </label>
-            <input
-              type="password"
-              value={password}
-              autoFocus
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && password && !busy && void remove()}
-              className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
-            />
-            {error && <p className="mt-2 text-xs font-medium text-red-600">{error}</p>}
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  setPassword('');
-                  setError(null);
-                }}
-                disabled={busy}
-                className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700"
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                onClick={() => void remove()}
-                disabled={busy || !password}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-              >
-                {busy ? 'Siliniyor…' : 'Kalıcı olarak sil'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <Sheet
+      open={open}
+      onClose={() => {
+        setPassword('');
+        setError(null);
+        onClose();
+      }}
+      label="Kalıcı olarak sil"
+      placement="center"
+      panelClassName="w-full max-w-sm rounded-panel bg-surface-raised p-lg shadow-2xl"
+    >
+      <h3 className="text-heading font-semibold text-content">Kalıcı olarak sil</h3>
+      <p className="mt-sm text-footnote text-content-secondary">
+        <strong className="text-content">{venueName}</strong> ve bu işletmeye ait tüm menüler,
+        ürünler, QR kodları ve istatistikler kalıcı olarak silinecek.{' '}
+        <strong className="text-content">Bu işlem geri alınamaz.</strong>
+      </p>
+      <label className="mt-md block text-caption font-medium text-content-muted">
+        Onaylamak için admin şifresini girin
+      </label>
+      <input
+        type="password"
+        value={password}
+        autoFocus
+        onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && password && !busy && void remove()}
+        className="mt-xs w-full rounded-card border border-line-strong bg-surface px-md py-sm text-footnote text-content outline-none focus:border-brand-500"
+      />
+      {error && <p className="mt-sm text-caption font-medium text-red-600">{error}</p>}
+      <div className="mt-md flex justify-end gap-sm">
+        <Pressable
+          onClick={() => {
+            setPassword('');
+            setError(null);
+            onClose();
+          }}
+          disabled={busy}
+          className="min-h-touch rounded-pill border border-line-strong px-md text-footnote font-medium text-content"
+        >
+          Vazgeç
+        </Pressable>
+        <Pressable
+          onClick={() => void remove()}
+          disabled={busy || !password}
+          className="min-h-touch rounded-pill bg-red-600 px-md text-footnote font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+        >
+          {busy ? 'Siliniyor…' : 'Kalıcı olarak sil'}
+        </Pressable>
+      </div>
+    </Sheet>
   );
 }

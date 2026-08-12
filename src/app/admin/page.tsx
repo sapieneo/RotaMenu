@@ -12,11 +12,11 @@ export default function AdminLoginPage() {
   if (isAdminSession()) redirect('/admin/panel');
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6">
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-lg px-md">
       <div>
-        <p className="text-sm font-medium text-brand-600">RestaurantOS</p>
-        <h1 className="mt-1 text-2xl font-bold">Kontrol paneli</h1>
-        <p className="mt-1 text-sm text-stone-500">Yalnız yönetici erişimi.</p>
+        <p className="text-footnote font-semibold text-brand-600">RestaurantOS</p>
+        <h1 className="mt-xs text-title font-semibold text-content">Kontrol paneli</h1>
+        <p className="mt-xs text-footnote text-content-secondary">Yalnız yönetici erişimi.</p>
       </div>
       <AdminLoginForm />
     </main>

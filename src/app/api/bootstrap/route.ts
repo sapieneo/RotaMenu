@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
  * doğrular). Böylece anonim ilk-kayıt, RLS+auth.uid() kırılganlığından bağımsız
  * ve güvenli şekilde çalışır.
  */
-export async function POST() {
+export async function POST(request: Request) {
   const supabase = createClient();
   const {
     data: { user },
@@ -24,6 +24,12 @@ export async function POST() {
 
   const admin = createAdminClient();
 
+  // Belirli bir işletme istendiyse (ör. admin panelindeki "Menü üret"
+  // sonrası `/studyo?venue=…`) onu kullan — ama YALNIZ kullanıcı o org'un
+  // üyesiyse. Aksi halde "en son işletme" mantığına düşülür ve iki işletme
+  // arka arkaya açıldığında yanlış olana girilebilir.
+  const requestedVenueId = await readRequestedVenueId(request);
+
   // Mevcut üyelik? (RLS-bağımsız, kesin sonuç)
   const { data: memberships } = await admin
     .from('organization_members')
@@ -32,14 +38,24 @@ export async function POST() {
     .order('created_at', { ascending: false });
 
   const memberOrgIds = (memberships ?? []).map((membership) => membership.org_id as string);
+
+  // İstenen işletme varsa ve kullanıcı onun org'una üyeyse onu seç;
+  // değilse her zamanki "en son oluşturulan" davranışı.
   const { data: latestVenue } = memberOrgIds.length
-    ? await admin
-        .from('venues')
-        .select('id, org_id, slug, name')
-        .in('org_id', memberOrgIds)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+    ? requestedVenueId
+      ? await admin
+          .from('venues')
+          .select('id, org_id, slug, name')
+          .eq('id', requestedVenueId)
+          .in('org_id', memberOrgIds)
+          .maybeSingle()
+      : await admin
+          .from('venues')
+          .select('id, org_id, slug, name')
+          .in('org_id', memberOrgIds)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
     : { data: null };
 
   let orgId = (latestVenue?.org_id ?? memberOrgIds[0]) as string | undefined;
@@ -107,4 +123,15 @@ export async function POST() {
   }
 
   return NextResponse.json({ error: 'Mekân kaydı oluşturulamadı.' }, { status: 500 });
+}
+
+/** Gövde boş ya da bozuk olabilir — bootstrap parametresiz de çağrılıyor. */
+async function readRequestedVenueId(request: Request): Promise<string | null> {
+  try {
+    const body = (await request.json()) as { venueId?: unknown };
+    const id = body?.venueId;
+    return typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id) ? id : null;
+  } catch {
+    return null;
+  }
 }

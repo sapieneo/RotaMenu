@@ -26,7 +26,12 @@ export type IconName =
   | 'chart'
   | 'check'
   | 'plus'
-  | 'arrow-right';
+  | 'arrow-right'
+  | 'dots'
+  | 'trash'
+  | 'external'
+  | 'search'
+  | 'alert';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   clock: (
@@ -88,6 +93,32 @@ const PATHS: Record<IconName, React.ReactNode> = {
   check: <path d="M4.5 12.5l5 5 10-11" />,
   plus: <path d="M12 5v14M5 12h14" />,
   'arrow-right': <path d="M5 12h14M13 6l6 6-6 6" />,
+  dots: (
+    <>
+      <circle cx="5" cy="12" r="1.4" />
+      <circle cx="12" cy="12" r="1.4" />
+      <circle cx="19" cy="12" r="1.4" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13" />
+      <path d="M10 11v6M14 11v6" />
+    </>
+  ),
+  external: <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />,
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M16.5 16.5L21 21" />
+    </>
+  ),
+  alert: (
+    <>
+      <path d="M12 4l9 16H3l9-16Z" />
+      <path d="M12 10v4M12 17.5v.01" />
+    </>
+  ),
 };
 
 export function Icon({

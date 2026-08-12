@@ -1,10 +1,11 @@
-import Link from 'next/link';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/server';
-import { planLimits } from '@/lib/plans';
+import { normalizePlan, planLimits } from '@/lib/plans';
+import { Icon } from '@/components/ui/icon';
 import { LogoutButton } from '../logout-button';
 import { SuspensionNoticeCard } from './suspension-notice-card';
-import { SuspendToggle, DeleteVenueButton } from './row-actions';
+import { VenueList, type AdminVenueRow } from './venue-list';
+import { CreateVenueButton } from './create-venue-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ type OrganizationEmbed = {
   plan: string;
   created_by: string;
   contact_phone: string | null;
+  trial_ends_at: string | null;
 };
 
 type VenueEmbed = {
@@ -52,7 +54,7 @@ export default async function AdminPanelPage() {
   const { data: menuData, error: menuError } = await admin
     .from('menus')
     .select(
-      'id, name, is_active, created_at, updated_at, venue_id, venues!inner(id, name, slug, is_published, org_id, is_suspended, organizations!inner(name, plan, created_by, contact_phone))'
+      'id, name, is_active, created_at, updated_at, venue_id, venues!inner(id, name, slug, is_published, org_id, is_suspended, organizations!inner(name, plan, created_by, contact_phone, trial_ends_at))'
     )
     .order('created_at', { ascending: false });
 
@@ -113,171 +115,116 @@ export default async function AdminPanelPage() {
     })
   );
 
-  const publishedCount = menus.filter((menu) => {
+  // ── Satırlar ────────────────────────────────────────────────────────────
+  const now = Date.now();
+  const rows: AdminVenueRow[] = menus.map((menu) => {
     const venue = one(menu.venues);
-    return menu.is_active && venue?.is_published;
-  }).length;
+    const organization = one(venue?.organizations ?? null);
+    const plan = normalizePlan(organization?.plan);
+    // Deneme yalnız ücretsiz planda anlamlı — ücretli planda `trial_ends_at`
+    // dolu olsa da yetkilendirmede yok sayılıyor (bkz. resolvePlanContext).
+    const trialEnds = plan === 'free' ? organization?.trial_ends_at ?? null : null;
+    const trialDaysLeft = trialEnds
+      ? Math.ceil((new Date(trialEnds).getTime() - now) / 86_400_000)
+      : null;
+
+    return {
+      menuId: menu.id,
+      menuName: menu.name || '',
+      venueId: venue?.id ?? null,
+      venueName: venue?.name || organization?.name || '',
+      slug: venue?.slug ?? null,
+      ownerEmail: organization?.created_by
+        ? emailById.get(organization.created_by) ?? null
+        : null,
+      contactPhone: organization?.contact_phone ?? null,
+      planLabel: planLimits(organization?.plan).label,
+      isPaid: plan !== 'free',
+      itemCount: itemCountByMenuId.get(menu.id) ?? 0,
+      categoryCount: categoryCountByMenuId.get(menu.id) ?? 0,
+      isPublished: Boolean(menu.is_active && venue?.is_published),
+      isSuspended: Boolean(venue?.is_suspended),
+      createdAt: menu.created_at,
+      trialDaysLeft,
+    };
+  });
+
+  // ── Özet metrikleri ─────────────────────────────────────────────────────
+  // Eskiden "toplam menü / canlı / toplam ürün" vardı; bunlar gurur
+  // metrikleriydi. Ajans işletirken karar aldıran sayılar bunlar:
+  const liveCount = rows.filter((r) => r.isPublished).length;
+  const payingCount = new Set(rows.filter((r) => r.isPaid).map((r) => r.venueId)).size;
+  const trialEndingCount = rows.filter(
+    (r) => r.trialDaysLeft !== null && r.trialDaysLeft <= 7
+  ).length;
+  const idleCount = rows.filter((r) => r.itemCount === 0).length;
+  const suspendedCount = rows.filter((r) => r.isSuspended).length;
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <main className="mx-auto max-w-6xl px-md py-xl">
+      <header className="mb-lg flex flex-wrap items-start justify-between gap-md">
         <div>
-          <p className="text-sm font-medium text-brand-600">RestaurantOS Yönetim</p>
-          <h1 className="mt-1 text-2xl font-bold text-stone-900">Tüm menüler</h1>
-          <p className="mt-1 text-sm text-stone-500">
-            Kullanıcıların oluşturduğu bütün menüleri tek ekrandan görüntüleyin.
+          <p className="text-footnote font-semibold text-brand-600">RestaurantOS yönetim</p>
+          <h1 className="mt-xs text-title font-semibold text-content">İşletmeler</h1>
+          <p className="mt-xs text-footnote text-content-secondary">
+            Bütün kiracıları tek ekrandan yönetin. Bir işletmeyi bulup panosuna geçin.
           </p>
         </div>
-        <LogoutButton />
+        <div className="flex items-center gap-sm">
+          <CreateVenueButton />
+          <LogoutButton />
+        </div>
       </header>
 
-      <section className="mb-5 grid grid-cols-2 gap-3 sm:max-w-xl sm:grid-cols-3">
-        <SummaryCard label="Toplam menü" value={menus.length} />
-        <SummaryCard label="Canlı menü" value={publishedCount} />
-        <SummaryCard label="Toplam ürün" value={items.length} />
+      {/* Karar aldıran sayılar. Eskiden "toplam menü / canlı / toplam ürün"
+          vardı — bunlar gurur metrikleriydi, hiçbir eylem doğurmuyorlardı. */}
+      <section className="mb-lg grid grid-cols-2 gap-sm sm:grid-cols-4">
+        <SummaryCard label="Ödeyen müşteri" value={payingCount} tone="good" />
+        <SummaryCard label="Canlı menü" value={liveCount} />
+        <SummaryCard
+          label="Denemesi bitiyor"
+          value={trialEndingCount}
+          tone={trialEndingCount ? 'warn' : 'plain'}
+        />
+        <SummaryCard label="Boş hesap" value={idleCount} />
       </section>
+
+      {suspendedCount > 0 && (
+        <p className="mb-md flex items-center gap-sm rounded-card border border-amber-300 bg-amber-50 px-md py-sm text-footnote text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+          <Icon name="alert" size={18} className="shrink-0" />
+          {suspendedCount} işletme askıda — misafirlere menü yerine uyarı ekranı gösteriliyor.
+        </p>
+      )}
 
       <SuspensionNoticeCard
         initialMessage={(settings?.suspension_message as string | null) ?? null}
         initialImageUrl={(settings?.suspension_image_url as string | null) ?? null}
       />
 
-      <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
-        <table className="w-full min-w-[1180px] text-left text-sm">
-          <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Menü / İşletme</th>
-              <th className="px-4 py-3 font-semibold">Kullanıcı</th>
-              <th className="px-4 py-3 font-semibold">Plan</th>
-              <th className="px-4 py-3 font-semibold">İçerik</th>
-              <th className="px-4 py-3 font-semibold">Durum</th>
-              <th className="px-4 py-3 font-semibold">Askıya al</th>
-              <th className="px-4 py-3 font-semibold">Oluşturulma</th>
-              <th className="px-4 py-3 text-right font-semibold">İşlemler</th>
-            </tr>
-          </thead>
-          <tbody>
-            {menus.map((menu) => {
-              const venue = one(menu.venues);
-              const organization = one(venue?.organizations ?? null);
-              const ownerEmail = organization?.created_by
-                ? emailById.get(organization.created_by)
-                : undefined;
-              const isPublished = Boolean(menu.is_active && venue?.is_published);
-
-              return (
-                <tr key={menu.id} className="border-b border-stone-100 last:border-0 hover:bg-stone-50/70">
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-stone-900">{menu.name || 'İsimsiz menü'}</div>
-                    <div className="mt-0.5 text-xs text-stone-500">
-                      {venue?.name || organization?.name || 'İsimsiz işletme'}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-stone-600">
-                    <div>{ownerEmail ?? 'Anonim kullanıcı'}</div>
-                    {organization?.contact_phone && (
-                      <div className="mt-0.5 text-xs text-stone-400">{organization.contact_phone}</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                        (organization?.plan ?? 'free') === 'free'
-                          ? 'bg-stone-200 text-stone-700'
-                          : 'bg-brand-600 text-white'
-                      }`}
-                    >
-                      {planLimits(organization?.plan).label}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-stone-600">
-                    <span className="font-medium text-stone-800">
-                      {itemCountByMenuId.get(menu.id) ?? 0} ürün
-                    </span>
-                    <span className="ml-2 text-xs text-stone-400">
-                      {categoryCountByMenuId.get(menu.id) ?? 0} kategori
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-semibold text-white ${
-                        isPublished ? 'bg-emerald-600' : 'bg-amber-500'
-                      }`}
-                    >
-                      {isPublished ? 'CANLI' : 'TASLAK'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {venue && (
-                      <SuspendToggle
-                        venueId={venue.id}
-                        initialSuspended={Boolean(venue.is_suspended)}
-                      />
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-stone-500">
-                    {new Date(menu.created_at).toLocaleDateString('tr-TR')}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      {venue && (
-                        <Link
-                          href={`/admin/venue/${venue.id}`}
-                          className="rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-stone-800"
-                        >
-                          Detay
-                        </Link>
-                      )}
-                      {venue?.slug && (
-                        <a
-                          href={`/m/${venue.slug}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-700 transition hover:bg-stone-100"
-                        >
-                          Menüyü aç
-                        </a>
-                      )}
-                      {venue && (
-                        <a
-                          href={`/studyo/pano?venue=${venue.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-50"
-                        >
-                          Panoya git
-                        </a>
-                      )}
-                      {venue && (
-                        <DeleteVenueButton
-                          venueId={venue.id}
-                          venueName={venue.name || organization?.name || 'Bu işletme'}
-                        />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-            {menus.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-stone-400">
-                  Henüz oluşturulmuş bir menü yok.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <VenueList rows={rows} />
     </main>
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function SummaryCard({
+  label,
+  value,
+  tone = 'plain',
+}: {
+  label: string;
+  value: number;
+  tone?: 'plain' | 'good' | 'warn';
+}) {
+  const accent =
+    tone === 'good'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : tone === 'warn'
+      ? 'text-amber-600 dark:text-amber-400'
+      : 'text-content';
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-stone-400">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-stone-900">{value}</p>
+    <div className="rounded-card bg-surface-sunken p-md">
+      <p className="text-caption font-medium text-content-muted">{label}</p>
+      <p className={`mt-xs text-title font-semibold ${accent}`}>{value}</p>
     </div>
   );
 }
