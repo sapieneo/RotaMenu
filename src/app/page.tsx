@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveManagedVenue } from '@/lib/managed-venue';
 import { Landing } from './_home/landing';
@@ -6,10 +5,15 @@ import { Landing } from './_home/landing';
 export const dynamic = 'force-dynamic';
 
 /**
- * Ana sayfa. Zaten bir menüsü olan dönen kullanıcı (oturumu var + en az bir
- * kategorisi oluşmuş) pazarlama sayfasını görmez, direkt panosuna düşer.
- * Yeni ziyaretçi (oturum çerezi yok) burada anonim oturum AÇILMAZ — yalnız
- * var olan oturum kontrol edilir; normal pazarlama sayfası render edilir.
+ * Ana sayfa — HERKESE pazarlama sayfası gösterilir.
+ *
+ * Eskiden menüsü olan kullanıcı buradan otomatik olarak panosuna
+ * YÖNLENDİRİLİYORDU. Kaldırıldı: sitenin ana adresini yazan kişi ürünü
+ * görmek istiyor olabilir (kendi müşterisine göstermek, fiyata bakmak,
+ * paylaşmak). Oturumu var diye pazarlama sayfasını hiç görememek yanlıştı.
+ *
+ * Panoya geçiş artık AÇIK bir eylem: üst çubuktaki düğme. Kayıtlı üye
+ * "Panoya git", diğerleri "Giriş yap" görür — otomatik sıçrama yok.
  */
 export default async function Home() {
   const supabase = createClient();
@@ -17,18 +21,13 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) {
+  let dashboardHref: string | null = null;
+  // Yalnız KAYITLI üyeye kısayol gösterilir. Anonim oturumun sahibi henüz
+  // "üye" değil; ona kayıt akışı ("Ücretsiz dene") daha doğru hedef.
+  if (user && !user.is_anonymous && user.email) {
     const venue = await resolveManagedVenue(supabase);
-    if (venue) {
-      const { data: someCat } = await supabase
-        .from('categories')
-        .select('id, menus!inner(venue_id)')
-        .eq('menus.venue_id', venue.id)
-        .limit(1)
-        .maybeSingle();
-      if (someCat) redirect(`/studyo/pano?venue=${venue.id}`);
-    }
+    if (venue) dashboardHref = `/studyo/pano?venue=${venue.id}`;
   }
 
-  return <Landing />;
+  return <Landing dashboardHref={dashboardHref} />;
 }

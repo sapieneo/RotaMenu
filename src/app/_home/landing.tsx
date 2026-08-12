@@ -30,10 +30,10 @@ const DEMO_SLUG = 'demo';
  *  · Her bölümde TEK birincil eylem. İkincil eylem sessiz kalır.
  *  · Renkli gölge / parlama yok.
  */
-export function Landing() {
+export function Landing({ dashboardHref = null }: { dashboardHref?: string | null }) {
   return (
     <>
-      <MarketingHeader />
+      <MarketingHeader dashboardHref={dashboardHref} />
       <main>
         <Hero />
         <TrustBar />

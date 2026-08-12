@@ -21,7 +21,16 @@ const NAV_LINKS = [
  * "Giriş yap" bilinçli olarak her boyutta görünür: kayıtlı kullanıcının
  * hesabına dönebileceği tek görünür kapı burasıdır.
  */
-export function MarketingHeader() {
+export function MarketingHeader({
+  /**
+   * Kayıtlı üyenin panosunun adresi. Verilirse "Giriş yap" yerine
+   * "Panoya git" gösterilir — üye zaten girmiş, ona tekrar giriş teklif
+   * etmek yanlış. Anonim ziyaretçide null gelir.
+   */
+  dashboardHref = null,
+}: {
+  dashboardHref?: string | null;
+} = {}) {
   return (
     // §12 Malzeme: opak şerit değil translusent katman — içerik altından akar.
     // Sert 1px çizgi yerine yalnız bulanıklık ayırıyor.
@@ -45,18 +54,30 @@ export function MarketingHeader() {
           ))}
         </nav>
         <div className="flex shrink-0 items-center gap-xs">
-          <Link
-            href="/giris"
-            className="ros-pressable inline-flex min-h-touch items-center rounded-pill px-md text-footnote font-semibold text-content-secondary transition hover:text-content active:scale-[0.98]"
-          >
-            Giriş yap
-          </Link>
-          <Link
-            href="/studyo"
-            className="ros-pressable inline-flex min-h-touch items-center rounded-pill bg-brand-600 px-md text-footnote font-semibold text-white transition hover:bg-brand-700 active:scale-[0.98]"
-          >
-            Ücretsiz dene
-          </Link>
+          {dashboardHref ? (
+            // Zaten üye — tek ve net bir eylem: kendi panosuna git.
+            <Link
+              href={dashboardHref}
+              className="ros-pressable inline-flex min-h-touch items-center rounded-pill bg-brand-600 px-md text-footnote font-semibold text-white transition hover:bg-brand-700 active:scale-[0.98]"
+            >
+              Panoya git
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/giris"
+                className="ros-pressable inline-flex min-h-touch items-center rounded-pill px-md text-footnote font-semibold text-content-secondary transition hover:text-content active:scale-[0.98]"
+              >
+                Giriş yap
+              </Link>
+              <Link
+                href="/studyo"
+                className="ros-pressable inline-flex min-h-touch items-center rounded-pill bg-brand-600 px-md text-footnote font-semibold text-white transition hover:bg-brand-700 active:scale-[0.98]"
+              >
+                Ücretsiz dene
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
