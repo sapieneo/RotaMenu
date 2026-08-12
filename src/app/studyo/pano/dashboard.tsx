@@ -42,7 +42,6 @@ export type DashboardData = {
 export function Dashboard({ data }: { data: DashboardData }) {
   const hasAnalytics = data.stats.totalEvents > 0;
   const venueHref = (path: string) => `${path}${path.includes('?') ? '&' : '?'}venue=${encodeURIComponent(data.venueId)}`;
-  const nextAction = getNextAction(data, venueHref);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -74,7 +73,6 @@ export function Dashboard({ data }: { data: DashboardData }) {
         </div>
       </header>
 
-      <NextActionCard action={nextAction} />
       <SetupProgress data={data} />
 
       {/* Durum kartları */}
@@ -167,112 +165,6 @@ export function Dashboard({ data }: { data: DashboardData }) {
       <PhonePreview slug={data.slug} />
       </div>
     </main>
-  );
-}
-
-type NextAction = {
-  complete: boolean;
-  eyebrow: string;
-  title: string;
-  text: string;
-  href: string;
-  label: string;
-};
-
-function getNextAction(data: DashboardData, venueHref: (path: string) => string): NextAction {
-  // Deneme bittiyse yapılacak tek iş abonelik: diğer adımlar anlamsız.
-  if (!data.plan.canPublish) {
-    return {
-      complete: false,
-      eyebrow: 'Deneme süresi doldu',
-      title: 'Aboneliğini başlat',
-      text: 'Menün ve tüm verilerin duruyor. Yeniden yayına almak için aboneliğini başlat.',
-      href: venueHref('/studyo/plan'),
-      label: 'Aboneliği başlat',
-    };
-  }
-
-  if (data.pendingCount > 0) {
-    return {
-      complete: false,
-      eyebrow: 'Sıradaki adım',
-      title: 'Alerjen ve kalorileri kontrol et',
-      text: `${data.pendingCount} ürün işletme onayı bekliyor. Bilgileri kontrol ederek menünü yayına hazırla.`,
-      href: venueHref('/studyo/uyum'),
-      label: 'Kontrole başla',
-    };
-  }
-
-  const needsAccount =
-    data.plan.requiresVerifiedAccount && (!data.plan.accountSecured || !data.plan.hasPhone);
-  if (needsAccount) {
-    return {
-      complete: false,
-      eyebrow: 'Sıradaki adım',
-      title: 'Ücretsiz hesabını tamamla',
-      text: 'Menünü güvenle saklamak ve yayınlamak için e-posta ile iletişim telefonunu ekle.',
-      href: venueHref('/studyo/hesap'),
-      label: 'Hesabı tamamla',
-    };
-  }
-
-  if (!data.isPublished) {
-    return {
-      complete: false,
-      eyebrow: 'Sıradaki adım',
-      title: 'Menünü yayınla',
-      text: 'İşletme bilgilerini son kez kontrol et ve menünü misafirlerin erişimine aç.',
-      href: venueHref('/studyo/ayarlar'),
-      label: 'Bilgileri kontrol et ve yayınla',
-    };
-  }
-
-  if (data.qrActive === 0) {
-    return {
-      complete: false,
-      eyebrow: 'Son adım',
-      title: 'İlk QR kodunu oluştur',
-      text: 'Menünü masalara, vitrine veya paket servise taşıyacak kalıcı QR kodunu hazırla.',
-      href: venueHref('/studyo/qr'),
-      label: 'QR kodu oluştur',
-    };
-  }
-
-  return {
-    complete: true,
-    eyebrow: 'Menün hazır',
-    title: 'Her şey yolunda',
-    text: 'Menün yayında ve QR kodun aktif. Dilersen misafir görünümünü kontrol edebilirsin.',
-    href: `/m/${data.slug}`,
-    label: 'Menüyü görüntüle',
-  };
-}
-
-function NextActionCard({ action }: { action: NextAction }) {
-  return (
-    <section
-      className={`rounded-2xl border p-5 shadow-sm ${
-        action.complete ? 'border-emerald-200 bg-emerald-50' : 'border-brand-200 bg-brand-50'
-      }`}
-    >
-      <p className={`text-xs font-bold uppercase tracking-wide ${action.complete ? 'text-emerald-700' : 'text-brand-700'}`}>
-        {action.eyebrow}
-      </p>
-      <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-stone-900">{action.title}</h2>
-          <p className="mt-1 max-w-xl text-sm text-stone-600">{action.text}</p>
-        </div>
-        <a
-          href={action.href}
-          className={`shrink-0 rounded-xl px-5 py-3 text-center text-sm font-semibold text-white shadow transition ${
-            action.complete ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-brand-600 hover:bg-brand-700'
-          }`}
-        >
-          {action.label} →
-        </a>
-      </div>
-    </section>
   );
 }
 
