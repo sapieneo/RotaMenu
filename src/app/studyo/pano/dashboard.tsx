@@ -1,4 +1,5 @@
 import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
+import { PublishControl } from './publish-control';
 
 export type DayBucket = { date: string; scans: number; views: number };
 
@@ -53,15 +54,13 @@ export function Dashboard({ data }: { data: DashboardData }) {
           <h1 className="mt-1 text-2xl font-bold">{data.venueName}</h1>
         </div>
         <div className="flex items-center gap-2">
-          {data.isPublished ? (
-            <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
-              CANLI
-            </span>
-          ) : (
-            <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white">
-              TASLAK
-            </span>
-          )}
+          <PublishControl
+            venueId={data.venueId}
+            initialPublished={data.isPublished}
+            pendingCount={data.pendingCount}
+            trialExpired={data.plan.trial.state === 'expired'}
+            needsAccount={data.plan.requiresVerifiedAccount && (!data.plan.accountSecured || !data.plan.hasPhone)}
+          />
           <a
             href={`/m/${data.slug}`}
             target="_blank"
