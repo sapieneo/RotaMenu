@@ -59,8 +59,11 @@ export function DesignStudio({
   const [presetSaveState, setPresetSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
   const [presetSaveError, setPresetSaveError] = useState<string | null>(null);
   const [savedPresetFlashId, setSavedPresetFlashId] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState(venue.logoUrl);
+  const [logoUploadState, setLogoUploadState] = useState<'idle' | 'uploading' | 'error'>('idle');
   const fileRef = useRef<HTMLInputElement | null>(null);
   const styleImageRef = useRef<HTMLInputElement | null>(null);
+  const logoFileRef = useRef<HTMLInputElement | null>(null);
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
 
   // Seçilen tarz resmi için oluşturulan yerel önizleme URL'sini (object URL)
@@ -286,6 +289,72 @@ export function DesignStudio({
     setUploadState('idle');
   }
 
+  /**
+   * Logo, tasarım ayarlarının (settings) parçası DEĞİL — venue tablosundaki
+   * ayrı bir sütun (logo_url), "Tasarımı kaydet" akışının dışında. Bu yüzden
+   * yüklenir yüklenmez `/api/venue` ile hemen kaydedilir; kullanıcı üst
+   * sağdaki kaydet düğmesine basmak zorunda kalmaz.
+   */
+  async function uploadLogo(file: File) {
+    if (file.type !== 'image/png') {
+      setLogoUploadState('error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoUploadState('error');
+      return;
+    }
+    setLogoUploadState('uploading');
+    const supabase = createClient();
+    const path = `${venue.orgId}/logo/${venue.id}-${crypto.randomUUID()}.png`;
+    const { error: uploadError } = await supabase.storage.from('venue-media').upload(path, file, {
+      contentType: 'image/png',
+      upsert: false,
+    });
+    if (uploadError) {
+      setLogoUploadState('error');
+      return;
+    }
+    const { data } = supabase.storage.from('venue-media').getPublicUrl(path);
+    try {
+      const response = await fetch('/api/venue', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId: venue.id, logoUrl: data.publicUrl }),
+      });
+      if (!response.ok) throw new Error();
+      const oldPath = logoUrl ? storagePathFromPublicUrl(logoUrl) : null;
+      if (oldPath) await supabase.storage.from('venue-media').remove([oldPath]);
+      setLogoUrl(data.publicUrl);
+      setLogoUploadState('idle');
+    } catch {
+      await supabase.storage.from('venue-media').remove([path]);
+      setLogoUploadState('error');
+    }
+  }
+
+  async function removeLogo() {
+    if (!logoUrl) return;
+    setLogoUploadState('uploading');
+    try {
+      const response = await fetch('/api/venue', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId: venue.id, logoUrl: null }),
+      });
+      if (!response.ok) throw new Error();
+      const path = storagePathFromPublicUrl(logoUrl);
+      if (path) {
+        const supabase = createClient();
+        await supabase.storage.from('venue-media').remove([path]);
+      }
+      setLogoUrl(null);
+      setLogoUploadState('idle');
+    } catch {
+      setLogoUploadState('error');
+    }
+  }
+
   return (
     <main className="min-h-screen bg-stone-100">
       <header className="sticky top-0 z-40 border-b border-stone-200 bg-white/95 backdrop-blur">
@@ -458,6 +527,27 @@ export function DesignStudio({
                 </div>
               </ControlSection>
 
+              <ControlSection title="Üst şerit ve logo" description="Menü başlığındaki kapak şeridinin kalınlığını ve logonun yerini/boyutunu ayarla.">
+                <RangeField label="Şerit kalınlığı" value={settings.headerHeight} min={60} max={320} suffix=" px" onChange={(value) => update('headerHeight', value)} />
+                <div className="border-t border-stone-200 pt-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div><p className="text-sm font-semibold text-stone-800">Logo</p><p className="mt-0.5 text-xs text-stone-500">PNG, en fazla 5 MB. Şeridin üst orta kısmında gösterilir.</p></div>
+                    <button type="button" onClick={() => logoFileRef.current?.click()} disabled={logoUploadState === 'uploading'} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">{logoUploadState === 'uploading' ? 'Yükleniyor…' : logoUrl ? 'Logoyu değiştir' : 'Logo yükle'}</button>
+                    <input ref={logoFileRef} type="file" accept="image/png" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadLogo(file); event.target.value = ''; }} />
+                  </div>
+                  {logoUploadState === 'error' && <p className="mt-2 text-xs font-medium text-red-600">Yalnızca 5 MB’den küçük PNG dosyası yükleyebilirsin.</p>}
+                  {logoUrl && (
+                    <div className="mt-4 flex items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                      <img src={logoUrl} alt="Logo" className="h-12 w-12 rounded-lg bg-white object-contain ring-1 ring-stone-200" />
+                      <div className="flex-1"><p className="text-sm font-semibold text-stone-700">Yüklü logo</p><button type="button" onClick={() => void removeLogo()} disabled={logoUploadState === 'uploading'} className="mt-1 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">Kaldır</button></div>
+                    </div>
+                  )}
+                  <div className="mt-4">
+                    <RangeField label="Logo boyutu" value={settings.logoSize} min={24} max={160} suffix=" px" onChange={(value) => update('logoSize', value)} />
+                  </div>
+                </div>
+              </ControlSection>
+
               <ControlSection title="Renkler" description="Menünün ana yüzeylerini ve vurgu renklerini belirle.">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   <ColorField label="Sayfa arka planı" value={settings.backgroundColor} onChange={(value) => update('backgroundColor', value)} />
@@ -526,7 +616,7 @@ export function DesignStudio({
             <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">Canlı önizleme</p><p className="mt-0.5 text-xs text-stone-500">Değişiklikler anında görünür — gerçek misafir menünle birebir aynı</p></div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Canlı</span>
           </div>
-          <LivePreview slug={venue.slug} settings={settings} />
+          <LivePreview slug={venue.slug} settings={settings} logoUrl={logoUrl} />
         </aside>
       </div>
 
@@ -593,7 +683,7 @@ export function DesignStudio({
  * her değişiklik iframe'i tam sayfa yeniden yüklüyordu, bu da veri
  * çekildikten sonra görünen bir gecikmeye yol açıyordu).
  */
-function LivePreview({ slug, settings }: { slug: string; settings: MenuDesignSettings }) {
+function LivePreview({ slug, settings, logoUrl }: { slug: string; settings: MenuDesignSettings; logoUrl: string | null }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   // Yalnızca ilk render'da hesaplanır — sonraki `settings` değişiklikleri
   // src'yi GÜNCELLEMEZ (bu da iframe'in yeniden yüklenmesini tetikler).
@@ -603,7 +693,7 @@ function LivePreview({ slug, settings }: { slug: string; settings: MenuDesignSet
 
   function sendPreview() {
     iframeRef.current?.contentWindow?.postMessage(
-      { type: 'ros:design-preview', design: settings },
+      { type: 'ros:design-preview', design: settings, logoUrl },
       window.location.origin
     );
   }
@@ -611,7 +701,7 @@ function LivePreview({ slug, settings }: { slug: string; settings: MenuDesignSet
   useEffect(() => {
     sendPreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings]);
+  }, [settings, logoUrl]);
 
   return (
     <PhoneFrame>

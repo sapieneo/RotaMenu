@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { resolvePlanContext, UPGRADE_MESSAGES } from '@/lib/plans';
+import { isAllowedBackgroundImageUrl } from '@/lib/schemas/design';
 
 export const runtime = 'nodejs';
 
@@ -35,6 +36,8 @@ const bodySchema = z.object({
     )
     .optional(),
   isPublished: z.boolean().optional(),
+  /** Logo PNG'si — yalnızca kendi Supabase depomuzdaki `venue-media` içinden gelebilir (bkz. isAllowedBackgroundImageUrl). */
+  logoUrl: z.string().url().nullable().optional(),
 });
 
 /**
@@ -62,6 +65,9 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: first }, { status: 400 });
   }
   const b = parsed.data;
+  if (b.logoUrl !== undefined && !isAllowedBackgroundImageUrl(b.logoUrl)) {
+    return NextResponse.json({ error: 'Geçersiz logo görseli.' }, { status: 400 });
+  }
   const norm = (v: string | null | undefined) => {
     const t = (v ?? '').trim();
     return t === '' ? null : t;
@@ -83,6 +89,7 @@ export async function PATCH(request: NextRequest) {
   setIf('opening_hours', b.openingHours !== undefined, norm(b.openingHours));
   if (b.currencyCode) patch.currency_code = b.currencyCode;
   if (b.slug !== undefined) patch.slug = b.slug;
+  if (b.logoUrl !== undefined) patch.logo_url = b.logoUrl;
 
   if (b.isPublished !== undefined) {
     patch.is_published = b.isPublished;

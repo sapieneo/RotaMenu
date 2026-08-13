@@ -70,6 +70,10 @@ export type MenuDesignSettings = {
   backgroundImageOpacity: number;
   backgroundImageMode: BackgroundImageMode;
   layout: MenuLayout;
+  /** Üst kapak şeridinin yüksekliği (px) — logo bu şeridin üst orta kısmında gösterilir. */
+  headerHeight: number;
+  /** Logonun yüksekliği (px); genişlik oranı korunarak (object-contain) ölçeklenir. */
+  logoSize: number;
 };
 
 export const FONT_OPTIONS = [
@@ -175,7 +179,7 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.2, cardColor: '#ffffff',
     cardOpacity: 25, cardRadius: 16, itemSpacing: 12, dividerColor: '#e7e5e4', dividerOpacity: 100,
     texture: 'none', textureOpacity: 0, backgroundImageUrl: null, backgroundImageOpacity: 100,
-    backgroundImageMode: 'cover', layout: 'single',
+    backgroundImageMode: 'cover', layout: 'single', headerHeight: 160, logoSize: 56,
   },
   {
     templateId: 'lokanta', name: 'Anadolu Lokantası', description: 'Sıcak, tanıdık ve iştah açıcı.', mood: 'Samimi',
@@ -185,7 +189,7 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     bodyFont: FONT_OPTIONS[1].value, baseFontSize: 16, headingScale: 1.25, cardColor: '#fffaf2',
     cardOpacity: 92, cardRadius: 12, itemSpacing: 14, dividerColor: '#d6c2aa', dividerOpacity: 75,
     texture: 'paper', textureOpacity: 28, backgroundImageUrl: null, backgroundImageOpacity: 100,
-    backgroundImageMode: 'cover', layout: 'single',
+    backgroundImageMode: 'cover', layout: 'single', headerHeight: 160, logoSize: 56,
   },
   {
     templateId: 'gece', name: 'Gece', description: 'Bar, pub ve akşam servisi için güçlü.', mood: 'Koyu',
@@ -195,7 +199,7 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.18, cardColor: '#292524',
     cardOpacity: 88, cardRadius: 18, itemSpacing: 12, dividerColor: '#57534e', dividerOpacity: 65,
     texture: 'grid', textureOpacity: 16, backgroundImageUrl: null, backgroundImageOpacity: 100,
-    backgroundImageMode: 'cover', layout: 'single',
+    backgroundImageMode: 'cover', layout: 'single', headerHeight: 160, logoSize: 56,
   },
   {
     templateId: 'bistro', name: 'Bistro', description: 'Zarif tipografi ve sakin renkler.', mood: 'Editoryal',
@@ -205,7 +209,7 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     bodyFont: FONT_OPTIONS[2].value, baseFontSize: 17, headingScale: 1.35, cardColor: '#fcfaf5',
     cardOpacity: 94, cardRadius: 4, itemSpacing: 16, dividerColor: '#b9b3a8', dividerOpacity: 70,
     texture: 'linen', textureOpacity: 22, backgroundImageUrl: null, backgroundImageOpacity: 100,
-    backgroundImageMode: 'cover', layout: 'single',
+    backgroundImageMode: 'cover', layout: 'single', headerHeight: 160, logoSize: 56,
   },
   {
     templateId: 'enerjik', name: 'Enerjik', description: 'Kafe ve hızlı servis için canlı.', mood: 'Renkli',
@@ -215,7 +219,7 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.22, cardColor: '#ffffff',
     cardOpacity: 96, cardRadius: 24, itemSpacing: 12, dividerColor: '#fecdd3', dividerOpacity: 80,
     texture: 'dots', textureOpacity: 20, backgroundImageUrl: null, backgroundImageOpacity: 100,
-    backgroundImageMode: 'cover', layout: 'single',
+    backgroundImageMode: 'cover', layout: 'single', headerHeight: 160, logoSize: 56,
   },
   {
     templateId: 'cift-kolon', name: 'Çift Kolon', description: 'Yoğun menüler için kompakt iki sütun.', mood: 'Pizzeria',
@@ -225,7 +229,7 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 14, headingScale: 1.28, cardColor: '#fffaf0',
     cardOpacity: 94, cardRadius: 10, itemSpacing: 8, dividerColor: '#b7aa96', dividerOpacity: 65,
     texture: 'grid', textureOpacity: 22, backgroundImageUrl: null, backgroundImageOpacity: 100,
-    backgroundImageMode: 'tile', layout: 'two-column',
+    backgroundImageMode: 'tile', layout: 'two-column', headerHeight: 160, logoSize: 56,
   },
   {
     templateId: 'studyo', name: 'Stüdyo', description: 'Bol boşluk, tek vurgu rengi, kusursuz sadelik.', mood: 'Apple Stili',
@@ -235,7 +239,7 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     bodyFont: FONT_OPTIONS[5].value, baseFontSize: 16, headingScale: 1.2, cardColor: '#ffffff',
     cardOpacity: 97, cardRadius: 20, itemSpacing: 16, dividerColor: '#d2d2d7', dividerOpacity: 60,
     texture: 'none', textureOpacity: 0, backgroundImageUrl: null, backgroundImageOpacity: 100,
-    backgroundImageMode: 'cover', layout: 'single',
+    backgroundImageMode: 'cover', layout: 'single', headerHeight: 160, logoSize: 56,
   },
   {
     templateId: 'sahil', name: 'Sahil', description: 'Deniz mavisi ve kireç beyazı — taze ve ferah.', mood: 'Akdeniz',
@@ -245,7 +249,7 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.24, cardColor: '#ffffff',
     cardOpacity: 95, cardRadius: 18, itemSpacing: 14, dividerColor: '#c7dde3', dividerOpacity: 70,
     texture: 'none', textureOpacity: 0, backgroundImageUrl: null, backgroundImageOpacity: 100,
-    backgroundImageMode: 'cover', layout: 'single',
+    backgroundImageMode: 'cover', layout: 'single', headerHeight: 160, logoSize: 56,
   },
   {
     templateId: 'kahve', name: 'Kahve Dükkanı', description: 'Latte tonları ve yumuşak köşeler.', mood: 'Sıcak Kahve',
@@ -255,7 +259,7 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     bodyFont: FONT_OPTIONS[1].value, baseFontSize: 16, headingScale: 1.22, cardColor: '#fffdf9',
     cardOpacity: 94, cardRadius: 20, itemSpacing: 14, dividerColor: '#ddc9b0', dividerOpacity: 70,
     texture: 'paper', textureOpacity: 20, backgroundImageUrl: null, backgroundImageOpacity: 100,
-    backgroundImageMode: 'cover', layout: 'single',
+    backgroundImageMode: 'cover', layout: 'single', headerHeight: 160, logoSize: 56,
   },
   {
     templateId: 'lux-steakhouse', name: 'Steakhouse Lüks', description: 'Antrasit zemin ve altın vurgular.', mood: 'Premium',
@@ -265,7 +269,7 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.26, cardColor: '#262420',
     cardOpacity: 90, cardRadius: 14, itemSpacing: 14, dividerColor: '#4a4237', dividerOpacity: 60,
     texture: 'none', textureOpacity: 0, backgroundImageUrl: null, backgroundImageOpacity: 100,
-    backgroundImageMode: 'cover', layout: 'single',
+    backgroundImageMode: 'cover', layout: 'single', headerHeight: 160, logoSize: 56,
   },
 ];
 

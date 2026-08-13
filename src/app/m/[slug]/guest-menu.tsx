@@ -101,7 +101,8 @@ export function GuestMenu({
   // anında yansır. (bkz. studyo/tasarim/design-studio.tsx ve
   // studyo/gorseller/image-manager.tsx → LivePreview)
   const [design, setDesign] = useState<MenuDesignSettings>(initialVenue.design);
-  const venue = useMemo(() => ({ ...initialVenue, design }), [initialVenue, design]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(initialVenue.logoUrl);
+  const venue = useMemo(() => ({ ...initialVenue, design, logoUrl }), [initialVenue, design, logoUrl]);
   const [categories, setCategories] = useState<GuestCategory[]>(initialCategories);
 
   useEffect(() => {
@@ -110,6 +111,7 @@ export function GuestMenu({
       if (!event.data) return;
       if (event.data.type === 'ros:design-preview') {
         setDesign(normalizeMenuDesign(event.data.design));
+        if (event.data.logoUrl !== undefined) setLogoUrl(event.data.logoUrl);
         return;
       }
       if (event.data.type === 'ros:categories-preview') {
@@ -238,12 +240,8 @@ export function GuestMenu({
       )}
 
       {/* Hero */}
-      <header className="relative z-30" style={{ backgroundColor: design.surfaceColor }}>
-        <div
-          className="h-40 w-full bg-cover bg-center sm:rounded-t-2xl"
-          style={venue.coverUrl ? { backgroundImage: `url(${venue.coverUrl})` } : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }}
-        />
-        <div className="px-5 pt-4 pb-4">
+      <header className="relative z-30 sm:rounded-t-2xl" style={{ backgroundColor: design.surfaceColor }}>
+        <div className="px-5 pt-4 pb-3">
           <h1 className="font-bold tracking-tight" style={{ fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale * 1.35}px` }}>{venue.name}</h1>
           {venue.description && (
             <p className="mt-1 text-sm" style={{ color: design.mutedTextColor }}>{venue.description}</p>
@@ -268,6 +266,29 @@ export function GuestMenu({
                 ))}
               </select>
             </label>
+          )}
+        </div>
+
+        {/* Kapak şeridi — kalınlığı (headerHeight) ve üzerindeki logonun
+            boyutu (logoSize) İnce Ayar'dan ayarlanır. Logo her zaman
+            şeridin üst orta kısmında, en/boy oranı korunarak gösterilir. */}
+        <div
+          className="relative w-full bg-cover bg-center"
+          style={{
+            height: `${design.headerHeight}px`,
+            ...(venue.coverUrl
+              ? { backgroundImage: `url(${venue.coverUrl})` }
+              : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }),
+          }}
+        >
+          {venue.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={venue.logoUrl}
+              alt={venue.name}
+              className="absolute left-1/2 top-3 -translate-x-1/2 object-contain drop-shadow-md"
+              style={{ height: `${design.logoSize}px`, maxWidth: '80%' }}
+            />
           )}
         </div>
       </header>
@@ -366,19 +387,6 @@ export function GuestMenu({
                             {it.description}
                           </p>
                         )}
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          {it.dietaryCodes.map((code) => (
-                            <DietaryChip key={code} code={code} />
-                          ))}
-                          {it.calories != null && (
-                            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-500">
-                              {it.calories} kcal
-                            </span>
-                          )}
-                          {it.allergenCodes.map((code) => (
-                            <AllergenChip key={code} code={code} />
-                          ))}
-                        </div>
                       </div>
                     </Pressable>
                   </li>
@@ -475,19 +483,6 @@ export function GuestMenu({
                                   {it.description}
                                 </p>
                               )}
-                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                                {it.dietaryCodes.map((code) => (
-                                  <DietaryChip key={code} code={code} />
-                                ))}
-                                {it.calories != null && (
-                                  <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: hexToRgba(design.surfaceColor, 68), color: design.textColor }}>
-                                    {it.calories} kcal
-                                  </span>
-                                )}
-                                {it.allergenCodes.map((code) => (
-                                  <AllergenChip key={code} code={code} />
-                                ))}
-                              </div>
                             </div>
                           </Pressable>
                         </li>
@@ -698,19 +693,6 @@ function DietaryChip({ code }: { code: string }) {
     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
       <span aria-hidden>{d.emoji}</span>
       {d.tr}
-    </span>
-  );
-}
-
-function AllergenChip({ code }: { code: string }) {
-  const a = (ALLERGENS as Record<string, { tr: string; abbr: string } | undefined>)[code];
-  if (!a) return null;
-  return (
-    <span
-      title={a.tr}
-      className="rounded-full border border-stone-200 px-2 py-0.5 text-xs font-medium text-stone-400"
-    >
-      {a.abbr}
     </span>
   );
 }
