@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { formatPrice } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
 import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
+import { applyPaletteToDesign, extractPaletteFromImage, type ExtractedPalette } from '@/lib/image-palette';
 import {
   DEFAULT_MENU_DESIGN,
   FONT_OPTIONS,
@@ -50,30 +51,76 @@ export function DesignStudio({
   const [styleText, setStyleText] = useState('');
   const [suggestState, setSuggestState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [suggestion, setSuggestion] = useState<{ templateId: string; reason: string; fallback: boolean } | null>(null);
+  const [styleImageUrl, setStyleImageUrl] = useState<string | null>(null);
+  const [stylePalette, setStylePalette] = useState<ExtractedPalette | null>(null);
+  const [paletteState, setPaletteState] = useState<'idle' | 'extracting' | 'error'>('idle');
   const [presetSaveTarget, setPresetSaveTarget] = useState<{ templateId: string; name: string } | null>(null);
   const [presetSavePassword, setPresetSavePassword] = useState('');
   const [presetSaveState, setPresetSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
   const [presetSaveError, setPresetSaveError] = useState<string | null>(null);
   const [savedPresetFlashId, setSavedPresetFlashId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const styleImageRef = useRef<HTMLInputElement | null>(null);
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
+
+  // Seçilen tarz resmi için oluşturulan yerel önizleme URL'sini (object URL)
+  // bileşen kapanınca temizle — hiçbir zaman sunucuya yüklenmiyor.
+  useEffect(() => {
+    return () => {
+      if (styleImageUrl) URL.revokeObjectURL(styleImageUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function update<K extends keyof MenuDesignSettings>(key: K, value: MenuDesignSettings[K]) {
     setSettings((current) => ({ ...current, [key]: value }));
     setSaveState('idle');
   }
 
-  function applyPreset(index: number) {
-    const preset = stripPresetMeta(presets[index]!);
+  /** Verilen tasarımı uygular — mevcut yüklü JPG dokusu varsa korunur. */
+  function applySettings(next: MenuDesignSettings) {
     setSettings((current) => current.backgroundImageUrl
       ? {
-          ...preset,
+          ...next,
           backgroundImageUrl: current.backgroundImageUrl,
           backgroundImageOpacity: current.backgroundImageOpacity,
           backgroundImageMode: current.backgroundImageMode,
         }
-      : preset);
+      : next);
     setSaveState('idle');
+  }
+
+  function applyPreset(index: number) {
+    applySettings(stripPresetMeta(presets[index]!));
+  }
+
+  /**
+   * "Tarzınız" kutusuna eklenen resmi okuyup baskın renk paletini çıkarır
+   * (bkz. `lib/image-palette.ts`). Resim yalnızca tarayıcıda işlenir,
+   * hiçbir yere yüklenmez.
+   */
+  async function selectStyleImage(file: File) {
+    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+      setPaletteState('error');
+      return;
+    }
+    setPaletteState('extracting');
+    try {
+      const palette = await extractPaletteFromImage(file);
+      if (styleImageUrl) URL.revokeObjectURL(styleImageUrl);
+      setStyleImageUrl(URL.createObjectURL(file));
+      setStylePalette(palette);
+      setPaletteState('idle');
+    } catch {
+      setPaletteState('error');
+    }
+  }
+
+  function removeStyleImage() {
+    if (styleImageUrl) URL.revokeObjectURL(styleImageUrl);
+    setStyleImageUrl(null);
+    setStylePalette(null);
+    setPaletteState('idle');
   }
 
   /**
@@ -129,21 +176,35 @@ export function DesignStudio({
    * basmalı — diğer tüm değişikliklerle aynı akış). AI çağrısı başarısız
    * olursa sunucu anahtar kelime eşleşmesine dayalı bir yedek öneriyle döner,
    * kullanıcı hiçbir zaman boş elle kalmaz.
+   *
+   * Bir resim de eklenmişse: metin (varsa) hangi şablonun temel alınacağını
+   * belirler, ardından o tasarımın renkleri resimden çıkarılan paletle
+   * DEĞİŞTİRİLİR (bkz. `applyPaletteToDesign`) — font/düzen/aralık gibi
+   * yapısal ayarlar aynı kalır. Yalnızca resim eklenip metin girilmezse,
+   * o an ekranda açık olan tasarım temel alınıp yalnızca renklendirilir.
    */
   async function suggestDesign() {
-    if (!styleText.trim() || suggestState === 'loading') return;
+    if ((!styleText.trim() && !stylePalette) || suggestState === 'loading') return;
     setSuggestState('loading');
     try {
-      const response = await fetch('/api/venue/design/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venueId: venue.id, styleText: styleText.trim() }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? 'Tasarım önerisi alınamadı.');
-      const index = presets.findIndex((preset) => preset.templateId === body.templateId);
-      if (index >= 0) applyPreset(index);
-      setSuggestion({ templateId: body.templateId, reason: body.reason, fallback: body.source === 'fallback' });
+      let baseSettings: MenuDesignSettings = settings;
+      let suggestionInfo: { templateId: string; reason: string; fallback: boolean } | null = null;
+
+      if (styleText.trim()) {
+        const response = await fetch('/api/venue/design/suggest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ venueId: venue.id, styleText: styleText.trim() }),
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error ?? 'Tasarım önerisi alınamadı.');
+        const index = presets.findIndex((preset) => preset.templateId === body.templateId);
+        if (index >= 0) baseSettings = stripPresetMeta(presets[index]!);
+        suggestionInfo = { templateId: body.templateId, reason: body.reason, fallback: body.source === 'fallback' };
+      }
+
+      applySettings(stylePalette ? applyPaletteToDesign(baseSettings, stylePalette) : baseSettings);
+      setSuggestion(suggestionInfo);
       setSuggestState('done');
     } catch {
       setSuggestState('error');
@@ -254,7 +315,7 @@ export function DesignStudio({
 
             <div className="mb-5 rounded-[22px] border border-stone-200/70 bg-white/90 p-4 shadow-[0_4px_24px_rgba(0,0,0,0.05)] backdrop-blur sm:p-5">
               <label htmlFor="style-text" className="block text-sm font-semibold text-stone-800">Tarzınız</label>
-              <p className="mt-0.5 text-xs text-stone-500">Mekanını birkaç kelimeyle anlat, AI en uygun tasarımı seçsin.</p>
+              <p className="mt-0.5 text-xs text-stone-500">Mekanını birkaç kelimeyle anlat ve/veya bir resim ekle — AI en uygun tasarımı seçsin, resmin tonlarını kullansın.</p>
               <div className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-end">
                 <textarea
                   id="style-text"
@@ -268,15 +329,60 @@ export function DesignStudio({
                 <button
                   type="button"
                   onClick={() => void suggestDesign()}
-                  disabled={!styleText.trim() || suggestState === 'loading'}
+                  disabled={(!styleText.trim() && !stylePalette) || suggestState === 'loading'}
                   className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {suggestState === 'loading' ? 'Aranıyor…' : '✨ AI ile öner'}
                 </button>
               </div>
-              {suggestState === 'done' && suggestion && (
+
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => styleImageRef.current?.click()}
+                  disabled={paletteState === 'extracting'}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3.5 py-2 text-xs font-semibold text-stone-600 shadow-sm transition hover:border-stone-300 hover:text-stone-900 disabled:opacity-50"
+                >
+                  {paletteState === 'extracting' ? 'Renkler okunuyor…' : styleImageUrl ? '🖼️ Resmi değiştir' : '🖼️ Resim ekle'}
+                </button>
+                <input
+                  ref={styleImageRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void selectStyleImage(file);
+                    event.target.value = '';
+                  }}
+                />
+                {styleImageUrl && (
+                  <div className="flex items-center gap-2">
+                    <img src={styleImageUrl} alt="Seçilen tarz resmi" className="h-10 w-10 rounded-lg object-cover ring-1 ring-stone-200" />
+                    {stylePalette && (
+                      <span className="flex overflow-hidden rounded-md ring-1 ring-stone-200">
+                        {stylePalette.colors.slice(0, 5).map((color, i) => (
+                          <span key={`${color}-${i}`} className="block h-5 w-5" style={{ backgroundColor: color }} />
+                        ))}
+                      </span>
+                    )}
+                    <button type="button" onClick={removeStyleImage} className="text-xs font-medium text-red-600 hover:underline">Kaldır</button>
+                  </div>
+                )}
+                {paletteState === 'error' && <span className="text-xs font-medium text-red-600">Resim okunamadı, JPG/PNG/WebP dene.</span>}
+              </div>
+              <p className="mt-1.5 text-[11px] text-stone-400">Resim eklersen tasarımın renkleri o resmin tonlarından alınır — resim yalnızca tarayıcında işlenir, hiçbir yere yüklenmez.</p>
+
+              {suggestState === 'done' && (suggestion || stylePalette) && (
                 <p className="mt-3 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-xs font-medium text-emerald-800">
-                  <span className="font-bold">{presets.find((preset) => preset.templateId === suggestion.templateId)?.name ?? 'Tasarım'}</span> uygulandı — {suggestion.reason}
+                  {suggestion ? (
+                    <>
+                      <span className="font-bold">{presets.find((preset) => preset.templateId === suggestion.templateId)?.name ?? 'Tasarım'}</span> uygulandı — {suggestion.reason}
+                      {stylePalette && ' Renkler yüklediğin resimden alındı.'}
+                    </>
+                  ) : (
+                    'Resimdeki tonlar tasarımına uygulandı.'
+                  )}
                 </p>
               )}
               {suggestState === 'error' && (
