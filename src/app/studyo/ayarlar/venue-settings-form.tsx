@@ -37,9 +37,12 @@ type Save = { name: 'idle' } | { name: 'saving' } | { name: 'done' } | { name: '
 export function VenueSettingsForm({
   initial,
   publish,
+  hasPanoPassword,
 }: {
   initial: VenueSettings;
   publish: PublishState;
+  /** Bu venue için şu an bir pano giriş şifresi tanımlı mı (bkz. PanoPasswordCard). */
+  hasPanoPassword: boolean;
 }) {
   const [v, setV] = useState<VenueSettings>(initial);
   const [save, setSave] = useState<Save>({ name: 'idle' });
@@ -247,6 +250,8 @@ export function VenueSettingsForm({
             />
           </Field>
         </Section>
+
+        <PanoPasswordCard venueId={v.id} initialHasPassword={hasPanoPassword} />
       </div>
 
       {save.name === 'error' && (
@@ -428,6 +433,94 @@ function PublishCard({
           </a>
         </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * İşletmeye özel pano giriş şifresi. Hesabı olmayan bir işletme sahibinin
+ * `/studyo/pano?venue=…` bağlantısını, hesap açmadan yalnızca bu şifreyle
+ * açabilmesini sağlar (bkz. lib/pano-auth.ts). Yönetici parolası her zaman
+ * her işletmenin panosuna girebilir — bu şifre onun YERİNE değil, ONUNLA
+ * BİRLİKTE çalışan ikinci bir yol.
+ */
+function PanoPasswordCard({ venueId, initialHasPassword }: { venueId: string; initialHasPassword: boolean }) {
+  const [hasPassword, setHasPassword] = useState(initialHasPassword);
+  const [newPassword, setNewPassword] = useState('');
+  const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(nextValue: string) {
+    setState('saving');
+    setError(null);
+    try {
+      const res = await fetch('/api/venue/pano-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId, newPassword: nextValue }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? 'Kaydedilemedi.');
+      setHasPassword(Boolean(body.hasPanoPassword));
+      setNewPassword('');
+      setState('done');
+    } catch (err) {
+      setState('error');
+      setError(err instanceof Error ? err.message : 'Beklenmeyen hata.');
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-stone-400">Pano girişi</h2>
+      <p className="mb-4 text-sm text-stone-500">
+        Bu işletmenin panosunu (istatistik, yayın durumu, QR) hesap açmadan yalnızca bu şifreyle
+        açabilirsin — bağlantıyı işletme sahibine verebilirsin. Yönetici parolası her zaman ayrıca
+        çalışır.
+      </p>
+
+      <div className="mb-3 flex items-center gap-2 text-sm">
+        <span
+          className={`h-2 w-2 rounded-full ${hasPassword ? 'bg-emerald-500' : 'bg-stone-300'}`}
+          aria-hidden
+        />
+        <span className={hasPassword ? 'font-medium text-emerald-700' : 'text-stone-500'}>
+          {hasPassword ? 'Pano şifresi tanımlı' : 'Pano şifresi henüz tanımlanmadı'}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          value={newPassword}
+          onChange={(e) => {
+            setNewPassword(e.target.value);
+            if (state !== 'idle') setState('idle');
+          }}
+          placeholder={hasPassword ? 'Yeni pano şifresi' : 'Pano şifresi belirle'}
+          className="min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500"
+        />
+        <button
+          type="button"
+          onClick={() => void submit(newPassword)}
+          disabled={!newPassword.trim() || state === 'saving'}
+          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {state === 'saving' ? 'Kaydediliyor…' : hasPassword ? 'Değiştir' : 'Belirle'}
+        </button>
+        {hasPassword && (
+          <button
+            type="button"
+            onClick={() => void submit('')}
+            disabled={state === 'saving'}
+            className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-600 transition hover:bg-stone-50 disabled:opacity-50"
+          >
+            Kaldır
+          </button>
+        )}
+      </div>
+      {state === 'done' && <p className="mt-2 text-sm font-medium text-emerald-600">✓ Kaydedildi</p>}
+      {state === 'error' && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
     </section>
   );
 }

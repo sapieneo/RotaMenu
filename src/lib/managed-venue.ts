@@ -25,6 +25,21 @@ export type ManagedVenue = {
 };
 
 /**
+ * Org üyeliğinden tamamen bağımsız, service-role ile doğrudan id'ye göre
+ * venue okur. Yalnızca kimlik zaten BAŞKA bir yoldan doğrulanmışken
+ * kullanılmalı — süper-admin oturumu (bkz. aşağıdaki admin dalı) veya
+ * işletmeye özel pano şifresi oturumu (bkz. `lib/pano-auth.ts`) gibi.
+ */
+export async function resolveVenueByIdAsAdmin(venueId: string): Promise<ManagedVenue | null> {
+  const { data } = await createAdminClient()
+    .from('venues')
+    .select(VENUE_COLUMNS)
+    .eq('id', venueId)
+    .maybeSingle();
+  return (data as ManagedVenue | null) ?? null;
+}
+
+/**
  * Yalnızca oturum sahibinin üye olduğu organizasyonlardan bir işletme seçer.
  * `venues_select` yayınlanmış işletmeleri herkese açtığı için yönetim ekranları
  * doğrudan venues tablosundaki "ilk" satırı seçmemelidir.
@@ -37,12 +52,7 @@ export async function resolveManagedVenue(
   // bağımsızdır (tek sahip tüm kiracıları yönetir) — geçerli bir admin
   // oturumu varsa service-role ile doğrudan venue id'sine göre okunur.
   if (requestedVenueId && isAdminSession()) {
-    const { data } = await createAdminClient()
-      .from('venues')
-      .select(VENUE_COLUMNS)
-      .eq('id', requestedVenueId)
-      .maybeSingle();
-    return (data as ManagedVenue | null) ?? null;
+    return resolveVenueByIdAsAdmin(requestedVenueId);
   }
 
   const {

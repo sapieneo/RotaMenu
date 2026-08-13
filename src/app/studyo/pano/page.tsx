@@ -1,14 +1,23 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { isAdminSession } from '@/lib/admin-auth';
 import { resolvePlanContext } from '@/lib/plans';
 import { Dashboard, type DashboardData, type DayBucket } from './dashboard';
-import { resolveManagedVenue } from '@/lib/managed-venue';
+import { resolveManagedVenue, resolveVenueByIdAsAdmin } from '@/lib/managed-venue';
+import { hasPanoSession } from '@/lib/pano-auth';
+import { PanoPasswordGate } from './pano-password-gate';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Studyo panosu (Faz B5). B1–B4'te ürettiğimiz her şeyi tek ekranda toplar:
  * yayın durumu, QR, uyum, hesap ve son 30 günün çerezsiz tarama analitiği.
- * Tüm okumalar user-client + RLS ile (org üyesi kendi verisini görür).
+ * Normal okuma yolu user-client + RLS ile (org üyesi kendi verisini görür).
+ *
+ * Bunun DIŞINDA hesapsız bir üçüncü giriş yolu var: işletmeye özel pano
+ * şifresi (bkz. lib/pano-auth.ts). `resolveManagedVenue` org üyeliği ya da
+ * süper-admin oturumuyla venue bulamazsa, `?venue=` verilmiş olması şartıyla
+ * geçerli bir pano-şifresi çerezi arıyoruz; o da yoksa şifre giriş ekranını
+ * (PanoPasswordGate) gösteriyoruz — hata değil, bir giriş adımı.
  */
 export default async function DashboardPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
@@ -16,23 +25,31 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
-        <h1 className="text-xl font-semibold">Oturum bulunamadı</h1>
-        <a href="/studyo" className="mt-2 rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow">
-          Studyoya git
-        </a>
-      </main>
-    );
+  const requestedVenueId = searchParams?.venue ?? null;
+
+  let venue = await resolveManagedVenue(supabase, requestedVenueId);
+  let viaPanoPassword = false;
+
+  if (!venue && requestedVenueId) {
+    if (hasPanoSession(requestedVenueId)) {
+      venue = await resolveVenueByIdAsAdmin(requestedVenueId);
+      viaPanoPassword = true;
+    } else {
+      return <PanoPasswordGate venueId={requestedVenueId} />;
+    }
   }
 
-  const isAnonymous = (user as { is_anonymous?: boolean }).is_anonymous ?? !user.email;
-  const accountSecured = !isAnonymous && Boolean(user.email);
-
-  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
-
   if (!venue) {
+    if (!user) {
+      return (
+        <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
+          <h1 className="text-xl font-semibold">Oturum bulunamadı</h1>
+          <a href="/studyo" className="mt-2 rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow">
+            Studyoya git
+          </a>
+        </main>
+      );
+    }
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
         <h1 className="text-xl font-semibold">Henüz menün yok</h1>
@@ -44,8 +61,22 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
     );
   }
 
+  // Pano şifresiyle giren ziyaretçinin Supabase hesabı yok — "hesap
+  // güvenceli mi" sorusuna güvenle "hayır" denir; bu yalnızca Plan kartındaki
+  // nazik yönlendirme metnini etkiler, panoyu görmesini engellemez.
+  const isAnonymous = viaPanoPassword ? true : (user as { is_anonymous?: boolean } | null)?.is_anonymous ?? !user?.email;
+  const accountSecured = !isAnonymous && Boolean(user?.email);
+
+  // Süper-admin oturumu ya da pano şifresiyle girildiyse arkadaki kullanıcı
+  // org üyesi DEĞİL — normal `supabase` (RLS) istemcisiyle devamdaki tüm
+  // sorgular boş dönerdi. Bu iki yolda service-role istemcisine geçiyoruz;
+  // kimlik zaten yukarıda (admin parolası ya da venue'ye özel pano şifresi
+  // çerezi) doğrulandı.
+  const usedPrivilegedFetch = Boolean(requestedVenueId && isAdminSession()) || viaPanoPassword;
+  const db = usedPrivilegedFetch ? createAdminClient() : supabase;
+
   // --- Plan + iletişim telefonu (Faz C freemium) ---
-  const { data: orgRow } = await supabase
+  const { data: orgRow } = await db
     .from('organizations')
     .select('plan, contact_phone, trial_ends_at')
     .eq('id', venue.org_id)
@@ -55,7 +86,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
   const limits = planCtx.limits;
 
   // --- Ürün + bekleyen alerjen onayı sayısı (ayarlar ekranıyla aynı mantık) ---
-  const { data: menus } = await supabase
+  const { data: menus } = await db
     .from('menus')
     .select('id')
     .eq('venue_id', venue.id)
@@ -63,12 +94,12 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
   const menuIds = (menus ?? []).map((m) => m.id);
 
   const { data: cats } = menuIds.length
-    ? await supabase.from('categories').select('id').in('menu_id', menuIds).eq('is_active', true)
+    ? await db.from('categories').select('id').in('menu_id', menuIds).eq('is_active', true)
     : { data: [] as { id: string }[] };
   const catIds = (cats ?? []).map((c) => c.id);
 
   const { data: items } = catIds.length
-    ? await supabase.from('items').select('id, image_url').in('category_id', catIds)
+    ? await db.from('items').select('id, image_url').in('category_id', catIds)
     : { data: [] as { id: string; image_url: string | null }[] };
   const itemIds = (items ?? []).map((i) => i.id);
   const itemCount = itemIds.length;
@@ -77,7 +108,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
   const itemsWithImage = (items ?? []).filter((i) => i.image_url).length;
 
   const { count: confirmedCount } = itemIds.length
-    ? await supabase
+    ? await db
         .from('item_compliance')
         .select('item_id', { count: 'exact', head: true })
         .in('item_id', itemIds)
@@ -86,7 +117,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
   const pendingCount = Math.max(0, itemCount - (confirmedCount ?? 0));
 
   // --- QR sayısı ---
-  const { count: qrActive } = await supabase
+  const { count: qrActive } = await db
     .from('qr_codes')
     .select('id', { count: 'exact', head: true })
     .eq('venue_id', venue.id)
@@ -94,7 +125,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
 
   // --- Son 30 gün tarama olayları ---
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const { data: events } = await supabase
+  const { data: events } = await db
     .from('scan_events')
     .select('event_type, occurred_at, session_key')
     .eq('venue_id', venue.id)

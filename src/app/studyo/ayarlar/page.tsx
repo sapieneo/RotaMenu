@@ -73,6 +73,15 @@ export default async function VenueSettingsPage({ searchParams }: { searchParams
   const accountSecured = Boolean(user && !user.is_anonymous && user.email);
   const hasPhone = Boolean(orgRow?.contact_phone);
 
+  // Pano giriş şifresi yalnızca burada, VAR MI diye soruluyor — hash'in
+  // kendisi asla forma/istemciye taşınmaz (bkz. lib/pano-auth.ts).
+  const { data: panoRow } = await supabase
+    .from('venues')
+    .select('pano_password_hash')
+    .eq('id', venue.id)
+    .maybeSingle();
+  const hasPanoPassword = Boolean(panoRow?.pano_password_hash);
+
   const initial: VenueSettings = {
     id: venue.id,
     slug: venue.slug,
@@ -91,6 +100,7 @@ export default async function VenueSettingsPage({ searchParams }: { searchParams
   return (
     <VenueSettingsForm
       initial={initial}
+      hasPanoPassword={hasPanoPassword}
       publish={{
         isPublished: Boolean(venue.is_published),
         publishedAt: venue.published_at ?? null,
