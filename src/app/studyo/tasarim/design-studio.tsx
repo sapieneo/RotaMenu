@@ -43,6 +43,10 @@ export function DesignStudio({
   const [saved, setSaved] = useState(initial);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'error'>('idle');
+  const [showDetailed, setShowDetailed] = useState(false);
+  const [styleText, setStyleText] = useState('');
+  const [suggestState, setSuggestState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [suggestion, setSuggestion] = useState<{ templateId: string; reason: string; fallback: boolean } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
 
@@ -62,6 +66,33 @@ export function DesignStudio({
         }
       : preset);
     setSaveState('idle');
+  }
+
+  /**
+   * "Tarzınız" metnini AI'a gönderip 10 hazır tasarımdan en uygununu bulur
+   * ve otomatik uygular (kaydetmek için kullanıcı hâlâ "Tasarımı kaydet"e
+   * basmalı — diğer tüm değişikliklerle aynı akış). AI çağrısı başarısız
+   * olursa sunucu anahtar kelime eşleşmesine dayalı bir yedek öneriyle döner,
+   * kullanıcı hiçbir zaman boş elle kalmaz.
+   */
+  async function suggestDesign() {
+    if (!styleText.trim() || suggestState === 'loading') return;
+    setSuggestState('loading');
+    try {
+      const response = await fetch('/api/venue/design/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId: venue.id, styleText: styleText.trim() }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? 'Tasarım önerisi alınamadı.');
+      const index = MENU_DESIGN_PRESETS.findIndex((preset) => preset.templateId === body.templateId);
+      if (index >= 0) applyPreset(index);
+      setSuggestion({ templateId: body.templateId, reason: body.reason, fallback: body.source === 'fallback' });
+      setSuggestState('done');
+    } catch {
+      setSuggestState('error');
+    }
   }
 
   async function save(settingsToSave = settings) {
@@ -160,91 +191,145 @@ export function DesignStudio({
       <div className="mx-auto grid max-w-[1440px] gap-7 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,840px)_320px] xl:justify-between">
         <div className="min-w-0 space-y-6">
           <section>
-            <div className="mb-3">
+            <div className="mb-4">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-600">Başlangıç noktası</p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-stone-900">Hazır tasarımlar</h1>
-              <p className="mt-1 text-sm text-stone-500">Bir şablon seç, sonra bütün ayrıntıları kendi markana göre değiştir.</p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-stone-900">Büyük Tasarım Seç</h1>
+              <p className="mt-1 text-sm text-stone-500">10 hazır, şık tasarımdan birini seç — ya da tarzını anlat, senin için AI seçsin.</p>
             </div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+
+            <div className="mb-5 rounded-[22px] border border-stone-200/70 bg-white/90 p-4 shadow-[0_4px_24px_rgba(0,0,0,0.05)] backdrop-blur sm:p-5">
+              <label htmlFor="style-text" className="block text-sm font-semibold text-stone-800">Tarzınız</label>
+              <p className="mt-0.5 text-xs text-stone-500">Mekanını birkaç kelimeyle anlat, AI en uygun tasarımı seçsin.</p>
+              <div className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-end">
+                <textarea
+                  id="style-text"
+                  value={styleText}
+                  onChange={(event) => setStyleText(event.target.value)}
+                  placeholder="Örn: Sıcak, ahşap dokulu, aile işletmesi hissi veren bir lokanta"
+                  rows={2}
+                  maxLength={400}
+                  className="min-w-0 flex-1 resize-none rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-800 outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => void suggestDesign()}
+                  disabled={!styleText.trim() || suggestState === 'loading'}
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {suggestState === 'loading' ? 'Aranıyor…' : '✨ AI ile öner'}
+                </button>
+              </div>
+              {suggestState === 'done' && suggestion && (
+                <p className="mt-3 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-xs font-medium text-emerald-800">
+                  <span className="font-bold">{MENU_DESIGN_PRESETS.find((preset) => preset.templateId === suggestion.templateId)?.name ?? 'Tasarım'}</span> uygulandı — {suggestion.reason}
+                </p>
+              )}
+              {suggestState === 'error' && (
+                <p className="mt-3 rounded-xl bg-red-50 px-3.5 py-2.5 text-xs font-medium text-red-700">Öneri alınamadı. Bağlantını kontrol edip tekrar dene.</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-5">
               {MENU_DESIGN_PRESETS.map((preset, index) => {
                 const active = settings.templateId === preset.templateId;
+                const recommended = suggestState === 'done' && suggestion?.templateId === preset.templateId;
                 return (
-                  <button key={preset.templateId} onClick={() => applyPreset(index)} className={`overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${active ? 'border-brand-500 ring-2 ring-brand-100' : 'border-stone-200'}`}>
-                    <span className="block h-20 p-3" style={{ backgroundColor: preset.backgroundColor, backgroundImage: textureBackground(preset.texture, preset.textColor, preset.textureOpacity), backgroundSize: textureSize(preset.texture) }}>
+                  <button
+                    key={preset.templateId}
+                    onClick={() => applyPreset(index)}
+                    className={`group relative overflow-hidden rounded-[20px] border bg-white text-left shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.09)] ${active ? 'border-brand-500 ring-2 ring-brand-100' : 'border-stone-200/80'}`}
+                  >
+                    {recommended && (
+                      <span className="absolute left-2.5 top-2.5 z-10 rounded-full bg-stone-900/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">✨ AI önerisi</span>
+                    )}
+                    <span className="block h-24 p-3.5" style={{ backgroundColor: preset.backgroundColor, backgroundImage: textureBackground(preset.texture, preset.textColor, preset.textureOpacity), backgroundSize: textureSize(preset.texture) }}>
                       <span className="block h-3 w-3/4 rounded-full" style={{ backgroundColor: preset.primaryColor }} />
-                      <span className="mt-3 block space-y-1.5 rounded-lg p-2" style={{ backgroundColor: hexToRgba(preset.cardColor, preset.cardOpacity) }}>
-                        <span className="block h-1.5 w-4/5 rounded" style={{ backgroundColor: preset.textColor }} />
-                        <span className="block h-1 w-2/3 rounded opacity-50" style={{ backgroundColor: preset.mutedTextColor }} />
+                      <span className="mt-3.5 block space-y-1.5 p-2.5" style={{ backgroundColor: hexToRgba(preset.cardColor, preset.cardOpacity), borderRadius: `${Math.min(preset.cardRadius, 16)}px` }}>
+                        <span className="block h-1.5 w-4/5 rounded-full" style={{ backgroundColor: preset.textColor }} />
+                        <span className="block h-1 w-2/3 rounded-full opacity-50" style={{ backgroundColor: preset.mutedTextColor }} />
                       </span>
                     </span>
-                    <span className="block p-3">
-                      <span className="flex items-center justify-between gap-1 text-sm font-semibold text-stone-800">{preset.name}{active && <span className="text-brand-600">✓</span>}</span>
-                      <span className="mt-0.5 block text-[11px] text-stone-500">{preset.mood}</span>
+                    <span className="block p-3.5">
+                      <span className="flex items-center justify-between gap-1 text-sm font-semibold text-stone-900">{preset.name}{active && <span className="text-brand-600">✓</span>}</span>
+                      <span className="mt-0.5 block text-[11px] font-medium uppercase tracking-wide text-stone-400">{preset.mood}</span>
+                      <span className="mt-1.5 block text-xs leading-snug text-stone-500">{preset.description}</span>
                     </span>
                   </button>
                 );
               })}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowDetailed((current) => !current)}
+              className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-stone-600 shadow-sm transition hover:border-stone-300 hover:text-stone-900"
+            >
+              <span className={`inline-block transition-transform ${showDetailed ? 'rotate-90' : ''}`}>›</span> Detaylı Tasarım
+            </button>
           </section>
 
-          <ControlSection title="Menü düzeni" description="Ürünleri geniş tek sütunda veya yoğun menüler için iki sütunda göster.">
-            <div className="grid grid-cols-2 gap-3">
-              <LayoutChoice title="Tek kolon" description="Fotoğraflı ve ferah" active={settings.layout === 'single'} columns={1} onClick={() => update('layout', 'single')} />
-              <LayoutChoice title="Çift kolon" description="Kompakt ve hızlı taranır" active={settings.layout === 'two-column'} columns={2} onClick={() => update('layout', 'two-column')} />
-            </div>
-          </ControlSection>
+          {showDetailed && (
+            <>
+              <ControlSection title="Menü düzeni" description="Ürünleri geniş tek sütunda veya yoğun menüler için iki sütunda göster.">
+                <div className="grid grid-cols-2 gap-3">
+                  <LayoutChoice title="Tek kolon" description="Fotoğraflı ve ferah" active={settings.layout === 'single'} columns={1} onClick={() => update('layout', 'single')} />
+                  <LayoutChoice title="Çift kolon" description="Kompakt ve hızlı taranır" active={settings.layout === 'two-column'} columns={2} onClick={() => update('layout', 'two-column')} />
+                </div>
+              </ControlSection>
 
-          <ControlSection title="Renkler" description="Menünün ana yüzeylerini ve vurgu renklerini belirle.">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <ColorField label="Sayfa arka planı" value={settings.backgroundColor} onChange={(value) => update('backgroundColor', value)} />
-              <ColorField label="Üst yüzey" value={settings.surfaceColor} onChange={(value) => update('surfaceColor', value)} />
-              <ColorField label="Ana renk" value={settings.primaryColor} onChange={(value) => update('primaryColor', value)} />
-              <ColorField label="Vurgu rengi" value={settings.accentColor} onChange={(value) => update('accentColor', value)} />
-              <ColorField label="Ana yazı" value={settings.textColor} onChange={(value) => update('textColor', value)} />
-              <ColorField label="İkincil yazı" value={settings.mutedTextColor} onChange={(value) => update('mutedTextColor', value)} />
-            </div>
-          </ControlSection>
+              <ControlSection title="Renkler" description="Menünün ana yüzeylerini ve vurgu renklerini belirle.">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <ColorField label="Sayfa arka planı" value={settings.backgroundColor} onChange={(value) => update('backgroundColor', value)} />
+                  <ColorField label="Üst yüzey" value={settings.surfaceColor} onChange={(value) => update('surfaceColor', value)} />
+                  <ColorField label="Ana renk" value={settings.primaryColor} onChange={(value) => update('primaryColor', value)} />
+                  <ColorField label="Vurgu rengi" value={settings.accentColor} onChange={(value) => update('accentColor', value)} />
+                  <ColorField label="Ana yazı" value={settings.textColor} onChange={(value) => update('textColor', value)} />
+                  <ColorField label="İkincil yazı" value={settings.mutedTextColor} onChange={(value) => update('mutedTextColor', value)} />
+                </div>
+              </ControlSection>
 
-          <ControlSection title="Arka plan dokusu" description="Düz renk üzerine hafif bir malzeme hissi ekle.">
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-              {TEXTURE_OPTIONS.map((texture) => (
-                <button key={texture.id} onClick={() => update('texture', texture.id)} className={`h-16 rounded-xl border text-xs font-semibold transition ${settings.texture === texture.id ? 'border-brand-500 text-brand-700 ring-2 ring-brand-100' : 'border-stone-200 text-stone-600'}`} style={{ backgroundColor: settings.backgroundColor, backgroundImage: textureBackground(texture.id, settings.textColor, Math.max(settings.textureOpacity, 18)), backgroundSize: textureSize(texture.id) }}>{texture.label}</button>
-              ))}
-            </div>
-            <RangeField label="Doku yoğunluğu" value={settings.textureOpacity} min={0} max={60} suffix="%" onChange={(value) => update('textureOpacity', value)} />
-            <div className="border-t border-stone-200 pt-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div><p className="text-sm font-semibold text-stone-800">Kendi JPG dokunu yükle</p><p className="mt-0.5 text-xs text-stone-500">En fazla 10 MB. Küçük desenlerde “Döşe”yi kullan.</p></div>
-                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadState === 'uploading'} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">{uploadState === 'uploading' ? 'Yükleniyor…' : settings.backgroundImageUrl ? 'JPG’yi değiştir' : 'JPG yükle'}</button>
-                <input ref={fileRef} type="file" accept="image/jpeg,.jpg,.jpeg" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadBackground(file); event.target.value = ''; }} />
-              </div>
-              {uploadState === 'error' && <p className="mt-2 text-xs font-medium text-red-600">Yalnızca 10 MB’den küçük JPG dosyası yükleyebilirsin.</p>}
-              {settings.backgroundImageUrl && <div className="mt-4 space-y-4 rounded-xl border border-stone-200 bg-stone-50 p-3">
-                <div className="flex items-center gap-3"><img src={settings.backgroundImageUrl} alt="Yüklenen arka plan dokusu" className="h-16 w-24 rounded-lg object-cover" /><div className="flex-1"><p className="text-sm font-semibold text-stone-700">Özel JPG dokusu</p><button type="button" onClick={() => void removeBackground()} disabled={uploadState === 'uploading'} className="mt-1 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">Kaldır</button></div></div>
-                <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => update('backgroundImageMode', 'cover')} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${settings.backgroundImageMode === 'cover' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 bg-white text-stone-600'}`}>Alanı kapla</button><button type="button" onClick={() => update('backgroundImageMode', 'tile')} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${settings.backgroundImageMode === 'tile' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 bg-white text-stone-600'}`}>Deseni döşe</button></div>
-                <RangeField label="JPG görünürlüğü" value={settings.backgroundImageOpacity} min={0} max={100} suffix="%" onChange={(value) => update('backgroundImageOpacity', value)} />
-              </div>}
-            </div>
-          </ControlSection>
+              <ControlSection title="Arka plan dokusu" description="Düz renk üzerine hafif bir malzeme hissi ekle.">
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {TEXTURE_OPTIONS.map((texture) => (
+                    <button key={texture.id} onClick={() => update('texture', texture.id)} className={`h-16 rounded-xl border text-xs font-semibold transition ${settings.texture === texture.id ? 'border-brand-500 text-brand-700 ring-2 ring-brand-100' : 'border-stone-200 text-stone-600'}`} style={{ backgroundColor: settings.backgroundColor, backgroundImage: textureBackground(texture.id, settings.textColor, Math.max(settings.textureOpacity, 18)), backgroundSize: textureSize(texture.id) }}>{texture.label}</button>
+                  ))}
+                </div>
+                <RangeField label="Doku yoğunluğu" value={settings.textureOpacity} min={0} max={60} suffix="%" onChange={(value) => update('textureOpacity', value)} />
+                <div className="border-t border-stone-200 pt-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div><p className="text-sm font-semibold text-stone-800">Kendi JPG dokunu yükle</p><p className="mt-0.5 text-xs text-stone-500">En fazla 10 MB. Küçük desenlerde “Döşe”yi kullan.</p></div>
+                    <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadState === 'uploading'} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">{uploadState === 'uploading' ? 'Yükleniyor…' : settings.backgroundImageUrl ? 'JPG’yi değiştir' : 'JPG yükle'}</button>
+                    <input ref={fileRef} type="file" accept="image/jpeg,.jpg,.jpeg" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadBackground(file); event.target.value = ''; }} />
+                  </div>
+                  {uploadState === 'error' && <p className="mt-2 text-xs font-medium text-red-600">Yalnızca 10 MB’den küçük JPG dosyası yükleyebilirsin.</p>}
+                  {settings.backgroundImageUrl && <div className="mt-4 space-y-4 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                    <div className="flex items-center gap-3"><img src={settings.backgroundImageUrl} alt="Yüklenen arka plan dokusu" className="h-16 w-24 rounded-lg object-cover" /><div className="flex-1"><p className="text-sm font-semibold text-stone-700">Özel JPG dokusu</p><button type="button" onClick={() => void removeBackground()} disabled={uploadState === 'uploading'} className="mt-1 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">Kaldır</button></div></div>
+                    <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => update('backgroundImageMode', 'cover')} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${settings.backgroundImageMode === 'cover' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 bg-white text-stone-600'}`}>Alanı kapla</button><button type="button" onClick={() => update('backgroundImageMode', 'tile')} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${settings.backgroundImageMode === 'tile' ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 bg-white text-stone-600'}`}>Deseni döşe</button></div>
+                    <RangeField label="JPG görünürlüğü" value={settings.backgroundImageOpacity} min={0} max={100} suffix="%" onChange={(value) => update('backgroundImageOpacity', value)} />
+                  </div>}
+                </div>
+              </ControlSection>
 
-          <ControlSection title="Tipografi" description="Başlık ve ürün metinlerinin karakterini ayarla.">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SelectField label="Başlık fontu" value={settings.headingFont} onChange={(value) => update('headingFont', value)} />
-              <SelectField label="Gövde fontu" value={settings.bodyFont} onChange={(value) => update('bodyFont', value)} />
-            </div>
-            <RangeField label="Yazı boyutu" value={settings.baseFontSize} min={13} max={20} suffix=" px" onChange={(value) => update('baseFontSize', value)} />
-            <RangeField label="Başlık büyüklüğü" value={Math.round(settings.headingScale * 100)} min={100} max={160} suffix="%" onChange={(value) => update('headingScale', value / 100)} />
-          </ControlSection>
+              <ControlSection title="Tipografi" description="Başlık ve ürün metinlerinin karakterini ayarla.">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <SelectField label="Başlık fontu" value={settings.headingFont} onChange={(value) => update('headingFont', value)} />
+                  <SelectField label="Gövde fontu" value={settings.bodyFont} onChange={(value) => update('bodyFont', value)} />
+                </div>
+                <RangeField label="Yazı boyutu" value={settings.baseFontSize} min={13} max={20} suffix=" px" onChange={(value) => update('baseFontSize', value)} />
+                <RangeField label="Başlık büyüklüğü" value={Math.round(settings.headingScale * 100)} min={100} max={160} suffix="%" onChange={(value) => update('headingScale', value / 100)} />
+              </ControlSection>
 
-          <ControlSection title="Ürün kartları ve aralıklar" description="Ürünlerin birbirinden ne kadar ayrışacağını belirle.">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <ColorField label="Kart rengi" value={settings.cardColor} onChange={(value) => update('cardColor', value)} />
-              <ColorField label="Ayırıcı rengi" value={settings.dividerColor} onChange={(value) => update('dividerColor', value)} />
-            </div>
-            <RangeField label="Kart görünürlüğü" value={settings.cardOpacity} min={0} max={100} suffix="%" onChange={(value) => update('cardOpacity', value)} />
-            <RangeField label="Köşe yuvarlaklığı" value={settings.cardRadius} min={0} max={32} suffix=" px" onChange={(value) => update('cardRadius', value)} />
-            <RangeField label="Ürünler arası boşluk" value={settings.itemSpacing} min={6} max={28} suffix=" px" onChange={(value) => update('itemSpacing', value)} />
-          </ControlSection>
+              <ControlSection title="Ürün kartları ve aralıklar" description="Ürünlerin birbirinden ne kadar ayrışacağını belirle.">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ColorField label="Kart rengi" value={settings.cardColor} onChange={(value) => update('cardColor', value)} />
+                  <ColorField label="Ayırıcı rengi" value={settings.dividerColor} onChange={(value) => update('dividerColor', value)} />
+                </div>
+                <RangeField label="Kart görünürlüğü" value={settings.cardOpacity} min={0} max={100} suffix="%" onChange={(value) => update('cardOpacity', value)} />
+                <RangeField label="Köşe yuvarlaklığı" value={settings.cardRadius} min={0} max={32} suffix=" px" onChange={(value) => update('cardRadius', value)} />
+                <RangeField label="Ürünler arası boşluk" value={settings.itemSpacing} min={6} max={28} suffix=" px" onChange={(value) => update('itemSpacing', value)} />
+              </ControlSection>
+            </>
+          )}
 
           {saveState === 'error' && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Tasarım kaydedilemedi. Bağlantını kontrol edip tekrar dene.</p>}
           <div className="flex flex-wrap items-center gap-3 pb-10">

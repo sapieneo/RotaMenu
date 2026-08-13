@@ -78,6 +78,7 @@ export const FONT_OPTIONS = [
   { id: 'editorial', label: 'Editoryal', value: 'Georgia, Times New Roman, serif' },
   { id: 'classic', label: 'Klasik', value: 'Times New Roman, Times, serif' },
   { id: 'mono', label: 'Daktilo', value: 'Courier New, Courier, monospace' },
+  { id: 'apple', label: 'Apple Sistem', value: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif' },
 ] as const;
 
 export const TEXTURE_OPTIONS: { id: TextureId; label: string }[] = [
@@ -92,9 +93,12 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
   name: string;
   description: string;
   mood: string;
+  /** AI stil eşleştirmesi ve etiket gösterimi için serbest metin anahtar kelimeler. */
+  keywords: string;
 })[] = [
   {
     templateId: 'sade', name: 'Sade', description: 'Temiz, ferah ve hızlı okunur.', mood: 'Modern',
+    keywords: 'sade, modern, minimal, temiz, ferah, günlük, hızlı okunur',
     backgroundColor: '#f5f5f4', surfaceColor: '#ffffff', primaryColor: '#ea580c', accentColor: '#fb923c',
     textColor: '#1c1917', mutedTextColor: '#78716c', headingFont: FONT_OPTIONS[0].value,
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.2, cardColor: '#ffffff',
@@ -104,6 +108,7 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
   },
   {
     templateId: 'lokanta', name: 'Anadolu Lokantası', description: 'Sıcak, tanıdık ve iştah açıcı.', mood: 'Samimi',
+    keywords: 'lokanta, ev yemeği, sıcak, samimi, geleneksel, esnaf, aile',
     backgroundColor: '#f7efe3', surfaceColor: '#fffaf2', primaryColor: '#9a3412', accentColor: '#d97706',
     textColor: '#3f2d20', mutedTextColor: '#7c6654', headingFont: FONT_OPTIONS[2].value,
     bodyFont: FONT_OPTIONS[1].value, baseFontSize: 16, headingScale: 1.25, cardColor: '#fffaf2',
@@ -113,6 +118,7 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
   },
   {
     templateId: 'gece', name: 'Gece', description: 'Bar, pub ve akşam servisi için güçlü.', mood: 'Koyu',
+    keywords: 'bar, pub, gece, karanlık, koyu, kokteyl, akşam, güçlü',
     backgroundColor: '#111111', surfaceColor: '#1c1917', primaryColor: '#f59e0b', accentColor: '#fbbf24',
     textColor: '#fafaf9', mutedTextColor: '#a8a29e', headingFont: FONT_OPTIONS[0].value,
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.18, cardColor: '#292524',
@@ -122,6 +128,7 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
   },
   {
     templateId: 'bistro', name: 'Bistro', description: 'Zarif tipografi ve sakin renkler.', mood: 'Editoryal',
+    keywords: 'bistro, editoryal, zarif, sakin, şık, fine dining, tipografi',
     backgroundColor: '#f4f1ea', surfaceColor: '#fcfaf5', primaryColor: '#365314', accentColor: '#a16207',
     textColor: '#292524', mutedTextColor: '#6b665e', headingFont: FONT_OPTIONS[2].value,
     bodyFont: FONT_OPTIONS[2].value, baseFontSize: 17, headingScale: 1.35, cardColor: '#fcfaf5',
@@ -131,6 +138,7 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
   },
   {
     templateId: 'enerjik', name: 'Enerjik', description: 'Kafe ve hızlı servis için canlı.', mood: 'Renkli',
+    keywords: 'enerjik, renkli, canlı, kafe, hızlı servis, gençlik, eğlenceli',
     backgroundColor: '#fff7ed', surfaceColor: '#ffffff', primaryColor: '#e11d48', accentColor: '#06b6d4',
     textColor: '#27272a', mutedTextColor: '#71717a', headingFont: FONT_OPTIONS[1].value,
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.22, cardColor: '#ffffff',
@@ -140,6 +148,7 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
   },
   {
     templateId: 'cift-kolon', name: 'Çift Kolon', description: 'Yoğun menüler için kompakt iki sütun.', mood: 'Pizzeria',
+    keywords: 'pizzeria, italyan, iki sütun, yoğun menü, kompakt, kırmızı',
     backgroundColor: '#c83b2d', surfaceColor: '#fffaf0', primaryColor: '#cf3024', accentColor: '#1f5b3a',
     textColor: '#29251f', mutedTextColor: '#756d61', headingFont: FONT_OPTIONS[2].value,
     bodyFont: FONT_OPTIONS[0].value, baseFontSize: 14, headingScale: 1.28, cardColor: '#fffaf0',
@@ -147,12 +156,52 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
     texture: 'grid', textureOpacity: 22, backgroundImageUrl: null, backgroundImageOpacity: 100,
     backgroundImageMode: 'tile', layout: 'two-column',
   },
+  {
+    templateId: 'studyo', name: 'Stüdyo', description: 'Bol boşluk, tek vurgu rengi, kusursuz sadelik.', mood: 'Apple Stili',
+    keywords: 'apple, minimal, beyaz, sade, premium, temiz, modern, stüdyo, zarif',
+    backgroundColor: '#f5f5f7', surfaceColor: '#ffffff', primaryColor: '#0071e3', accentColor: '#6e6e73',
+    textColor: '#1d1d1f', mutedTextColor: '#6e6e73', headingFont: FONT_OPTIONS[5].value,
+    bodyFont: FONT_OPTIONS[5].value, baseFontSize: 16, headingScale: 1.2, cardColor: '#ffffff',
+    cardOpacity: 97, cardRadius: 20, itemSpacing: 16, dividerColor: '#d2d2d7', dividerOpacity: 60,
+    texture: 'none', textureOpacity: 0, backgroundImageUrl: null, backgroundImageOpacity: 100,
+    backgroundImageMode: 'cover', layout: 'single',
+  },
+  {
+    templateId: 'sahil', name: 'Sahil', description: 'Deniz mavisi ve kireç beyazı — taze ve ferah.', mood: 'Akdeniz',
+    keywords: 'sahil, deniz, mavi, akdeniz, balık, yazlık, taze, ferah, beyaz',
+    backgroundColor: '#f4f8fa', surfaceColor: '#ffffff', primaryColor: '#0f5f7a', accentColor: '#e07a5f',
+    textColor: '#0d2b33', mutedTextColor: '#5b7d87', headingFont: FONT_OPTIONS[2].value,
+    bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.24, cardColor: '#ffffff',
+    cardOpacity: 95, cardRadius: 18, itemSpacing: 14, dividerColor: '#c7dde3', dividerOpacity: 70,
+    texture: 'none', textureOpacity: 0, backgroundImageUrl: null, backgroundImageOpacity: 100,
+    backgroundImageMode: 'cover', layout: 'single',
+  },
+  {
+    templateId: 'kahve', name: 'Kahve Dükkanı', description: 'Latte tonları ve yumuşak köşeler.', mood: 'Sıcak Kahve',
+    keywords: 'kahve, kafe, latte, kahverengi, sıcak, rahat, ahşap, üçüncü nesil kahve',
+    backgroundColor: '#f3ece3', surfaceColor: '#fffdf9', primaryColor: '#6f4518', accentColor: '#c68b3d',
+    textColor: '#3a2a1a', mutedTextColor: '#8a7562', headingFont: FONT_OPTIONS[1].value,
+    bodyFont: FONT_OPTIONS[1].value, baseFontSize: 16, headingScale: 1.22, cardColor: '#fffdf9',
+    cardOpacity: 94, cardRadius: 20, itemSpacing: 14, dividerColor: '#ddc9b0', dividerOpacity: 70,
+    texture: 'paper', textureOpacity: 20, backgroundImageUrl: null, backgroundImageOpacity: 100,
+    backgroundImageMode: 'cover', layout: 'single',
+  },
+  {
+    templateId: 'lux-steakhouse', name: 'Steakhouse Lüks', description: 'Antrasit zemin ve altın vurgular.', mood: 'Premium',
+    keywords: 'lüks, steakhouse, premium, altın, gece, karanlık, fine dining, şık, et',
+    backgroundColor: '#161513', surfaceColor: '#211f1c', primaryColor: '#c8a24a', accentColor: '#8a6d2f',
+    textColor: '#f3ede0', mutedTextColor: '#a79c8a', headingFont: FONT_OPTIONS[2].value,
+    bodyFont: FONT_OPTIONS[0].value, baseFontSize: 16, headingScale: 1.26, cardColor: '#262420',
+    cardOpacity: 90, cardRadius: 14, itemSpacing: 14, dividerColor: '#4a4237', dividerOpacity: 60,
+    texture: 'none', textureOpacity: 0, backgroundImageUrl: null, backgroundImageOpacity: 100,
+    backgroundImageMode: 'cover', layout: 'single',
+  },
 ];
 
 export const DEFAULT_MENU_DESIGN: MenuDesignSettings = stripPresetMeta(MENU_DESIGN_PRESETS[0]);
 
 export function stripPresetMeta(preset: typeof MENU_DESIGN_PRESETS[number]): MenuDesignSettings {
-  const { name: _name, description: _description, mood: _mood, ...settings } = preset;
+  const { name: _name, description: _description, mood: _mood, keywords: _keywords, ...settings } = preset;
   return settings;
 }
 

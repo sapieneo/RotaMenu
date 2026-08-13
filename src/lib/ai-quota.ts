@@ -20,7 +20,7 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import type { PlanTier } from '@/lib/plans';
 
-export type AiKind = 'ingest' | 'image' | 'translate' | 'description';
+export type AiKind = 'ingest' | 'image' | 'translate' | 'description' | 'design_style';
 
 /** Kimlik seviyesi — kota tablosunun satırını seçer. */
 export type AiTier = 'anonymous' | 'verified' | 'paid';
@@ -33,11 +33,11 @@ export type AiTier = 'anonymous' | 'verified' | 'paid';
  */
 const DAILY_LIMITS: Record<AiTier, Record<AiKind, number>> = {
   // Kaydolmamış ziyaretçi: ürünü denemesi için menü okutabilir, üretemez.
-  anonymous: { ingest: 10, image: 0, translate: 0, description: 0 },
+  anonymous: { ingest: 10, image: 0, translate: 0, description: 0, design_style: 0 },
   // Deneme sürümündeki doğrulanmış hesap: gerçek bir menüyü bitirmeye yeter.
-  verified: { ingest: 40, image: 80, translate: 25, description: 5 },
+  verified: { ingest: 40, image: 80, translate: 25, description: 5, design_style: 20 },
   // Ödeyen müşteri: pratikte engellemez, yalnız kaçak/hata durumunu yakalar.
-  paid: { ingest: 200, image: 400, translate: 100, description: 30 },
+  paid: { ingest: 200, image: 400, translate: 100, description: 30, design_style: 60 },
 };
 
 /** Kullanıcı ve plan durumundan kota seviyesini çıkarır. */
@@ -61,6 +61,7 @@ const KIND_LABEL: Record<AiKind, string> = {
   image: 'görsel üretimi',
   translate: 'çeviri',
   description: 'açıklama üretimi',
+  design_style: 'tasarım önerisi',
 };
 
 const IDENTITY_MESSAGE: Record<AiKind, string> = {
@@ -71,6 +72,8 @@ const IDENTITY_MESSAGE: Record<AiKind, string> = {
     'Çeviri için önce hesabını e-posta ile güvene al (Hesap sayfası). Doğrulanan hesaplarda çeviri açılır.',
   description:
     'Açıklama üretimi için önce hesabını e-posta ile güvene al (Hesap sayfası).',
+  design_style:
+    'AI tasarım önerisi için önce hesabını e-posta ile güvene al (Hesap sayfası).',
 };
 
 /**
