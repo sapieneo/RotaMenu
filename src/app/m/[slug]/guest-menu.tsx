@@ -446,7 +446,7 @@ export function GuestMenu({
           const cats = group.categories;
           return (
             <div key={`hero-${cats[0].id}`} className="relative">
-              <div className="sticky top-[50vh] z-0 h-[25.2rem] -translate-y-1/2 overflow-hidden rounded-2xl sm:h-[28rem]" aria-hidden>
+              <div className="sticky top-[50vh] z-0 h-[25.2rem] -translate-y-1/2 overflow-hidden sm:h-[28rem]" style={{ borderRadius: `${design.heroImageRadius}px` }} aria-hidden>
                 {cats.map((c) => (
                   <div
                     key={c.id}
@@ -598,8 +598,8 @@ function CategoryStrip({
 function CategoryFrame({ design, children }: { design: MenuDesignSettings; children: React.ReactNode }) {
   return (
     <div
-      className="overflow-hidden rounded-2xl border-2 bg-transparent shadow-sm"
-      style={{ borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)) }}
+      className="overflow-hidden border-2 bg-transparent shadow-sm"
+      style={{ borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)), borderRadius: `${design.groupFrameRadius}px` }}
     >
       {children}
     </div>

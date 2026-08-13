@@ -599,6 +599,8 @@ export function DesignStudio({
                 <RangeField label="Kart görünürlüğü" value={settings.cardOpacity} min={0} max={100} suffix="%" onChange={(value) => update('cardOpacity', value)} />
                 <RangeField label="Köşe yuvarlaklığı" value={settings.cardRadius} min={0} max={32} suffix=" px" onChange={(value) => update('cardRadius', value)} />
                 <RangeField label="Ürünler arası boşluk" value={settings.itemSpacing} min={6} max={28} suffix=" px" onChange={(value) => update('itemSpacing', value)} />
+                <RangeField label="Büyük resim köşe yuvarlaklığı" value={settings.heroImageRadius} min={0} max={40} suffix=" px" onChange={(value) => update('heroImageRadius', value)} />
+                <RangeField label="Ürün grup çerçevesi köşe yuvarlaklığı" value={settings.groupFrameRadius} min={0} max={40} suffix=" px" onChange={(value) => update('groupFrameRadius', value)} />
               </ControlSection>
             </>
           )}
