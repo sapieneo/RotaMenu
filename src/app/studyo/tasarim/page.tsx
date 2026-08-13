@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { resolveManagedVenue, withVenue } from '@/lib/managed-venue';
-import { normalizeMenuDesign } from '@/lib/themes';
+import { applyPresetOverrides, normalizeMenuDesign, type MenuDesignSettings } from '@/lib/themes';
 import { DesignStudio, type DesignPreviewCategory } from './design-studio';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +24,18 @@ export default async function DesignPage({ searchParams }: { searchParams?: { ve
     .select('design_settings, logo_url, cover_url')
     .eq('id', venue.id)
     .maybeSingle();
+
+  // Yönetici, "Büyük Tasarım Seç" kartlarından birini kendi tasarımıyla
+  // güncellemiş olabilir (bkz. POST /api/design-presets/[templateId]) — bu
+  // override'ları koddaki 10 sabit presetin üzerine uyguluyoruz. Herkese
+  // açık okuma politikası sayesinde normal (RLS'e tabi) istemci yeterli.
+  const { data: presetOverrideRows } = await supabase
+    .from('design_preset_overrides')
+    .select('template_id, settings');
+  const overridesByTemplateId = Object.fromEntries(
+    (presetOverrideRows ?? []).map((row) => [row.template_id, row.settings as MenuDesignSettings])
+  );
+  const presets = applyPresetOverrides(overridesByTemplateId);
 
   const { data: menus } = await supabase
     .from('menus')
@@ -88,6 +100,7 @@ export default async function DesignPage({ searchParams }: { searchParams?: { ve
       }}
       categories={previewCategories}
       initial={normalizeMenuDesign(designRow?.design_settings)}
+      initialPresets={presets}
       dashboardHref={withVenue('/studyo/pano', venue.id)}
     />
   );

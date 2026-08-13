@@ -7,13 +7,13 @@ import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
 import {
   DEFAULT_MENU_DESIGN,
   FONT_OPTIONS,
-  MENU_DESIGN_PRESETS,
   TEXTURE_OPTIONS,
   hexToRgba,
   menuBackgroundStyle,
   stripPresetMeta,
   textureBackground,
   textureSize,
+  type MenuDesignPreset,
   type MenuDesignSettings,
 } from '@/lib/themes';
 
@@ -32,21 +32,29 @@ export function DesignStudio({
   venue,
   categories,
   initial,
+  initialPresets,
   dashboardHref,
 }: {
   venue: { id: string; orgId: string; name: string; description: string | null; slug: string; currency: string; logoUrl: string | null; coverUrl: string | null };
   categories: DesignPreviewCategory[];
   initial: MenuDesignSettings;
+  initialPresets: MenuDesignPreset[];
   dashboardHref: string;
 }) {
   const [settings, setSettings] = useState(initial);
   const [saved, setSaved] = useState(initial);
+  const [presets, setPresets] = useState(initialPresets);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'error'>('idle');
   const [showDetailed, setShowDetailed] = useState(false);
   const [styleText, setStyleText] = useState('');
   const [suggestState, setSuggestState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [suggestion, setSuggestion] = useState<{ templateId: string; reason: string; fallback: boolean } | null>(null);
+  const [presetSaveTarget, setPresetSaveTarget] = useState<{ templateId: string; name: string } | null>(null);
+  const [presetSavePassword, setPresetSavePassword] = useState('');
+  const [presetSaveState, setPresetSaveState] = useState<'idle' | 'saving' | 'error'>('idle');
+  const [presetSaveError, setPresetSaveError] = useState<string | null>(null);
+  const [savedPresetFlashId, setSavedPresetFlashId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
 
@@ -56,7 +64,7 @@ export function DesignStudio({
   }
 
   function applyPreset(index: number) {
-    const preset = stripPresetMeta(MENU_DESIGN_PRESETS[index]!);
+    const preset = stripPresetMeta(presets[index]!);
     setSettings((current) => current.backgroundImageUrl
       ? {
           ...preset,
@@ -66,6 +74,53 @@ export function DesignStudio({
         }
       : preset);
     setSaveState('idle');
+  }
+
+  /**
+   * Kart üzerindeki küçük kaydet ikonu için — bir preset kartını, o anda
+   * stüdyoda üzerinde çalışılan tasarımla (settings) günceller. Kartın
+   * kendisine tıklamayla karışmasın diye ayrı bir parola onay adımından
+   * geçer (bkz. `confirmPresetSave`).
+   */
+  function openPresetSave(templateId: string, name: string) {
+    setPresetSaveTarget({ templateId, name });
+    setPresetSavePassword('');
+    setPresetSaveState('idle');
+    setPresetSaveError(null);
+  }
+
+  function closePresetSave() {
+    if (presetSaveState === 'saving') return;
+    setPresetSaveTarget(null);
+  }
+
+  async function confirmPresetSave() {
+    if (!presetSaveTarget || !presetSavePassword.trim()) return;
+    setPresetSaveState('saving');
+    setPresetSaveError(null);
+    try {
+      const response = await fetch(`/api/design-presets/${presetSaveTarget.templateId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: presetSavePassword, settings }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? 'Kaydedilemedi.');
+      const savedTemplateId = presetSaveTarget.templateId;
+      setPresets((current) =>
+        current.map((preset) =>
+          preset.templateId === savedTemplateId ? { ...preset, ...settings, templateId: savedTemplateId } : preset
+        )
+      );
+      setPresetSaveTarget(null);
+      setPresetSavePassword('');
+      setPresetSaveState('idle');
+      setSavedPresetFlashId(savedTemplateId);
+      setTimeout(() => setSavedPresetFlashId((current) => (current === savedTemplateId ? null : current)), 2200);
+    } catch (error) {
+      setPresetSaveState('error');
+      setPresetSaveError(error instanceof Error ? error.message : 'Kaydedilemedi.');
+    }
   }
 
   /**
@@ -86,7 +141,7 @@ export function DesignStudio({
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? 'Tasarım önerisi alınamadı.');
-      const index = MENU_DESIGN_PRESETS.findIndex((preset) => preset.templateId === body.templateId);
+      const index = presets.findIndex((preset) => preset.templateId === body.templateId);
       if (index >= 0) applyPreset(index);
       setSuggestion({ templateId: body.templateId, reason: body.reason, fallback: body.source === 'fallback' });
       setSuggestState('done');
@@ -221,7 +276,7 @@ export function DesignStudio({
               </div>
               {suggestState === 'done' && suggestion && (
                 <p className="mt-3 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-xs font-medium text-emerald-800">
-                  <span className="font-bold">{MENU_DESIGN_PRESETS.find((preset) => preset.templateId === suggestion.templateId)?.name ?? 'Tasarım'}</span> uygulandı — {suggestion.reason}
+                  <span className="font-bold">{presets.find((preset) => preset.templateId === suggestion.templateId)?.name ?? 'Tasarım'}</span> uygulandı — {suggestion.reason}
                 </p>
               )}
               {suggestState === 'error' && (
@@ -230,18 +285,38 @@ export function DesignStudio({
             </div>
 
             <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-5">
-              {MENU_DESIGN_PRESETS.map((preset, index) => {
+              {presets.map((preset, index) => {
                 const active = settings.templateId === preset.templateId;
                 const recommended = suggestState === 'done' && suggestion?.templateId === preset.templateId;
+                const justSaved = savedPresetFlashId === preset.templateId;
                 return (
-                  <button
+                  <div
                     key={preset.templateId}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => applyPreset(index)}
-                    className={`group relative overflow-hidden rounded-[20px] border bg-white text-left shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.09)] ${active ? 'border-brand-500 ring-2 ring-brand-100' : 'border-stone-200/80'}`}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        applyPreset(index);
+                      }
+                    }}
+                    className={`group relative cursor-pointer overflow-hidden rounded-[20px] border bg-white text-left shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(0,0,0,0.09)] ${active ? 'border-brand-500 ring-2 ring-brand-100' : 'border-stone-200/80'}`}
                   >
                     {recommended && (
                       <span className="absolute left-2.5 top-2.5 z-10 rounded-full bg-stone-900/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">✨ AI önerisi</span>
                     )}
+                    <button
+                      type="button"
+                      title="Şu anki tasarımı bu karta kaydet (yönetici parolası gerekir)"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openPresetSave(preset.templateId, preset.name);
+                      }}
+                      className={`absolute right-2.5 top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-full text-[11px] shadow-sm backdrop-blur transition ${justSaved ? 'bg-emerald-500 text-white' : 'bg-white/90 text-stone-500 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-stone-900 focus:opacity-100'}`}
+                    >
+                      {justSaved ? '✓' : '💾'}
+                    </button>
                     <span className="block h-24 p-3.5" style={{ backgroundColor: preset.backgroundColor, backgroundImage: textureBackground(preset.texture, preset.textColor, preset.textureOpacity), backgroundSize: textureSize(preset.texture) }}>
                       <span className="block h-3 w-3/4 rounded-full" style={{ backgroundColor: preset.primaryColor }} />
                       <span className="mt-3.5 block space-y-1.5 p-2.5" style={{ backgroundColor: hexToRgba(preset.cardColor, preset.cardOpacity), borderRadius: `${Math.min(preset.cardRadius, 16)}px` }}>
@@ -254,7 +329,7 @@ export function DesignStudio({
                       <span className="mt-0.5 block text-[11px] font-medium uppercase tracking-wide text-stone-400">{preset.mood}</span>
                       <span className="mt-1.5 block text-xs leading-snug text-stone-500">{preset.description}</span>
                     </span>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -264,7 +339,7 @@ export function DesignStudio({
               onClick={() => setShowDetailed((current) => !current)}
               className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-stone-600 shadow-sm transition hover:border-stone-300 hover:text-stone-900"
             >
-              <span className={`inline-block transition-transform ${showDetailed ? 'rotate-90' : ''}`}>›</span> Detaylı Tasarım
+              <span className={`inline-block transition-transform ${showDetailed ? 'rotate-90' : ''}`}>›</span> İnce Ayar
             </button>
           </section>
 
@@ -348,6 +423,51 @@ export function DesignStudio({
           <LivePreview slug={venue.slug} settings={settings} />
         </aside>
       </div>
+
+      {presetSaveTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm"
+          onClick={closePresetSave}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-stone-900">“{presetSaveTarget.name}” kartını güncelle</p>
+            <p className="mt-1 text-xs text-stone-500">
+              Şu anda üzerinde çalıştığın tasarım bu karta kaydedilecek — bu andan sonra platformdaki tüm işletmeler bu hazır şablonu bu hâliyle görür.
+            </p>
+            <input
+              type="password"
+              autoFocus
+              value={presetSavePassword}
+              onChange={(event) => setPresetSavePassword(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && void confirmPresetSave()}
+              placeholder="Yönetici parolası"
+              className="mt-4 w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm outline-none focus:border-brand-500"
+            />
+            {presetSaveError && <p className="mt-2 text-xs font-medium text-red-600">{presetSaveError}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closePresetSave}
+                disabled={presetSaveState === 'saving'}
+                className="rounded-xl px-3.5 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmPresetSave()}
+                disabled={presetSaveState === 'saving' || !presetSavePassword.trim()}
+                className="rounded-xl bg-stone-900 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {presetSaveState === 'saving' ? 'Kaydediliyor…' : 'Karta kaydet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

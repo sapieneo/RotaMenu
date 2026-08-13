@@ -73,13 +73,82 @@ export type MenuDesignSettings = {
 };
 
 export const FONT_OPTIONS = [
+  // Sistem/web-safe — hiçbir font yüklemesi gerektirmez.
   { id: 'modern', label: 'Modern', value: 'Arial, Helvetica, sans-serif' },
   { id: 'friendly', label: 'Samimi', value: 'Trebuchet MS, Arial, sans-serif' },
   { id: 'editorial', label: 'Editoryal', value: 'Georgia, Times New Roman, serif' },
   { id: 'classic', label: 'Klasik', value: 'Times New Roman, Times, serif' },
   { id: 'mono', label: 'Daktilo', value: 'Courier New, Courier, monospace' },
   { id: 'apple', label: 'Apple Sistem', value: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif' },
+  // Google Fonts — tek bir <link> ile sitenin tamamında yüklenir
+  // (bkz. GOOGLE_FONTS_STYLESHEET_URL, app/layout.tsx). Buradaki `value`
+  // dizesindeki aile adı o linkte istenen adla BİREBİR eşleşmeli, aksi
+  // hâlde font sessizce sistem yazı tipine düşer.
+  { id: 'inter', label: 'Inter', value: "'Inter', sans-serif" },
+  { id: 'poppins', label: 'Poppins', value: "'Poppins', sans-serif" },
+  { id: 'montserrat', label: 'Montserrat', value: "'Montserrat', sans-serif" },
+  { id: 'nunito', label: 'Nunito', value: "'Nunito', sans-serif" },
+  { id: 'raleway', label: 'Raleway', value: "'Raleway', sans-serif" },
+  { id: 'work-sans', label: 'Work Sans', value: "'Work Sans', sans-serif" },
+  { id: 'dm-sans', label: 'DM Sans', value: "'DM Sans', sans-serif" },
+  { id: 'space-grotesk', label: 'Space Grotesk', value: "'Space Grotesk', sans-serif" },
+  { id: 'josefin-sans', label: 'Josefin Sans', value: "'Josefin Sans', sans-serif" },
+  { id: 'quicksand', label: 'Quicksand', value: "'Quicksand', sans-serif" },
+  { id: 'playfair-display', label: 'Playfair Display', value: "'Playfair Display', serif" },
+  { id: 'merriweather', label: 'Merriweather', value: "'Merriweather', serif" },
+  { id: 'lora', label: 'Lora', value: "'Lora', serif" },
+  { id: 'cormorant-garamond', label: 'Cormorant Garamond', value: "'Cormorant Garamond', serif" },
+  { id: 'libre-baskerville', label: 'Libre Baskerville', value: "'Libre Baskerville', serif" },
+  { id: 'pt-serif', label: 'PT Serif', value: "'PT Serif', serif" },
+  { id: 'crimson-text', label: 'Crimson Text', value: "'Crimson Text', serif" },
+  { id: 'bitter', label: 'Bitter', value: "'Bitter', serif" },
+  { id: 'roboto-slab', label: 'Roboto Slab', value: "'Roboto Slab', serif" },
+  { id: 'oswald', label: 'Oswald', value: "'Oswald', sans-serif" },
+  { id: 'bebas-neue', label: 'Bebas Neue', value: "'Bebas Neue', sans-serif" },
+  { id: 'abril-fatface', label: 'Abril Fatface', value: "'Abril Fatface', serif" },
+  { id: 'dancing-script', label: 'Dancing Script', value: "'Dancing Script', cursive" },
+  { id: 'caveat', label: 'Caveat', value: "'Caveat', cursive" },
+  { id: 'pacifico', label: 'Pacifico', value: "'Pacifico', cursive" },
+  { id: 'ibm-plex-mono', label: 'IBM Plex Mono', value: "'IBM Plex Mono', monospace" },
 ] as const;
+
+/**
+ * `FONT_OPTIONS`'taki Google Fonts girişleriyle BİREBİR senkron tutulmalı —
+ * buraya bir font eklenip yukarıya eklenmezse (ya da tam tersi), o font
+ * seçilebilir görünür ama sessizce sistem yazı tipine düşer.
+ */
+const GOOGLE_FONT_FAMILIES = [
+  'Inter:wght@400;700',
+  'Poppins:wght@400;700',
+  'Montserrat:wght@400;700',
+  'Nunito:wght@400;700',
+  'Raleway:wght@400;700',
+  'Work+Sans:wght@400;700',
+  'DM+Sans:wght@400;700',
+  'Space+Grotesk:wght@400;700',
+  'Josefin+Sans:wght@400;700',
+  'Quicksand:wght@400;700',
+  'Playfair+Display:wght@400;700',
+  'Merriweather:wght@400;700',
+  'Lora:wght@400;700',
+  'Cormorant+Garamond:wght@400;700',
+  'Libre+Baskerville:wght@400;700',
+  'PT+Serif:wght@400;700',
+  'Crimson+Text:wght@400;700',
+  'Bitter:wght@400;700',
+  'Roboto+Slab:wght@400;700',
+  'Oswald:wght@400;700',
+  'Bebas+Neue',
+  'Abril+Fatface',
+  'Dancing+Script:wght@400;700',
+  'Caveat:wght@400;700',
+  'Pacifico',
+  'IBM+Plex+Mono:wght@400;700',
+];
+
+export const GOOGLE_FONTS_STYLESHEET_URL = `https://fonts.googleapis.com/css2?${GOOGLE_FONT_FAMILIES.map(
+  (family) => `family=${family}`
+).join('&')}&display=swap`;
 
 export const TEXTURE_OPTIONS: { id: TextureId; label: string }[] = [
   { id: 'none', label: 'Düz' },
@@ -89,13 +158,15 @@ export const TEXTURE_OPTIONS: { id: TextureId; label: string }[] = [
   { id: 'grid', label: 'Karo' },
 ];
 
-export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
+export type MenuDesignPreset = MenuDesignSettings & {
   name: string;
   description: string;
   mood: string;
   /** AI stil eşleştirmesi ve etiket gösterimi için serbest metin anahtar kelimeler. */
   keywords: string;
-})[] = [
+};
+
+export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
   {
     templateId: 'sade', name: 'Sade', description: 'Temiz, ferah ve hızlı okunur.', mood: 'Modern',
     keywords: 'sade, modern, minimal, temiz, ferah, günlük, hızlı okunur',
@@ -200,9 +271,27 @@ export const MENU_DESIGN_PRESETS: (MenuDesignSettings & {
 
 export const DEFAULT_MENU_DESIGN: MenuDesignSettings = stripPresetMeta(MENU_DESIGN_PRESETS[0]);
 
-export function stripPresetMeta(preset: typeof MENU_DESIGN_PRESETS[number]): MenuDesignSettings {
+export function stripPresetMeta(preset: MenuDesignPreset): MenuDesignSettings {
   const { name: _name, description: _description, mood: _mood, keywords: _keywords, ...settings } = preset;
   return settings;
+}
+
+/**
+ * Yönetici tarafından kaydedilmiş kart override'larını (bkz.
+ * `design_preset_overrides` tablosu, POST /api/design-presets/[templateId])
+ * koddaki 10 sabit preset üzerine uygular. Yalnızca GÖRSEL ayarlar
+ * (renk/font/aralık vb.) değişir — ad/açıklama/ruh hali/anahtar kelimeler
+ * her zaman koddan gelir, override satırında bu alanlar zaten bulunmuyor.
+ * Override'ı olmayan kartlar koddaki hâliyle olduğu gibi döner.
+ */
+export function applyPresetOverrides(
+  overridesByTemplateId: Record<string, MenuDesignSettings>
+): MenuDesignPreset[] {
+  return MENU_DESIGN_PRESETS.map((preset) => {
+    const override = overridesByTemplateId[preset.templateId];
+    if (!override) return preset;
+    return { ...preset, ...override, templateId: preset.templateId };
+  });
 }
 
 export function normalizeMenuDesign(value: unknown): MenuDesignSettings {

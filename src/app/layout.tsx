@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { GOOGLE_FONTS_STYLESHEET_URL } from '@/lib/themes';
 
 export const metadata: Metadata = {
   title: 'RestaurantOS — Menünü dakikalar içinde dijitale taşı',
@@ -33,6 +34,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="tr">
       <head>
+        {/* Tasarım stüdyosundaki genişletilmiş font listesi (bkz. FONT_OPTIONS,
+            lib/themes.ts) buradan tek seferde, tüm sitede yüklenir — menü
+            önizlemesi de dahil, çünkü /m/[slug] de bu kök layout'u paylaşır. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href={GOOGLE_FONTS_STYLESHEET_URL} />
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>{children}</body>
