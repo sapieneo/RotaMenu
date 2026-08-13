@@ -41,6 +41,7 @@ export const menuDesignSchema = z.object({
   layout: z.enum(['single', 'two-column']),
   headerHeight: z.number().int().min(60).max(320),
   logoSize: z.number().int().min(24).max(160),
+  logoPositionX: z.number().int().min(0).max(100),
 });
 
 /**

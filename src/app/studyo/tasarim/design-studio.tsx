@@ -542,8 +542,9 @@ export function DesignStudio({
                       <div className="flex-1"><p className="text-sm font-semibold text-stone-700">Yüklü logo</p><button type="button" onClick={() => void removeLogo()} disabled={logoUploadState === 'uploading'} className="mt-1 text-xs font-medium text-red-600 hover:underline disabled:opacity-50">Kaldır</button></div>
                     </div>
                   )}
-                  <div className="mt-4">
+                  <div className="mt-4 space-y-4">
                     <RangeField label="Logo boyutu" value={settings.logoSize} min={24} max={160} suffix=" px" onChange={(value) => update('logoSize', value)} />
+                    <RangeField label="Logo yatay konumu" value={settings.logoPositionX} min={0} max={100} suffix="%" onChange={(value) => update('logoPositionX', value)} />
                   </div>
                 </div>
               </ControlSection>

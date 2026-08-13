@@ -241,10 +241,49 @@ export function GuestMenu({
 
       {/* Hero */}
       <header className="relative z-30 sm:rounded-t-2xl" style={{ backgroundColor: design.surfaceColor }}>
-        <div className="px-5 pt-4 pb-3">
-          <h1 className="font-bold tracking-tight" style={{ fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale * 1.35}px` }}>{venue.name}</h1>
+        {/* Kapak şeridi — kalınlığı (headerHeight) İnce Ayar'dan ayarlanır.
+            İşletme adı şeridin ÜZERİNDE, dikey ortalanmış ve soldan
+            başlayacak şekilde gösterilir; fotoğraf/gradyan üzerinde okunur
+            kalması için kapak fotoğrafı varsa beyaz + gölge, yoksa (düz
+            gradyan) `surfaceColor` kullanılır (bkz. CategoryStrip'teki aynı
+            kontrast mantığı). Logo, boyutu (logoSize) ve yatay konumu
+            (logoPositionX) İnce Ayar'dan ayarlanabilir şekilde şeridin üst
+            kısmında durur. */}
+        <div
+          className="relative w-full bg-cover bg-center"
+          style={{
+            height: `${design.headerHeight}px`,
+            ...(venue.coverUrl
+              ? { backgroundImage: `url(${venue.coverUrl})` }
+              : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }),
+          }}
+        >
+          <div className="absolute inset-0 flex items-center px-5">
+            <h1
+              className="font-bold tracking-tight"
+              style={
+                venue.coverUrl
+                  ? { fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale * 1.35}px`, color: '#ffffff', textShadow: '0 1px 6px rgba(0,0,0,0.45)' }
+                  : { fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale * 1.35}px`, color: design.surfaceColor }
+              }
+            >
+              {venue.name}
+            </h1>
+          </div>
+          {venue.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={venue.logoUrl}
+              alt={venue.name}
+              className="absolute top-3 object-contain drop-shadow-md"
+              style={{ height: `${design.logoSize}px`, maxWidth: '80%', left: `${design.logoPositionX}%`, transform: 'translateX(-50%)' }}
+            />
+          )}
+        </div>
+
+        <div className="px-5 pt-3 pb-4">
           {venue.description && (
-            <p className="mt-1 text-sm" style={{ color: design.mutedTextColor }}>{venue.description}</p>
+            <p className="text-sm" style={{ color: design.mutedTextColor }}>{venue.description}</p>
           )}
           {availableLocales.length > 1 && (
             <label className="mt-4 inline-flex items-center gap-2 border px-3 py-2 text-sm font-medium shadow-sm" style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), backgroundColor: design.surfaceColor, color: design.textColor, borderRadius: `${Math.min(design.cardRadius, 16)}px` }}>
@@ -266,29 +305,6 @@ export function GuestMenu({
                 ))}
               </select>
             </label>
-          )}
-        </div>
-
-        {/* Kapak şeridi — kalınlığı (headerHeight) ve üzerindeki logonun
-            boyutu (logoSize) İnce Ayar'dan ayarlanır. Logo her zaman
-            şeridin üst orta kısmında, en/boy oranı korunarak gösterilir. */}
-        <div
-          className="relative w-full bg-cover bg-center"
-          style={{
-            height: `${design.headerHeight}px`,
-            ...(venue.coverUrl
-              ? { backgroundImage: `url(${venue.coverUrl})` }
-              : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }),
-          }}
-        >
-          {venue.logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={venue.logoUrl}
-              alt={venue.name}
-              className="absolute left-1/2 top-3 -translate-x-1/2 object-contain drop-shadow-md"
-              style={{ height: `${design.logoSize}px`, maxWidth: '80%' }}
-            />
           )}
         </div>
       </header>
