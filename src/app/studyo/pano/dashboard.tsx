@@ -151,7 +151,11 @@ export function Dashboard({ data }: { data: DashboardData }) {
       {/* Araçlar */}
       <h2 className="mb-3 mt-6 text-sm font-bold uppercase tracking-wide text-stone-400">Araçlar</h2>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <QuickLink href="/studyo" icon="📸" label="Menüye sayfa ekle" />
+        {/* DİKKAT: `venueHref` ŞART. Düz "/studyo" bağlantısı işletme kimliğini
+            taşımadığı için bootstrap "en son işletme"ye düşüyor ve Amigos'un
+            panosundan sayfa eklemeye çalışan kullanıcı başka bir işletmenin
+            stüdyosunda buluyordu kendini. */}
+        <QuickLink href={venueHref('/studyo')} icon="📸" label="Menüye sayfa ekle" />
         <QuickLink href={venueHref('/studyo/uyum')} icon="✅" label="Alerjen / uyum" />
         <QuickLink href={venueHref('/studyo/tasarim')} icon="✦" label="Tasarım" />
         <QuickLink href={venueHref('/studyo/gorseller')} icon="🎨" label="Görseller" />
@@ -177,7 +181,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
 function SetupProgress({ data }: { data: DashboardData }) {
   const venueHref = (path: string) => `${path}?venue=${encodeURIComponent(data.venueId)}`;
   const steps = [
-    { label: 'Menüyü yükle', done: data.itemCount > 0, href: '/studyo' },
+    { label: 'Menüyü yükle', done: data.itemCount > 0, href: venueHref('/studyo') },
     { label: 'Düzenle', done: data.itemCount > 0, href: venueHref('/studyo/uyum') },
     {
       label: 'Uyum onayı',

@@ -206,32 +206,38 @@ export default function StudyoPage() {
       {hasMenu && (
         <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">Bu sayfalar nereye eklensin?</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setNewMenuMode(false)}
-              className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${!newMenuMode ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300'}`}
-            >
-              Mevcut menüye ekle
-            </button>
-            <button
-              type="button"
-              onClick={() => setNewMenuMode(true)}
-              className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${newMenuMode ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300'}`}
-            >
-              Yeni menü olarak yükle
-            </button>
-          </div>
+
+          {/* İki ayrı düğme yerine tek bir onay kutusu: varsayılan davranış
+              (mevcut menüye ekle) işaretsiz hâldir, kullanıcı bilinçli olarak
+              işaretlemedikçe menü çoğalmaz. İşaretlenince misafir menüsünün
+              üstünde ayrı bir sekme açılır (bkz. guest-menu.tsx → menus). */}
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3 transition hover:border-stone-300">
+            <input
+              type="checkbox"
+              checked={newMenuMode}
+              onChange={(e) => setNewMenuMode(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-stone-800">Ayrı bir menü olarak ekle</span>
+              <span className="mt-0.5 block text-xs text-stone-500">
+                Şarap, rakı, kokteyl gibi ayrı kartlar için. Misafir menüsünde en üstte kendi
+                sekmesiyle çıkar. İşaretlemezsen sayfalar mevcut menüye eklenir, var olan ürünler
+                silinmez.
+              </span>
+            </span>
+          </label>
+
           {newMenuMode && (
-            <>
-              <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 rounded-xl border border-brand-200 bg-brand-50/50 p-3">
+              <div className="flex flex-wrap gap-2">
                 <input
                   value={newMenuIcon}
                   onChange={(e) => setNewMenuIcon(e.target.value)}
                   placeholder="🍷"
                   aria-label="Menü ikonu (emoji, opsiyonel)"
                   maxLength={4}
-                  className="w-16 rounded-xl border border-stone-200 px-3 py-2 text-center text-lg outline-none focus:border-brand-500"
+                  className="w-16 rounded-xl border border-stone-200 bg-white px-3 py-2 text-center text-lg outline-none focus:border-brand-500"
                 />
                 <input
                   value={newMenuName}
@@ -239,7 +245,7 @@ export default function StudyoPage() {
                   placeholder="Menü adı (örn. Şarap Menüsü)"
                   aria-label="Yeni menü adı"
                   maxLength={60}
-                  className="min-w-0 flex-1 rounded-xl border border-stone-200 px-3 py-2 text-sm outline-none focus:border-brand-500"
+                  className="min-w-0 flex-1 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500"
                 />
               </div>
               {/* Hızlı ikon seçimi: emoji klavyesi açmak zorunda kalmadan tek
@@ -255,7 +261,7 @@ export default function StudyoPage() {
                       aria-pressed={selected}
                       aria-label={`Menü ikonu ${icon}`}
                       className={`flex h-9 w-9 items-center justify-center rounded-lg border text-lg transition ${
-                        selected ? 'border-brand-600 bg-brand-50' : 'border-stone-200 bg-white hover:border-stone-300'
+                        selected ? 'border-brand-600 bg-white' : 'border-stone-200 bg-white hover:border-stone-300'
                       }`}
                     >
                       {icon}
@@ -263,12 +269,7 @@ export default function StudyoPage() {
                   );
                 })}
               </div>
-            </>
-          )}
-          {newMenuMode ? (
-            <p className="mt-2 text-xs text-stone-500">Bu sayfalar ayrı, adlandırılmış yeni bir menü olarak yüklenir — misafir menüsünde üstte ayrı bir sekme olarak çıkar.</p>
-          ) : (
-            <p className="mt-2 text-xs text-stone-500">Yüklediğin sayfalar mevcut menüne eklenir; var olan ürünler silinmez.</p>
+            </div>
           )}
         </div>
       )}
