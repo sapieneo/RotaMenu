@@ -160,7 +160,7 @@ export function DraftEditor({
     setDraft((d) => ({
       ...d,
       categories: d.categories.map((c, i) =>
-        i !== ci ? c : { ...c, items: [...c.items, { name: 'Yeni ürün', description: null, ingredients: null, price: null, calories_kcal: null, allergens: [], dietary: [] }] }
+        i !== ci ? c : { ...c, items: [...c.items, { name: 'Yeni ürün', description: null, ingredients: null, price: null, calories_kcal: null, allergens: [], dietary: [], is_featured: false }] }
       ),
     }));
   }
@@ -458,6 +458,14 @@ export function DraftEditor({
                         <span className="w-8 shrink-0 text-xs text-stone-400">kcal</span>
                       </label>
                     </div>
+                    <button
+                      onClick={() => updateItem(ci, ii, { is_featured: !item.is_featured })}
+                      className={`rounded-lg px-2 py-1 transition ${item.is_featured ? 'text-amber-500 hover:bg-amber-50' : 'text-stone-300 hover:bg-stone-100 hover:text-stone-500'}`}
+                      aria-label={item.is_featured ? 'Şefin Seçtikleri’nden çıkar' : 'Şefin Seçtikleri’ne ekle'}
+                      title={item.is_featured ? 'Şefin Seçtikleri’nden çıkar' : 'Şefin Seçtikleri’ne ekle — misafir menüsünün üstünde öne çıkar'}
+                    >
+                      {item.is_featured ? '★' : '☆'}
+                    </button>
                     <button
                       onClick={() => removeItem(ci, ii)}
                       className="rounded-lg px-2 py-1 text-stone-400 transition hover:bg-red-50 hover:text-red-600"

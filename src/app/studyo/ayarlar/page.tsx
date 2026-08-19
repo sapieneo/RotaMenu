@@ -95,6 +95,10 @@ export default async function VenueSettingsPage({ searchParams }: { searchParams
     wifiSsid: venue.wifi_ssid ?? '',
     openingHours: venue.opening_hours ?? '',
     currencyCode: venue.currency_code ?? 'TRY',
+    announcementTitle: venue.announcement_title ?? '',
+    announcementBody: venue.announcement_body ?? '',
+    announcementButtonText: venue.announcement_button_text ?? '',
+    story: venue.story ?? '',
   };
 
   return (

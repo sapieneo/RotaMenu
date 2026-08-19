@@ -28,6 +28,8 @@ export const extractedItemSchema = z.object({
   calories_kcal: z.number().int().min(0).max(20000).nullish(),
   allergens: z.array(allergenSuggestionSchema).default([]),
   dietary: z.array(dietarySuggestionSchema).default([]),
+  /** "Şefin Seçtikleri" — misafir menüsünün üstünde öne çıkan şeritte gösterilir. */
+  is_featured: z.boolean().default(false),
 });
 
 export const extractedCategorySchema = z.object({

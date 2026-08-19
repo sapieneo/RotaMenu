@@ -35,16 +35,24 @@ export type PlanLimits = {
   canPublish: boolean;
 };
 
+/**
+ * AJANS MODU: bu motor artık bir ajansın kendi müşterilerine menü ürettiği
+ * kapalı bir ortam — dışarıya satılan bir SaaS değil. Bu yüzden 'free'
+ * planın limitleri kasıtlı olarak 'pro' ile BİREBİR aynı: kayıt/deneme
+ * süresi/rozet/ürün sayısı gibi hiçbir kısıtlama yok. Plan altyapısı
+ * (PlanTier, resolvePlanContext, Stripe route'ları vb.) kodda duruyor —
+ * ileride tekrar bir SaaS'a dönüştürülmek istenirse tek satır değişir.
+ */
 export const PLANS: Record<PlanTier, PlanLimits> = {
   free: {
     label: 'Ücretsiz',
-    maxVenues: 1,
-    maxItems: 50,
-    maxLocales: 5,
-    images: false,
-    removeBadge: false,
-    requiresVerifiedAccount: true,
-    canPublish: false,
+    maxVenues: Infinity,
+    maxItems: Infinity,
+    maxLocales: Infinity,
+    images: true,
+    removeBadge: true,
+    requiresVerifiedAccount: false,
+    canPublish: true,
   },
   pro: {
     label: 'Pro',
@@ -126,36 +134,21 @@ export type PlanContext = {
  */
 export function resolvePlanContext(
   plan: string | null | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   trialEndsAt: string | Date | null | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   now: Date = new Date()
 ): PlanContext {
   const basePlan = normalizePlan(plan);
-
-  if (basePlan !== 'free') {
-    return {
-      basePlan,
-      effectivePlan: basePlan,
-      limits: planLimits(basePlan),
-      trial: { state: 'none', endsAt: null, daysLeft: 0 },
-    };
-  }
-
-  const endsAt = trialEndsAt ? new Date(trialEndsAt) : null;
-  const valid = endsAt && !Number.isNaN(endsAt.getTime());
-  const isActive = Boolean(valid && endsAt!.getTime() > now.getTime());
-  const daysLeft = isActive
-    ? Math.max(0, Math.ceil((endsAt!.getTime() - now.getTime()) / 86_400_000))
-    : 0;
-
+  // AJANS MODU: deneme süresi kavramı devre dışı — 'free' zaten 'pro' ile
+  // aynı limitlere sahip (bkz. PLANS), o yüzden trial hesaplaması hiçbir
+  // şeyi kilitlemesin diye her zaman 'none' döner. trialEndsAt/now
+  // parametreleri geriye dönük uyumluluk için duruyor, kullanılmıyor.
   return {
     basePlan,
-    effectivePlan: isActive ? 'pro' : 'free',
-    limits: planLimits(isActive ? 'pro' : 'free'),
-    trial: {
-      state: isActive ? 'active' : valid ? 'expired' : 'none',
-      endsAt: valid ? endsAt!.toISOString() : null,
-      daysLeft,
-    },
+    effectivePlan: basePlan,
+    limits: planLimits(basePlan),
+    trial: { state: 'none', endsAt: null, daysLeft: 0 },
   };
 }
 

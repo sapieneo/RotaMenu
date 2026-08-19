@@ -25,6 +25,13 @@ export default function StudyoPage() {
   const [isAnon, setIsAnon] = useState(false);
   const [hasMenu, setHasMenu] = useState(false);
   const [venueInfo, setVenueInfo] = useState<{ id: string; name: string; slug: string } | null>(null);
+  // Menüsü zaten olan bir işletme yeni sayfa yüklerken, bunu mevcut menüye
+  // eklemek yerine AYRI bir menü ("Şarap Menüsü" gibi) olarak da
+  // yükleyebilir — misafir tarafında çoklu menü şeridinde ayrı bir sekme
+  // olarak çıkar (bkz. guest-menu.tsx `menus` prop'u).
+  const [newMenuMode, setNewMenuMode] = useState(false);
+  const [newMenuName, setNewMenuName] = useState('');
+  const [newMenuIcon, setNewMenuIcon] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const bootstrapped = useRef(false);
 
@@ -79,6 +86,10 @@ export default function StudyoPage() {
         setPhase({ name: 'hata', message: 'Tek seferde en çok 10 sayfa yükleyebilirsin.', orgId, venueId });
         return;
       }
+      if (newMenuMode && !newMenuName.trim()) {
+        setPhase({ name: 'hata', message: 'Yeni menüye bir isim ver (örn. "Şarap Menüsü").', orgId, venueId });
+        return;
+      }
       for (const file of files) {
         if (!ACCEPTED.includes(file.type)) {
           setPhase({ name: 'hata', message: 'JPG, PNG, WebP veya PDF yükleyin.', orgId, venueId });
@@ -112,7 +123,13 @@ export default function StudyoPage() {
         const res = await fetch('/api/ingest', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ venueId, pages }),
+          body: JSON.stringify({
+            venueId,
+            pages,
+            ...(newMenuMode && newMenuName.trim()
+              ? { newMenu: { name: newMenuName.trim(), icon: newMenuIcon.trim() || undefined } }
+              : {}),
+          }),
         });
         const contentType = res.headers.get('content-type') ?? '';
         const body = contentType.includes('application/json')
@@ -178,6 +195,53 @@ export default function StudyoPage() {
           çerezini silmiş kayıtlı bir kullanıcı. İkincisine bir çıkış kapısı
           bırakmazsak burada sessizce YENİ bir boş hesap açmış oluyoruz ve
           kullanıcı menüsünü kaybettiğini sanıyor. */}
+      {hasMenu && (
+        <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">Bu sayfalar nereye eklensin?</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setNewMenuMode(false)}
+              className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${!newMenuMode ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300'}`}
+            >
+              Mevcut menüye ekle
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewMenuMode(true)}
+              className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${newMenuMode ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300'}`}
+            >
+              Yeni menü olarak yükle
+            </button>
+          </div>
+          {newMenuMode && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <input
+                value={newMenuIcon}
+                onChange={(e) => setNewMenuIcon(e.target.value)}
+                placeholder="🍷"
+                aria-label="Menü ikonu (emoji, opsiyonel)"
+                maxLength={4}
+                className="w-16 rounded-xl border border-stone-200 px-3 py-2 text-center text-lg outline-none focus:border-brand-500"
+              />
+              <input
+                value={newMenuName}
+                onChange={(e) => setNewMenuName(e.target.value)}
+                placeholder="Menü adı (örn. Şarap Menüsü)"
+                aria-label="Yeni menü adı"
+                maxLength={60}
+                className="min-w-0 flex-1 rounded-xl border border-stone-200 px-3 py-2 text-sm outline-none focus:border-brand-500"
+              />
+            </div>
+          )}
+          {newMenuMode ? (
+            <p className="mt-2 text-xs text-stone-500">Bu sayfalar ayrı, adlandırılmış yeni bir menü olarak yüklenir — misafir menüsünde üstte ayrı bir sekme olarak çıkar.</p>
+          ) : (
+            <p className="mt-2 text-xs text-stone-500">Yüklediğin sayfalar mevcut menüne eklenir; var olan ürünler silinmez.</p>
+          )}
+        </div>
+      )}
+
       {isAnon && !hasMenu && (
         <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-600">
           Daha önce menü oluşturduysan{' '}

@@ -38,6 +38,13 @@ const bodySchema = z.object({
   isPublished: z.boolean().optional(),
   /** Logo PNG'si — yalnızca kendi Supabase depomuzdaki `venue-media` içinden gelebilir (bkz. isAllowedBackgroundImageUrl). */
   logoUrl: z.string().url().nullable().optional(),
+  /** Karşılama popup'ı — bkz. m/[slug]/guest-menu.tsx WelcomeAnnouncement. Başlık boşsa popup hiç gösterilmez. */
+  announcementTitle: optStr(80),
+  announcementBody: optStr(300),
+  announcementImageUrl: z.string().url().nullable().optional(),
+  announcementButtonText: optStr(30),
+  /** Alt bilgi / marka hikayesi bloğu — guest-menu.tsx'te footer'dan önce gösterilir. */
+  story: optStr(2000),
 });
 
 /**
@@ -68,6 +75,9 @@ export async function PATCH(request: NextRequest) {
   if (b.logoUrl !== undefined && !isAllowedBackgroundImageUrl(b.logoUrl)) {
     return NextResponse.json({ error: 'Geçersiz logo görseli.' }, { status: 400 });
   }
+  if (b.announcementImageUrl !== undefined && !isAllowedBackgroundImageUrl(b.announcementImageUrl)) {
+    return NextResponse.json({ error: 'Geçersiz duyuru görseli.' }, { status: 400 });
+  }
   const norm = (v: string | null | undefined) => {
     const t = (v ?? '').trim();
     return t === '' ? null : t;
@@ -90,6 +100,11 @@ export async function PATCH(request: NextRequest) {
   if (b.currencyCode) patch.currency_code = b.currencyCode;
   if (b.slug !== undefined) patch.slug = b.slug;
   if (b.logoUrl !== undefined) patch.logo_url = b.logoUrl;
+  setIf('announcement_title', b.announcementTitle !== undefined, norm(b.announcementTitle));
+  setIf('announcement_body', b.announcementBody !== undefined, norm(b.announcementBody));
+  if (b.announcementImageUrl !== undefined) patch.announcement_image_url = b.announcementImageUrl;
+  setIf('announcement_button_text', b.announcementButtonText !== undefined, norm(b.announcementButtonText));
+  setIf('story', b.story !== undefined, norm(b.story));
 
   if (b.isPublished !== undefined) {
     patch.is_published = b.isPublished;

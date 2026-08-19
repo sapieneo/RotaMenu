@@ -4,7 +4,7 @@ import { isAdminSession } from '@/lib/admin-auth';
 type ServerClient = ReturnType<typeof createClient>;
 
 const VENUE_COLUMNS =
-  'id, org_id, slug, name, description, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, currency_code, is_published, published_at';
+  'id, org_id, slug, name, description, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, currency_code, is_published, published_at, announcement_title, announcement_body, announcement_image_url, announcement_button_text, story';
 
 export type ManagedVenue = {
   id: string;
@@ -22,6 +22,11 @@ export type ManagedVenue = {
   currency_code: string | null;
   is_published: boolean;
   published_at: string | null;
+  announcement_title: string | null;
+  announcement_body: string | null;
+  announcement_image_url: string | null;
+  announcement_button_text: string | null;
+  story: string | null;
 };
 
 /**

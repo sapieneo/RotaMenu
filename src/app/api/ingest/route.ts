@@ -21,6 +21,12 @@ const bodySchema = z.object({
   venueId: z.string().uuid(),
   /** Aynı menünün bir veya daha fazla sayfası (tek çıkarmada birleştirilir). */
   pages: z.array(pageSchema).min(1).max(10),
+  /**
+   * Doluysa: bu yükleme mevcut menüye eklenmez, onaylandığında bu adla
+   * (ve opsiyonel emoji ikonla) YENİ bir menü satırı oluşturulur — misafir
+   * tarafında çoklu menü şeridinde ayrı bir sekme olarak çıkar.
+   */
+  newMenu: z.object({ name: z.string().trim().min(1).max(60), icon: z.string().trim().max(4).optional() }).optional(),
 });
 
 /**
@@ -42,7 +48,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 });
   }
-  const { venueId, pages } = parsed.data;
+  const { venueId, pages, newMenu } = parsed.data;
 
   const { data: venue } = await supabase
     .from('venues')
@@ -72,17 +78,23 @@ export async function POST(request: NextRequest) {
   }
   const inputHash = hash.digest('hex');
 
-  // İdempotency: aynı sayfa seti bu venue için zaten işlendiyse onu döndür
-  const { data: existing } = await supabase
-    .from('menu_ingestions')
-    .select('id, status')
-    .eq('venue_id', venueId)
-    .eq('input_hash', inputHash)
-    .in('status', ['review', 'approved'])
-    .limit(1)
-    .maybeSingle();
-  if (existing) {
-    return NextResponse.json({ id: existing.id, status: existing.status, deduplicated: true });
+  // İdempotency: aynı sayfa seti bu venue için zaten işlendiyse onu döndür.
+  // "Yeni menü olarak yükle" niyetiyle gelen bir istek, aynı bayt içeriği
+  // daha önce (farklı bir niyetle, örn. mevcut menüye) işlendiyse bile
+  // KISA DEVRE yapılmaz — aksi halde kullanıcının "ayrı menü" isteği
+  // sessizce yok sayılıp eski menüye düşerdi.
+  if (!newMenu) {
+    const { data: existing } = await supabase
+      .from('menu_ingestions')
+      .select('id, status')
+      .eq('venue_id', venueId)
+      .eq('input_hash', inputHash)
+      .in('status', ['review', 'approved'])
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      return NextResponse.json({ id: existing.id, status: existing.status, deduplicated: true });
+    }
   }
 
   // ── AI maliyet koruması ──────────────────────────────────────────────────
@@ -117,6 +129,8 @@ export async function POST(request: NextRequest) {
       storage_path: pages[0].storagePath,
       input_hash: inputHash,
       status: 'uploaded',
+      new_menu_name: newMenu?.name ?? null,
+      new_menu_icon: newMenu?.icon ?? null,
     })
     .select('id')
     .single();

@@ -21,6 +21,8 @@ export const menuDesignSchema = z.object({
   accentColor: color,
   textColor: color,
   mutedTextColor: color,
+  /** Boşsa (null) fiyatlar `primaryColor` ile gösterilir — bkz. lib/themes.ts. */
+  priceColor: color.nullable().optional(),
   headingFont: z.string().min(1).max(120),
   bodyFont: z.string().min(1).max(120),
   baseFontSize: z.number().int().min(13).max(20),

@@ -40,16 +40,21 @@ const DAILY_LIMITS: Record<AiTier, Record<AiKind, number>> = {
   paid: { ingest: 200, image: 400, translate: 100, description: 30, design_style: 60 },
 };
 
-/** Kullanıcı ve plan durumundan kota seviyesini çıkarır. */
-export function aiTierFor(input: {
-  isAnonymous: boolean;
-  email: string | null | undefined;
-  basePlan: PlanTier;
-}): AiTier {
-  if (input.basePlan !== 'free') return 'paid';
-  // Deneme sürüyor olabilir ama hesap güvene alınmadıysa hâlâ anonimdir.
-  const secured = !input.isAnonymous && Boolean(input.email);
-  return secured ? 'verified' : 'anonymous';
+/**
+ * Kullanıcı ve plan durumundan kota seviyesini çıkarır.
+ *
+ * AJANS MODU: bu artık herkese satılan bir SaaS değil, ajansın kendi
+ * müşterileri için kullandığı kapalı bir araç — anonim ziyaretçi/e-posta
+ * doğrulama ayrımının bir anlamı yok. Bu yüzden her zaman en yüksek
+ * (`paid`) günlük limitler uygulanır. Bu limitler pratikte engellemez,
+ * yalnızca gerçek bir hata/kaçak döngüsü olursa faturayı korur — o yüzden
+ * tamamen kaldırmak yerine burada tutuldu (bkz. plans.ts'teki AJANS MODU notu).
+ */
+export function aiTierFor(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  input: { isAnonymous: boolean; email: string | null | undefined; basePlan: PlanTier }
+): AiTier {
+  return 'paid';
 }
 
 export type QuotaResult =

@@ -114,7 +114,7 @@ async function hydrateDraft(
   const { data: itemRows } = await supabase
     .from('items')
     .select(
-      'id, name, description, ingredients, price, calories_kcal, category_id, sort_order, ' +
+      'id, name, description, ingredients, price, calories_kcal, category_id, sort_order, is_featured, ' +
         'item_allergens(allergen_id, confidence), item_dietary(tag_id, confidence)'
     )
     .in('category_id', catIds)
@@ -140,6 +140,7 @@ async function hydrateDraft(
       dietary: dietRows
         .map((r) => ({ code: DIETARY_CODE_BY_ID[r.tag_id], confidence: r.confidence ?? 1 }))
         .filter((d) => Boolean(d.code)),
+      is_featured: Boolean(it.is_featured),
     });
     byCat.set(catId, list);
   }

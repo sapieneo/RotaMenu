@@ -7,7 +7,7 @@ import { showRestaurantBadge, resolvePlanContext } from '@/lib/plans';
 import { CODE_BY_ID } from '@/lib/allergens';
 import { DIETARY_CODE_BY_ID } from '@/lib/dietary';
 import { MENU_LANGUAGE_BY_CODE, SOURCE_LANGUAGE } from '@/lib/languages';
-import { GuestMenu, type GuestCategory, type GuestVenue } from './guest-menu';
+import { GuestMenu, type GuestCategory, type GuestVenue, type GuestMenuSummary } from './guest-menu';
 import { normalizeMenuDesign } from '@/lib/themes';
 import { parsePreviewDesign } from '@/lib/schemas/design';
 
@@ -76,7 +76,7 @@ export default async function GuestMenuPage({
 
   const { data: venue } = await supabase
     .from('venues')
-    .select('id, org_id, name, description, logo_url, cover_url, currency_code, is_published, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, design_settings, is_suspended')
+    .select('id, org_id, name, description, logo_url, cover_url, currency_code, is_published, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, design_settings, is_suspended, announcement_title, announcement_body, announcement_image_url, announcement_button_text, story')
     .eq('slug', params.slug)
     .maybeSingle();
 
@@ -153,10 +153,13 @@ export default async function GuestMenuPage({
     return <UnavailableNotice venueName={venue.name} phone={venue.phone ?? null} />;
   }
 
-  // Venue'nun aktif menü(leri) → tek menü modeli olsa da genel davranıyoruz.
+  // Venue'nun aktif menü(leri). Çoğu venue'de tek satır var — bu durumda
+  // guest-menu.tsx menü şeridini hiç göstermiyor (davranış RestaurantOS'la
+  // birebir aynı kalır). Birden fazla aktif menü varsa (örn. "Restoran
+  // Menüsü" + "Şarap Menüsü") üstte bir menü şeridi gösterilir.
   const { data: menus } = await supabase
     .from('menus')
-    .select('id, sort_order')
+    .select('id, name, icon, sort_order')
     .eq('venue_id', venue.id)
     .eq('is_active', true)
     .order('sort_order');
@@ -165,7 +168,7 @@ export default async function GuestMenuPage({
   const { data: categories } = menuIds.length
     ? await supabase
         .from('categories')
-        .select('id, name, sort_order, background_url, background_style, background_position_y')
+        .select('id, name, sort_order, background_url, background_style, background_position_y, menu_id')
         .in('menu_id', menuIds)
         .eq('is_active', true)
         .order('sort_order')
@@ -177,6 +180,7 @@ export default async function GuestMenuPage({
           background_url: string | null;
           background_style: string | null;
           background_position_y: number | null;
+          menu_id: string;
         }[],
       };
   const catIds = (categories ?? []).map((c) => c.id);
@@ -185,7 +189,7 @@ export default async function GuestMenuPage({
     ? await supabase
         .from('items')
         .select(
-          'id, name, description, ingredients, price, image_url, calories_kcal, ' +
+          'id, name, description, ingredients, price, image_url, calories_kcal, is_featured, ' +
             'category_id, sort_order, item_allergens(allergen_id, state), ' +
             'item_dietary(tag_id, state)'
         )
@@ -277,6 +281,7 @@ export default async function GuestMenuPage({
       imageUrl: (it.image_url as string | null) ?? null,
       allergenCodes: alg,
       dietaryCodes: diet,
+      isFeatured: Boolean(it.is_featured),
     });
     byCat.set(catId, list);
   }
@@ -284,6 +289,7 @@ export default async function GuestMenuPage({
   const guestCategories: GuestCategory[] = (categories ?? [])
     .map((c) => ({
       id: c.id,
+      menuId: c.menu_id,
       name: categoryTranslationMap.get(c.id) ?? c.name,
       backgroundUrl: c.background_url ?? null,
       backgroundStyle: (c.background_style as 'strip' | 'hero' | null) ?? 'strip',
@@ -291,6 +297,13 @@ export default async function GuestMenuPage({
       items: byCat.get(c.id) ?? [],
     }))
     .filter((c) => c.items.length > 0);
+
+  // Şerit yalnızca gerçekten birden fazla menü VE her ikisinde de en az bir
+  // görünür kategori varsa anlamlı — aksi halde tek menü davranışına düşer.
+  const menuIdsWithContent = new Set(guestCategories.map((c) => c.menuId));
+  const guestMenus: GuestMenuSummary[] = (menus ?? [])
+    .filter((m) => menuIdsWithContent.has(m.id))
+    .map((m) => ({ id: m.id, name: m.name, icon: m.icon ?? null }));
 
   const guestVenue: GuestVenue = {
     name: venue.name,
@@ -308,6 +321,16 @@ export default async function GuestMenuPage({
     isPublished: Boolean(venue.is_published),
     showBadge,
     design: normalizeMenuDesign(previewDesignOverride ?? venue.design_settings),
+    story: venue.story ?? null,
+    announcement:
+      venue.announcement_title
+        ? {
+            title: venue.announcement_title,
+            body: venue.announcement_body ?? null,
+            imageUrl: venue.announcement_image_url ?? null,
+            buttonText: venue.announcement_button_text ?? null,
+          }
+        : null,
   };
 
   // 'menu_view' — yalnız YAYINDAKİ menüde sayılır. Sahibin önizlemesi
@@ -330,6 +353,7 @@ export default async function GuestMenuPage({
     <GuestMenu
       venue={guestVenue}
       categories={guestCategories}
+      menus={guestMenus}
       venueId={venue.id}
       availableLocales={availableLocales}
       currentLocale={currentLocale}

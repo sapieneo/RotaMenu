@@ -58,6 +58,12 @@ export type MenuDesignSettings = {
   bodyFont: string;
   baseFontSize: number;
   headingScale: number;
+  /**
+   * Fiyat rengi. Boşsa (null/undefined) `primaryColor` kullanılır — mevcut
+   * davranış birebir korunur. Doluysa ürün fiyatları metnin geri kalanından
+   * ayrışan, bağımsız bir tonla (örn. sıcak bronz/altın) gösterilir.
+   */
+  priceColor?: string | null;
   cardColor: string;
   cardOpacity: number;
   cardRadius: number;
@@ -120,6 +126,7 @@ export const FONT_OPTIONS = [
   { id: 'caveat', label: 'Caveat', value: "'Caveat', cursive" },
   { id: 'pacifico', label: 'Pacifico', value: "'Pacifico', cursive" },
   { id: 'ibm-plex-mono', label: 'IBM Plex Mono', value: "'IBM Plex Mono', monospace" },
+  { id: 'fraunces', label: 'Fraunces', value: "'Fraunces', Georgia, serif" },
 ] as const;
 
 /**
@@ -154,6 +161,7 @@ const GOOGLE_FONT_FAMILIES = [
   'Caveat:wght@400;700',
   'Pacifico',
   'IBM+Plex+Mono:wght@400;700',
+  'Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700',
 ];
 
 export const GOOGLE_FONTS_STYLESHEET_URL = `https://fonts.googleapis.com/css2?${GOOGLE_FONT_FAMILIES.map(
@@ -174,9 +182,66 @@ export type MenuDesignPreset = MenuDesignSettings & {
   mood: string;
   /** AI stil eşleştirmesi ve etiket gösterimi için serbest metin anahtar kelimeler. */
   keywords: string;
+  /**
+   * "Hızlı" (curated) preset işareti. Bu presetler kısıtlı bir tasarım
+   * sistemine (sabit Fraunces/DM Sans font ikilisi, sabit nötr renkler,
+   * yalnızca vurgu rengi değişen) dayanır — amaç, tek tek ayar oynamadan
+   * her zaman tutarlı/"tasarlanmış" görünen bir sonuç vermek. Normal
+   * presetler (curated olmayan) her alanı bağımsız taşımaya devam eder.
+   */
+  curated?: boolean;
+};
+
+/** Hızlı (curated) presetlerin ortak sabitleri — RotaMenu referans tasarımından. */
+const CURATED_BASE = {
+  textColor: '#171b20',
+  mutedTextColor: '#69716d',
+  surfaceColor: '#ffffff',
+  cardColor: '#ffffff',
+  dividerColor: '#dfe5e1',
+  headingFont: "'Fraunces', Georgia, serif",
+  bodyFont: "'DM Sans', sans-serif",
+  baseFontSize: 16,
+  headingScale: 1.3,
+  cardOpacity: 100,
+  cardRadius: 17,
+  itemSpacing: 14,
+  dividerOpacity: 100,
+  texture: 'none' as const,
+  textureOpacity: 0,
+  backgroundImageUrl: null,
+  backgroundImageOpacity: 100,
+  backgroundImageMode: 'cover' as const,
+  layout: 'single' as const,
+  headerHeight: 160,
+  logoSize: 56,
+  logoPositionX: 50,
+  heroImageRadius: 16,
+  groupFrameRadius: 16,
+  // RotaMenu referansında fiyatlar gövde metninden ayrı, sıcak bronz bir
+  // tonla basılır — vurgu rengi ne olursa olsun bu sabit kalır.
+  priceColor: '#9b7857',
 };
 
 export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
+  {
+    templateId: 'rota-yesil', name: 'RotaMenu Yeşil', description: 'Sabit tipografi, tek vurgu rengi — her zaman tutarlı ve hızlı.', mood: 'Hızlı · Zarif',
+    keywords: 'rotamenu, hızlı, yeşil, zeytin, editoryal, fraunces, sade, tutarlı',
+    curated: true, ...CURATED_BASE,
+    backgroundColor: '#f1f8f6', primaryColor: '#008c70', accentColor: '#008c70',
+  },
+  {
+    templateId: 'rota-kum', name: 'RotaMenu Kum', description: 'Sabit tipografi, tek vurgu rengi — her zaman tutarlı ve hızlı.', mood: 'Hızlı · Sıcak',
+    keywords: 'rotamenu, hızlı, kum, bronz, toprak, editoryal, fraunces, sade, tutarlı',
+    curated: true, ...CURATED_BASE,
+    backgroundColor: '#faf5ee', primaryColor: '#9b7857', accentColor: '#9b7857',
+  },
+  {
+    templateId: 'rota-gunes', name: 'RotaMenu Güneş', description: 'Sabit tipografi, tek vurgu rengi — her zaman tutarlı ve hızlı.', mood: 'Hızlı · Canlı',
+    keywords: 'rotamenu, hızlı, güneş, sarı, canlı, editoryal, fraunces, sade, tutarlı',
+    curated: true, ...CURATED_BASE,
+    backgroundColor: '#fdfaeb', primaryColor: '#9f8500', accentColor: '#9f8500',
+  },
   {
     templateId: 'sade', name: 'Sade', description: 'Temiz, ferah ve hızlı okunur.', mood: 'Modern',
     keywords: 'sade, modern, minimal, temiz, ferah, günlük, hızlı okunur',
@@ -279,7 +344,11 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
   },
 ];
 
-export const DEFAULT_MENU_DESIGN: MenuDesignSettings = stripPresetMeta(MENU_DESIGN_PRESETS[0]);
+// DİKKAT: "Hızlı" (curated) presetler listenin BAŞINA eklendi (bkz. yukarısı)
+// ama varsayılan tema yine de 'sade' kalmalı — indekse değil, id'ye göre
+// bulunur ki preset sırası ileride değişirse varsayılan sessizce kaymasın.
+const DEFAULT_PRESET = MENU_DESIGN_PRESETS.find((p) => p.templateId === 'sade') ?? MENU_DESIGN_PRESETS[0];
+export const DEFAULT_MENU_DESIGN: MenuDesignSettings = stripPresetMeta(DEFAULT_PRESET);
 
 export function stripPresetMeta(preset: MenuDesignPreset): MenuDesignSettings {
   const { name: _name, description: _description, mood: _mood, keywords: _keywords, ...settings } = preset;

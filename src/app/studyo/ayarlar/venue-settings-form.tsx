@@ -16,6 +16,10 @@ export type VenueSettings = {
   wifiSsid: string;
   openingHours: string;
   currencyCode: string;
+  announcementTitle: string;
+  announcementBody: string;
+  announcementButtonText: string;
+  story: string;
 };
 
 export type PublishState = {
@@ -77,6 +81,10 @@ export function VenueSettingsForm({
           openingHours: v.openingHours,
           currencyCode: v.currencyCode,
           slug: v.slug.trim().toLowerCase(),
+          announcementTitle: v.announcementTitle,
+          announcementBody: v.announcementBody,
+          announcementButtonText: v.announcementButtonText,
+          story: v.story,
         }),
       });
       const body = await res.json();
@@ -246,6 +254,54 @@ export function VenueSettingsForm({
               value={v.wifiSsid}
               onChange={(e) => set('wifiSsid', e.target.value)}
               placeholder="Örn. SinePub_Misafir"
+              className={inputCls}
+            />
+          </Field>
+        </Section>
+
+        <Section title="Marka hikayesi">
+          <p className="-mt-2 mb-1 text-xs text-stone-500">
+            Misafir menünün en altında, iletişim bilgilerinden önce gösterilen serbest metin —
+            işletmenin hikayesi, felsefesi ya da kısa bir "bizi tanıyın" yazısı için.
+          </p>
+          <Field label="Metin">
+            <textarea
+              value={v.story}
+              onChange={(e) => set('story', e.target.value)}
+              placeholder="Örn. 1998'den beri aynı tarifle, aynı özenle…"
+              rows={4}
+              className={`${inputCls} resize-none`}
+            />
+          </Field>
+        </Section>
+
+        <Section title="Karşılama popup'ı">
+          <p className="-mt-2 mb-1 text-xs text-stone-500">
+            Misafir menüyü açtığında bir kez gösterilen duyuru/promosyon kartı. Başlık boş bırakılırsa
+            popup hiç gösterilmez.
+          </p>
+          <Field label="Başlık">
+            <input
+              value={v.announcementTitle}
+              onChange={(e) => set('announcementTitle', e.target.value)}
+              placeholder="Örn. Bugünün ayrıcalığı"
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Açıklama">
+            <textarea
+              value={v.announcementBody}
+              onChange={(e) => set('announcementBody', e.target.value)}
+              placeholder="Örn. Hafta içi 17:00'e kadar kahvelerde %20 indirim."
+              rows={2}
+              className={`${inputCls} resize-none`}
+            />
+          </Field>
+          <Field label="Buton metni">
+            <input
+              value={v.announcementButtonText}
+              onChange={(e) => set('announcementButtonText', e.target.value)}
+              placeholder="Menüyü gör"
               className={inputCls}
             />
           </Field>

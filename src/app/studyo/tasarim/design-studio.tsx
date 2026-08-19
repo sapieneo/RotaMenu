@@ -501,7 +501,14 @@ export function DesignStudio({
                     </span>
                     <span className="block p-3.5">
                       <span className="flex items-center justify-between gap-1 text-sm font-semibold text-stone-900">{preset.name}{active && <span className="text-brand-600">✓</span>}</span>
-                      <span className="mt-0.5 block text-[11px] font-medium uppercase tracking-wide text-stone-400">{preset.mood}</span>
+                      <span className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-stone-400">
+                        {preset.curated && (
+                          <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-emerald-700" title="Hızlı: sabit tipografi ve nötr renkler, yalnızca vurgu rengi değişir">
+                            Hızlı
+                          </span>
+                        )}
+                        {preset.mood}
+                      </span>
                       <span className="mt-1.5 block text-xs leading-snug text-stone-500">{preset.description}</span>
                     </span>
                   </div>
@@ -555,6 +562,12 @@ export function DesignStudio({
                   <ColorField label="Üst yüzey" value={settings.surfaceColor} onChange={(value) => update('surfaceColor', value)} />
                   <ColorField label="Ana renk" value={settings.primaryColor} onChange={(value) => update('primaryColor', value)} />
                   <ColorField label="Vurgu rengi" value={settings.accentColor} onChange={(value) => update('accentColor', value)} />
+                  <div className="relative">
+                    <ColorField label="Fiyat rengi" value={settings.priceColor ?? settings.primaryColor} onChange={(value) => update('priceColor', value)} />
+                    {settings.priceColor && (
+                      <button type="button" onClick={() => update('priceColor', null)} className="absolute right-2 top-2 text-[11px] font-medium text-brand-600 hover:underline">Otomatik</button>
+                    )}
+                  </div>
                   <ColorField label="Ana yazı" value={settings.textColor} onChange={(value) => update('textColor', value)} />
                   <ColorField label="İkincil yazı" value={settings.mutedTextColor} onChange={(value) => update('mutedTextColor', value)} />
                 </div>
