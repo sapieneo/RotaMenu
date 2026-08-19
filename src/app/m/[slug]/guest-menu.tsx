@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ALLERGENS } from '@/lib/allergens';
 import { DIETARY } from '@/lib/dietary';
 import { formatPrice } from '@/lib/currency';
@@ -251,21 +250,28 @@ export function GuestMenu({
   // doğrudan bu state'leri günceller — network/DB round-trip olmadığı için
   // anında yansır. (bkz. studyo/tasarim/design-studio.tsx ve
   // studyo/gorseller/image-manager.tsx → LivePreview)
-  const router = useRouter();
-
   /**
-   * Dil değişimi. Eskiden `window.location.assign` ile TAM SAYFA yeniden
-   * yükleniyordu — referans menüde geçiş anındayken bizde saniyeler sürüyor
-   * ve ilk tıklama (hydration öncesi href='#') hiç çalışmıyordu. Artık
-   * Next'in istemci tarafı geçişi kullanılıyor: yalnız sunucu bileşeni
-   * yeniden çiziliyor, sayfa baştan yüklenmiyor.
+   * Dil değişimi.
+   *
+   * DİKKAT — burada iki kez tökezlendi, ikisini de tekrarlamayalım:
+   *   1. Bağlantı adresi `window` üzerinden üretiliyordu; sunucuda `window`
+   *      olmadığı için ilk çizimde adres boş ('#') kalıyor, sayfa
+   *      hidrasyonu bitmeden yapılan tıklama hiçbir şey yapmıyordu.
+   *   2. Sonra `router.push` (istemci tarafı geçiş) denendi: adres değişti
+   *      ama Next'in yönlendirici önbelleği aynı rotayı sunucudan yeniden
+   *      çekmediği için İÇERİK Türkçe kaldı — yani dil hiç değişmedi.
+   *
+   * Çeviriler sunucuda seçiliyor (bkz. m/[slug]/page.tsx → searchParams.lang),
+   * bu yüzden tam gezinme yapıyoruz: her zaman doğru sonuç verir. Anında
+   * geçiş istenirse tüm dillerin çevirilerini istemciye baştan göndermek
+   * gerekir — ayrı ve daha büyük bir iş.
    */
   function switchLocale(code: string) {
     const params = new URLSearchParams(window.location.search);
     if (code === 'tr') params.delete('lang');
     else params.set('lang', code);
     const qs = params.toString();
-    router.push(qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    window.location.href = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
   }
 
   const [design, setDesign] = useState<MenuDesignSettings>(initialVenue.design);
