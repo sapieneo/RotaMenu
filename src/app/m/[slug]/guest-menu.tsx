@@ -57,7 +57,7 @@ export type GuestVenue = {
   wifiSsid: string | null;
   openingHours: string | null;
   isPublished: boolean;
-  /** Ücretsiz planda "RestaurantOS ile hazırlandı" rozeti gösterilir. */
+  /** Ücretsiz planda "Rotamenu ile hazırlandı" rozeti gösterilir. */
   showBadge: boolean;
   design: MenuDesignSettings;
   /** Karşılama/promosyon popup'ı (Stüdyo → Ayarlar). Başlık yoksa null. */
@@ -1606,7 +1606,7 @@ function ContactFooter({ venue }: { venue: GuestVenue }) {
       )}
       {venue.showBadge && (
         <p className="mt-6 text-center text-xs text-stone-300">
-          RestaurantOS ile hazırlandı
+          Rotamenu ile hazırlandı
         </p>
       )}
     </footer>

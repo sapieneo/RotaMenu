@@ -178,7 +178,7 @@ export function PlanClient({ data }: { data: PlanClientData }) {
             'Alerjen & kalori uyum raporu (PDF)',
             'AI ürün + kategori görselleri',
             'Sınırsız QR kod ve masa kartı',
-            'RestaurantOS rozeti kalkar',
+            'Rotamenu rozeti kalkar',
           ]}
         />
       </section>

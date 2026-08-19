@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { PRICING } from '@/lib/plans';
 import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
 import {
   MarketingHeader,
@@ -41,7 +40,9 @@ export function Landing({ dashboardHref = null }: { dashboardHref?: string | nul
         <HowItWorks />
         <AuditFile />
         <Features />
-        <Pricing />
+        {/* AJANS MODU: fiyatlandırma bölümü kaldırıldı — bu kurulum dışarıya
+            satılan bir SaaS değil, ajansın kendi müşterileri için menü ürettiği
+            kapalı bir ortam. Paket/deneme anlatmak yanıltıcı olurdu. */}
         <Faq />
         <FinalCta />
       </main>
@@ -143,7 +144,7 @@ function Hero() {
           {/* TEK birincil eylem. "Örnek menüyü gör" eskiden eşit ağırlıkta bir
               kutuydu ve birincil eylemle yarışıyordu; artık sessiz bir bağlantı. */}
           <div className="mt-lg flex flex-wrap items-center gap-md">
-            <PrimaryCta>{PRICING.trialDays} gün ücretsiz dene</PrimaryCta>
+            <PrimaryCta>Menüni oluştur</PrimaryCta>
             <a
               href={`/m/${DEMO_SLUG}`}
               target="_blank"
@@ -156,7 +157,7 @@ function Hero() {
           </div>
 
           <p className="mt-md text-footnote text-content-muted">
-            Kredi kartı istemiyoruz · Kurulum ücreti yok · İstediğiniz an bırakın
+            Menü fotoğrafından tam menüye · Alerjen ve kalori önerisi · QR kod hazır
           </p>
         </div>
 
@@ -281,7 +282,7 @@ function RegulationTimeline() {
         </div>
 
         <p className="mt-md text-footnote text-content-muted">
-          Uymayan işletmelere idari para cezası uygulanabiliyor. RestaurantOS ile hazırlık birkaç
+          Uymayan işletmelere idari para cezası uygulanabiliyor. Rotamenu ile hazırlık birkaç
           dakika sürüyor.
         </p>
       </div>
@@ -345,7 +346,7 @@ function AuditFile() {
           <SectionHead
             eyebrow="Farkımız"
             title="Sadece menü değil, denetim dosyası"
-            lead="Diğer sistemler “yapay zeka otomatik tespit eder” der. Ama yönetmelik karşısında sorumluluk işletmededir. Bu yüzden RestaurantOS’ta her bilgi önce önerilir, sonra sizin onayınızla yayınlanır — ve bu onay kayıt altına alınır."
+            lead="Diğer sistemler “yapay zeka otomatik tespit eder” der. Ama yönetmelik karşısında sorumluluk işletmededir. Bu yüzden Rotamenu’de her bilgi önce önerilir, sonra sizin onayınızla yayınlanır — ve bu onay kayıt altına alınır."
           />
           <ul className="mt-lg space-y-sm text-footnote text-content-secondary">
             {[
@@ -425,86 +426,11 @@ function Features() {
   );
 }
 
-function Pricing() {
-  return (
-    <Section id="fiyat">
-      <div className="mx-auto max-w-4xl px-md">
-        <SectionHead
-          center
-          eyebrow="Fiyatlandırma"
-          title="Tek plan, gizli maliyet yok"
-          lead={`${PRICING.trialDays} gün boyunca her şey açık. Beğenmezseniz hiçbir ücret ödemezsiniz.`}
-        />
-
-        <div className="mt-lg grid gap-md sm:grid-cols-2">
-          <div className="rounded-panel border border-line bg-surface-sunken p-lg">
-            <p className="text-footnote font-semibold text-content-muted">Deneme</p>
-            <p className="mt-sm text-title font-semibold text-content">0 ₺</p>
-            <p className="mt-xs text-footnote text-content-muted">
-              {PRICING.trialDays} gün · kart istemiyoruz
-            </p>
-            <ul className="mt-lg space-y-sm text-footnote text-content-secondary">
-              {[
-                'Tüm özellikler açık',
-                'Menünüzü kurun ve yayınlayın',
-                'Süre bitince verileriniz durur',
-              ].map((t) => (
-                <li key={t} className="flex gap-sm">
-                  <span className="text-content-muted">•</span>
-                  {t}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Öne çıkan kart: renkli gölge yerine 2px kenarlık. Gölge/parlama
-              hiyerarşi taşımıyor, yalnız gürültü ekliyordu. */}
-          <div className="relative rounded-panel border-2 border-brand-500 bg-surface-raised p-lg">
-            <span className="absolute -top-3 left-lg rounded-pill bg-brand-600 px-md py-xs text-caption font-semibold text-white">
-              En çok tercih edilen
-            </span>
-            <p className="text-footnote font-semibold text-content-muted">Abonelik</p>
-            <p className="mt-sm text-title font-semibold text-content">
-              {PRICING.monthly} ₺
-              <span className="ml-1 text-body font-medium text-content-muted">/ay</span>
-            </p>
-            <p className="mt-xs text-footnote text-emerald-700 dark:text-emerald-400">
-              Yıllık {PRICING.yearly.toLocaleString('tr-TR')} ₺ ·{' '}
-              <strong>{PRICING.freeMonthsOnYearly} ay bedava</strong>
-            </p>
-            <ul className="mt-lg space-y-sm text-footnote text-content-secondary">
-              {[
-                'Sınırsız ürün ve kategori',
-                'Tüm diller · otomatik çeviri',
-                'Denetime hazır uyum raporu (PDF)',
-                'AI ürün ve kategori görselleri',
-                'Sınırsız QR kod ve masa kartı',
-                'RestaurantOS rozeti kalkar',
-              ].map((t) => (
-                <li key={t} className="flex gap-sm">
-                  <Icon name="check" size={18} className="mt-0.5 shrink-0 text-emerald-600" />
-                  {t}
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/studyo"
-              className="ros-pressable mt-lg flex min-h-touch items-center justify-center rounded-pill bg-brand-600 px-lg text-body font-semibold text-white transition hover:bg-brand-700 active:scale-[0.98]"
-            >
-              Ücretsiz denemeye başla
-            </Link>
-          </div>
-        </div>
-      </div>
-    </Section>
-  );
-}
-
 function Faq() {
   const faqs = [
     {
       q: 'Alerjen bilgisinden kim sorumlu?',
-      a: 'Yönetmelik gereği beyandan işletme sorumludur. RestaurantOS yapay zekayla öneri üretir; yayınlanan bilgi yalnızca sizin onayladığınız bilgidir. Onay tarihleriniz sistemde kayıtlı tutulur ve uyum raporunda gösterilir.',
+      a: 'Yönetmelik gereği beyandan işletme sorumludur. Rotamenu yapay zekayla öneri üretir; yayınlanan bilgi yalnızca sizin onayladığınız bilgidir. Onay tarihleriniz sistemde kayıtlı tutulur ve uyum raporunda gösterilir.',
     },
     {
       q: 'Menümü sonradan değiştirebilir miyim?',
@@ -567,9 +493,8 @@ function FinalCta() {
           akşam hazır olsun.
         </p>
         <div className="mt-lg flex justify-center">
-          <PrimaryCta>{PRICING.trialDays} gün ücretsiz dene</PrimaryCta>
+          <PrimaryCta>Menüni oluştur</PrimaryCta>
         </div>
-        <p className="mt-md text-footnote text-stone-400">Kredi kartı gerekmez</p>
       </div>
     </section>
   );

@@ -3,7 +3,7 @@ import './globals.css';
 import { GOOGLE_FONTS_STYLESHEET_URL } from '@/lib/themes';
 
 export const metadata: Metadata = {
-  title: 'RestaurantOS — Menünü dakikalar içinde dijitale taşı',
+  title: 'Rotamenu — Menünü dakikalar içinde dijitale taşı',
   description:
     'Menü fotoğrafını yükle; yapay zeka çıkarsın, sen onayla. Alerjen ve kalori uyumlu, çok dilli QR menü.',
 };
