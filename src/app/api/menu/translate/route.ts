@@ -12,6 +12,14 @@ export const runtime = 'nodejs';
 const bodySchema = z.object({
   venueId: z.string().uuid(),
   locales: z.array(z.string().min(2).max(5)).min(1).max(20).transform((values) => [...new Set(values)]),
+  /**
+   * Eksik ürün açıklamaları bu çeviriyle BİRLİKTE üretilsin mi?
+   * Varsayılan false: çeviri ve açıklama üretimi artık iki ayrı iş
+   * (bkz. studyo/diller ekranındaki iki ayrı düğme). Eskiden çeviri,
+   * eksik açıklama varsa onları da zorla üretiyordu; kullanıcı yalnızca
+   * çevirmek istediğinde beklemediği bir AI maliyeti doğuyordu.
+   */
+  withDescriptions: z.boolean().optional().default(false),
 });
 
 export async function POST(request: NextRequest) {
@@ -56,7 +64,9 @@ export async function POST(request: NextRequest) {
   const { data: items } = categoryIds.length
     ? await supabase.from('items').select('id, description').in('category_id', categoryIds)
     : { data: [] as { id: string; description: string | null }[] };
-  const missingDescriptionCount = (items ?? []).filter((item) => !item.description?.trim()).length;
+  const missingDescriptionCount = parsed.data.withDescriptions
+    ? (items ?? []).filter((item) => !item.description?.trim()).length
+    : 0;
 
   const { data: existingJobs } = await supabase
     .from('menu_translation_jobs')

@@ -47,13 +47,15 @@ export function LanguageManager({
   const [selected, setSelected] = useState<string[]>(completed);
   const [submitting, setSubmitting] = useState(false);
   const [generatingDescriptions, setGeneratingDescriptions] = useState(false);
-  // İşaretlenirse, eksik açıklamalar varken de Çevir'e izin verilir — çeviri
-  // isteği açıklamaları kendi içinde otomatik üretip zincirler (bkz.
-  // /api/menu/translate). İşaretlenmezse önce açıklamalar ayrı tamamlanmalı.
-  const [includeDescriptions, setIncludeDescriptions] = useState(false);
+  /**
+   * AÇIKLAMA ÜRETİMİ ve ÇEVİRİ artık birbirinden tamamen bağımsız iki iştir.
+   * Eskiden çeviri düğmesi, eksik açıklama varsa kilitliydi ve ancak bir onay
+   * kutusu işaretlenince açılıyordu — kullanıcı sadece çevirmek istediğinde
+   * bile önce açıklama üretmek zorunda kalıyordu. Artık her iki düğme de tek
+   * başına çalışır; çeviri, açıklaması olmayan ürünleri de olduğu gibi çevirir.
+   */
   const [message, setMessage] = useState<string | null>(null);
   const active = jobs.some((job) => job.status === 'pending' || job.status === 'processing');
-  const translateReady = missingDescriptions === 0 || includeDescriptions;
 
   useEffect(() => {
     if (!active) return;
@@ -75,7 +77,6 @@ export function LanguageManager({
 
   async function start() {
     if (!selected.length) return setMessage('En az bir hedef dil seçin.');
-    if (!translateReady) return setMessage('Önce açıklamaları üretin ya da aşağıdaki kutuyu işaretleyin.');
     setSubmitting(true);
     setMessage(null);
     try {
@@ -144,11 +145,11 @@ export function LanguageManager({
         <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-semibold text-amber-900">1. Adım — Açıklamalar</p>
+              <p className="font-semibold text-amber-900">Ürün açıklamaları</p>
               <p className="mt-1 text-sm text-amber-800">
-                {missingDescriptions} üründe açıklama eksik. Çeviri, açıklamalar tamamlanınca aktifleşir —
-                önce burada üretebilir, ya da aşağıdaki kutuyu işaretleyip çeviriyle birlikte otomatik
-                oluşturulmasını sağlayabilirsiniz.
+                {missingDescriptions} üründe açıklama eksik. Bu isteğe bağlıdır — çeviriyi
+                beklemeden başlatabilirsin. Açıklama üretirsen menü daha dolu görünür ve
+                çeviriler de bu metinleri kapsar.
               </p>
             </div>
             <button
@@ -159,15 +160,6 @@ export function LanguageManager({
               {generatingDescriptions ? 'Başlatılıyor…' : '✨ Açıklamaları üret'}
             </button>
           </div>
-          <label className="mt-3 flex items-center gap-2 text-sm font-medium text-amber-900">
-            <input
-              type="checkbox"
-              checked={includeDescriptions}
-              onChange={(event) => setIncludeDescriptions(event.target.checked)}
-              className="h-4 w-4 rounded border-amber-400 accent-amber-600"
-            />
-            Eksik açıklamaları çeviriyle birlikte otomatik oluştur
-          </label>
         </section>
       )}
 
@@ -181,24 +173,14 @@ export function LanguageManager({
       <div className="sticky bottom-4 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-lg backdrop-blur">
         <div>
           <p className="font-semibold text-stone-800">{selected.length} hedef dil seçildi</p>
-          <p className="text-xs text-stone-500">
-            {!translateReady
-              ? 'Çeviri, açıklamalar tamamlanınca ya da yukarıdaki kutu işaretlenince aktifleşir.'
-              : 'Türkçe kaynak dil olarak her zaman korunur.'}
-          </p>
+          <p className="text-xs text-stone-500">Türkçe kaynak dil olarak her zaman korunur.</p>
         </div>
         <button
           onClick={start}
-          disabled={submitting || active || !selected.length || !translateReady}
+          disabled={submitting || active || !selected.length}
           className="rounded-xl bg-brand-600 px-5 py-3 font-semibold text-white shadow transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {active
-            ? 'Çeviri sürüyor…'
-            : submitting
-            ? 'Başlatılıyor…'
-            : includeDescriptions && missingDescriptions > 0
-            ? 'Açıklamaları üret ve çevir'
-            : 'Çevir'}
+          {active ? 'Çeviri sürüyor…' : submitting ? 'Başlatılıyor…' : 'Dillere çevir'}
         </button>
       </div>
       {message && <p className="mt-3 rounded-xl bg-stone-100 px-4 py-3 text-sm text-stone-700">{message}</p>}
