@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ALLERGENS } from '@/lib/allergens';
 import { DIETARY } from '@/lib/dietary';
 import { formatPrice } from '@/lib/currency';
@@ -201,8 +202,18 @@ function AllergenLine({ item, design }: { item: GuestItem; design: MenuDesignSet
   );
 }
 
-function isHeroCategory(c: GuestCategory): boolean {
-  return Boolean(c.backgroundUrl) && c.backgroundStyle === 'hero';
+/**
+ * Kategori arka plan görselleri bu tasarımda KULLANILMIYOR.
+ *
+ * Referans menüde kategoriler düz, editoryal başlıklarla ayrılıyor; araya
+ * giren büyük fotoğraf şeritleri hem okumayı bölüyor hem de her kategoriye
+ * uygun görsel bulunamadığında menüyü ucuz gösteriyordu. Bu yüzden hem
+ * 'hero' (tam boy) hem 'strip' (şerit) yolları kapatıldı — ilgili kod
+ * (CategoryStrip'in görselli dalı, hero gruplama) ileride geri açılmak
+ * istenirse diye duruyor, ama artık hiç çalışmıyor.
+ */
+function isHeroCategory(_c: GuestCategory): boolean {
+  return false;
 }
 
 function groupCategories(categories: GuestCategory[]): CategoryGroup[] {
@@ -240,6 +251,23 @@ export function GuestMenu({
   // doğrudan bu state'leri günceller — network/DB round-trip olmadığı için
   // anında yansır. (bkz. studyo/tasarim/design-studio.tsx ve
   // studyo/gorseller/image-manager.tsx → LivePreview)
+  const router = useRouter();
+
+  /**
+   * Dil değişimi. Eskiden `window.location.assign` ile TAM SAYFA yeniden
+   * yükleniyordu — referans menüde geçiş anındayken bizde saniyeler sürüyor
+   * ve ilk tıklama (hydration öncesi href='#') hiç çalışmıyordu. Artık
+   * Next'in istemci tarafı geçişi kullanılıyor: yalnız sunucu bileşeni
+   * yeniden çiziliyor, sayfa baştan yüklenmiyor.
+   */
+  function switchLocale(code: string) {
+    const params = new URLSearchParams(window.location.search);
+    if (code === 'tr') params.delete('lang');
+    else params.set('lang', code);
+    const qs = params.toString();
+    router.push(qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+  }
+
   const [design, setDesign] = useState<MenuDesignSettings>(initialVenue.design);
   const [logoUrl, setLogoUrl] = useState<string | null>(initialVenue.logoUrl);
   const venue = useMemo(() => ({ ...initialVenue, design, logoUrl }), [initialVenue, design, logoUrl]);
@@ -576,26 +604,20 @@ export function GuestMenu({
           >
             {availableLocales.map((language) => {
               const isCurrent = language.code === currentLocale;
-              const href = (() => {
-                if (typeof window === 'undefined') return '#';
-                const url = new URL(window.location.href);
-                if (language.code === 'tr') url.searchParams.delete('lang');
-                else url.searchParams.set('lang', language.code);
-                return url.toString();
-              })();
               return (
-                <a
+                <button
                   key={language.code}
-                  href={href}
+                  type="button"
+                  onClick={() => switchLocale(language.code)}
                   aria-current={isCurrent ? 'true' : undefined}
-                  className="flex min-w-[46px] flex-col items-center px-2.5 py-1 leading-tight"
+                  className="flex min-w-[46px] flex-col items-center px-2.5 py-1 leading-tight transition"
                   style={isCurrent
                     ? { backgroundColor: design.primaryColor, color: design.surfaceColor }
                     : { color: design.mutedTextColor }}
                 >
                   <span className="text-xs font-bold uppercase">{language.code}</span>
                   <span className="text-[9px] font-medium opacity-80">{language.name}</span>
-                </a>
+                </button>
               );
             })}
           </div>
@@ -609,12 +631,7 @@ export function GuestMenu({
             <span className="sr-only">Menü dili</span>
             <select
               value={currentLocale}
-              onChange={(event) => {
-                const url = new URL(window.location.href);
-                if (event.target.value === 'tr') url.searchParams.delete('lang');
-                else url.searchParams.set('lang', event.target.value);
-                window.location.assign(url.toString());
-              }}
+              onChange={(event) => switchLocale(event.target.value)}
               className="bg-transparent pr-0.5 font-medium outline-none"
               aria-label="Menü dili"
             >
@@ -1001,16 +1018,16 @@ export function GuestMenu({
                 }}
                 className="scroll-mt-16 pt-6"
               >
-                <CategoryFrame design={design} variant={c.backgroundStyle === 'strip' && c.backgroundUrl ? 'framed' : 'plain'}>
+                <CategoryFrame design={design} variant="plain">
                   <CategoryStrip
                     name={c.name}
                     design={design}
-                    backgroundUrl={c.backgroundStyle === 'strip' ? c.backgroundUrl : null}
+                    backgroundUrl={null}
                     positionY={c.backgroundPositionY}
                     number={categoryIndexById.get(c.id)}
                     itemCount={shownItems.length}
                   />
-                  <div className={c.backgroundStyle === 'strip' && c.backgroundUrl ? 'p-3' : ''}>{itemList}</div>
+                  <div>{itemList}</div>
                 </CategoryFrame>
               </section>
             );
@@ -1253,7 +1270,9 @@ function CategoryStrip({
           style={{
             color: design.textColor,
             fontFamily: design.headingFont,
-            fontSize: `${design.baseFontSize * design.headingScale * 1.15}px`,
+            // Referanstaki kategori başlıkları gövde metninin ~2 katı; 1.15
+            // çarpanı fazla küçük kalıyordu.
+            fontSize: `${design.baseFontSize * design.headingScale * 1.75}px`,
           }}
         >
           {name}

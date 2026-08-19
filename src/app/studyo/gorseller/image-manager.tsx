@@ -39,7 +39,6 @@ export function ImageManager({
   const [lightbox, setLightbox] = useState<{ url: string; alt: string } | null>(null);
   const uploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const enhanceRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const positionTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const totalItems = cats.reduce((n, c) => n + c.items.length, 0);
   const itemsWithImg = cats.reduce((n, c) => n + c.items.filter((i) => i.imageUrl).length, 0);
@@ -55,45 +54,6 @@ export function ImageManager({
   const mark = (id: string, b: Busy) => setBusy((s) => ({ ...s, [id]: b }));
   const fail = (id: string, m: string | null) => setErr((s) => ({ ...s, [id]: m }));
   const bodyId = (kind: Kind, id: string) => (kind === 'item' ? { itemId: id } : { categoryId: id });
-
-  async function setStyle(categoryId: string, style: BackgroundStyle) {
-    // İyimser güncelle; başarısız olursa eski değere geri dön.
-    const prev = cats.find((c) => c.id === categoryId)?.backgroundStyle ?? 'strip';
-    setCats((cs) => cs.map((c) => (c.id === categoryId ? { ...c, backgroundStyle: style } : c)));
-    try {
-      const res = await fetch('/api/category/background-style', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categoryId, style }),
-      });
-      if (!res.ok) throw new Error();
-    } catch {
-      setCats((cs) => cs.map((c) => (c.id === categoryId ? { ...c, backgroundStyle: prev } : c)));
-      fail(categoryId, 'Görünüm kaydedilemedi.');
-    }
-  }
-
-  /**
-   * Görselin dikey kadrajını (object-position) ayarlar. Sürükleme sırasında
-   * her adımda API'yi yormamak için 400ms debounce uygulanır; ekran anında
-   * güncellenir (iyimser).
-   */
-  function setPosition(categoryId: string, positionY: number) {
-    setCats((cs) => cs.map((c) => (c.id === categoryId ? { ...c, backgroundPositionY: positionY } : c)));
-    if (positionTimers.current[categoryId]) clearTimeout(positionTimers.current[categoryId]);
-    positionTimers.current[categoryId] = setTimeout(async () => {
-      try {
-        const res = await fetch('/api/category/background-style', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ categoryId, positionY }),
-        });
-        if (!res.ok) throw new Error();
-      } catch {
-        fail(categoryId, 'Görsel konumu kaydedilemedi.');
-      }
-    }, 400);
-  }
 
   async function generate(kind: Kind, id: string) {
     mark(id, 'gen');
@@ -313,107 +273,16 @@ export function ImageManager({
       <div className="min-w-0 max-w-2xl space-y-6">
         {cats.map((c) => (
           <section key={c.id} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-            {/* Kategori arka planı.
-                DİKKAT: bu sarmalayıcı <div> OLMALI, <button> DEĞİL. Bir süre
-                <button> denendi ve görseller kayboldu: tarayıcılar <button>
-                içindeki yüzdelik ölçüleri (h-full / inset-0) güvenilir
-                çözmüyor. Tıklama bu yüzden div üzerinde role="button" ile
-                veriliyor. */}
-            <div
-              role={c.backgroundUrl ? 'button' : undefined}
-              tabIndex={c.backgroundUrl ? 0 : undefined}
-              aria-label={c.backgroundUrl ? `${c.name} arka planını büyüt` : undefined}
-              onClick={() => c.backgroundUrl && setLightbox({ url: c.backgroundUrl, alt: c.name })}
-              onKeyDown={(e) => {
-                if (!c.backgroundUrl) return;
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setLightbox({ url: c.backgroundUrl, alt: c.name });
-                }
-              }}
-              className={`group relative mb-4 h-24 overflow-hidden rounded-xl bg-stone-100 ${c.backgroundUrl ? 'cursor-zoom-in' : ''}`}
-            >
-              {c.backgroundUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={c.backgroundUrl}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-105"
-                  style={{ objectPosition: `center ${c.backgroundPositionY}%` }}
-                />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-100 to-stone-100" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-              <h2 className="absolute bottom-2 left-3 text-lg font-bold text-white drop-shadow">
-                {c.name}
-              </h2>
-              {c.backgroundUrl && (
-                <span className="absolute right-2 top-2 rounded-full bg-black/40 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                  🔍 Büyüt
-                </span>
-              )}
-              {busy[c.id] === 'gen' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/60">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-300 border-t-brand-600" />
-                </div>
-              )}
-            </div>
-            <div className="mb-4">
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-400">
-                Kategori arka planı
+            {/* Kategori başlığı. Arka plan görseli yükleme bölümü KALDIRILDI:
+                misafir menüsü artık kategorileri düz editoryal başlıklarla
+                ayırıyor (bkz. guest-menu.tsx → isHeroCategory), dolayısıyla
+                yüklenen bir kategori görseli hiçbir yerde görünmüyordu ve
+                kullanıcıyı boşa uğraştırıyordu. Ürün görselleri aynen duruyor. */}
+            <div className="mb-4 border-b border-stone-100 pb-3">
+              <h2 className="text-lg font-bold text-stone-800">{c.name}</h2>
+              <p className="mt-0.5 text-xs text-stone-500">
+                {c.items.length} ürün · aşağıdan her ürüne görsel ekleyebilirsin
               </p>
-              <Controls kind="category" id={c.id} hasImage={Boolean(c.backgroundUrl)} />
-              {c.backgroundUrl && (
-                <div className="mt-2 inline-flex rounded-lg border border-stone-200 p-0.5 text-xs">
-                  <button
-                    onClick={() => setStyle(c.id, 'strip')}
-                    className={`rounded-md px-2.5 py-1 font-medium transition ${
-                      c.backgroundStyle === 'strip'
-                        ? 'bg-stone-900 text-white'
-                        : 'text-stone-500 hover:bg-stone-50'
-                    }`}
-                  >
-                    Şerit
-                  </button>
-                  <button
-                    onClick={() => setStyle(c.id, 'hero')}
-                    className={`rounded-md px-2.5 py-1 font-medium transition ${
-                      c.backgroundStyle === 'hero'
-                        ? 'bg-stone-900 text-white'
-                        : 'text-stone-500 hover:bg-stone-50'
-                    }`}
-                  >
-                    Arka plan (büyük)
-                  </button>
-                </div>
-              )}
-              {c.backgroundUrl && (
-                <div className="mt-3 max-w-xs">
-                  <label className="mb-1 flex items-center justify-between text-xs font-medium text-stone-600">
-                    <span>Görselin dikey konumu</span>
-                    <span className="tabular-nums text-stone-400">{c.backgroundPositionY}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={c.backgroundPositionY}
-                    onChange={(e) => setPosition(c.id, Number(e.target.value))}
-                    className="h-2 w-full cursor-pointer accent-orange-600"
-                  />
-                  <div className="mt-1 flex justify-between text-[10px] text-stone-400">
-                    <span>Üst</span>
-                    <span>Orta</span>
-                    <span>Alt</span>
-                  </div>
-                  <p className="mt-1 text-[11px] text-stone-400">
-                    {c.backgroundStyle === 'strip'
-                      ? 'Şerit dar olduğu için görselin görünecek kısmını buradan seç.'
-                      : 'Büyük arka planda da görselin odak noktasını ayarlar.'}
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Ürünler */}
