@@ -727,16 +727,20 @@ export function GuestMenu({
             ref={navRef}
             className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-          {/* "Tümü" — referanstaki ilk çip. Menünün en başına döner. */}
+          {/* "Tümü" — menünün en başına döner.
+              DİKKAT: bu çip "aktif" olarak İŞARETLENMEZ. Önce `active ===
+              renderedCategories[0]?.id` koşuluyla vurgulanıyordu; ama
+              scroll-spy sayfanın tepesindeyken zaten ilk kategoriyi aktif
+              sayıyor, dolayısıyla "Tümü" ile ilk kategori çipi AYNI ANDA
+              vurgulanıyordu — misafire iki kategori birden seçiliymiş gibi
+              görünüyordu. Vurgu artık yalnız gerçek kategori çiplerinde. */}
           <Pressable
             onClick={() => {
               const first = renderedCategories[0]?.id;
               if (first) goTo(first);
             }}
             className="whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium"
-            style={active === renderedCategories[0]?.id
-              ? { backgroundColor: design.primaryColor, color: design.surfaceColor }
-              : { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.mutedTextColor }}
+            style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.mutedTextColor }}
           >
             Tümü
           </Pressable>
