@@ -479,7 +479,11 @@ export function GuestMenu({
 
   return (
     <div
-      className="mx-auto min-h-screen max-w-lg pb-16 shadow-sm sm:my-4 sm:rounded-2xl"
+      /* Genişlik: telefonda tek dar kolon (max-w-lg), masaüstünde referanstaki
+         gibi geniş sayfa (lg:max-w-6xl). Eskiden her ekranda 512px'e
+         sıkışıyordu ve masaüstünde ortada duran bir telefon maketi gibi
+         görünüyordu — referans ise geniş, iki sütunlu bir sayfa. */
+      className="mx-auto min-h-screen max-w-lg pb-16 shadow-sm sm:my-4 sm:rounded-2xl lg:max-w-6xl"
       style={{
         ...menuBackgroundStyle(design),
         color: design.textColor,
@@ -559,7 +563,44 @@ export function GuestMenu({
             })}
           </div>
         )}
-        {availableLocales.length > 1 && (
+        {/* Dil seçici. Referansta açılır kutu değil, iki bölmeli bir anahtar
+            var: üstte kod (TR / EN), altında dilin adı. 4'e kadar dilde bu
+            anahtarı kullanıyoruz; daha fazlasında çubuğa sığmayacağı için
+            klasik açılır kutuya düşüyoruz. */}
+        {availableLocales.length > 1 && availableLocales.length <= 4 && (
+          <div
+            className="ml-auto flex shrink-0 overflow-hidden rounded-xl border"
+            style={{ borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)) }}
+            role="group"
+            aria-label="Menü dili"
+          >
+            {availableLocales.map((language) => {
+              const isCurrent = language.code === currentLocale;
+              const href = (() => {
+                if (typeof window === 'undefined') return '#';
+                const url = new URL(window.location.href);
+                if (language.code === 'tr') url.searchParams.delete('lang');
+                else url.searchParams.set('lang', language.code);
+                return url.toString();
+              })();
+              return (
+                <a
+                  key={language.code}
+                  href={href}
+                  aria-current={isCurrent ? 'true' : undefined}
+                  className="flex min-w-[46px] flex-col items-center px-2.5 py-1 leading-tight"
+                  style={isCurrent
+                    ? { backgroundColor: design.primaryColor, color: design.surfaceColor }
+                    : { color: design.mutedTextColor }}
+                >
+                  <span className="text-xs font-bold uppercase">{language.code}</span>
+                  <span className="text-[9px] font-medium opacity-80">{language.name}</span>
+                </a>
+              );
+            })}
+          </div>
+        )}
+        {availableLocales.length > 4 && (
           <label
             className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium"
             style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), color: design.textColor }}
@@ -842,12 +883,14 @@ export function GuestMenu({
           >
             Şefin Seçtikleri
           </h2>
-          <div className="mt-2.5 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* Telefonda yatay kaydırmalı şerit, masaüstünde referanstaki gibi
+              yan yana dizilen kartlar. */}
+          <div className="mt-2.5 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
             {featuredItems.map((it) => (
               <Pressable
                 key={it.id}
                 onClick={() => openItem(it)}
-                className="w-40 shrink-0 overflow-hidden border text-left"
+                className="w-40 shrink-0 overflow-hidden border text-left lg:w-auto"
                 style={{
                   borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)),
                   borderRadius: `${Math.min(design.cardRadius, 18)}px`,
@@ -897,7 +940,14 @@ export function GuestMenu({
                 Seçili alerjen filtreleriyle eşleşen ürün yok.
               </p>
             ) : (
-              <ul style={{ display: 'grid', gridTemplateColumns: design.layout === 'two-column' ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: `${design.itemSpacing}px` }}>
+              /* Sütun sayısı: telefonda tasarım ayarındaki düzen (tek ya da
+                 iki sütun), masaüstünde her hâlükârda İKİ sütun — referans
+                 geniş ekranda ürünleri iki sütunda diziyor, tek sütun geniş
+                 sayfada aşırı seyrek kalıyordu. */
+              <ul
+                className={design.layout === 'two-column' ? 'grid grid-cols-2' : 'grid grid-cols-1 lg:grid-cols-2'}
+                style={{ gap: `${design.itemSpacing}px` }}
+              >
                 {shownItems.map((it) => (
                   <li key={it.id}>
                     <Pressable
