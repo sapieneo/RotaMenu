@@ -46,6 +46,7 @@ export function DesignStudio({
   const [saved, setSaved] = useState(initial);
   const [presets, setPresets] = useState(initialPresets);
   const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'error'>('idle');
   const [showDetailed, setShowDetailed] = useState(false);
   const [styleText, setStyleText] = useState('');
@@ -226,8 +227,12 @@ export function DesignStudio({
       if (!response.ok) throw new Error(body.error ?? 'Tasarım kaydedilemedi.');
       setSaved(settingsToSave);
       setSaveState('saved');
+      setSaveError(null);
       return true;
-    } catch {
+    } catch (err) {
+      // Sunucunun gerçek mesajını sakla: eskiden her hata "bağlantını kontrol
+      // et" diye gösteriliyordu ve yetki/doğrulama hataları teşhis edilemiyordu.
+      setSaveError(err instanceof Error ? err.message : null);
       setSaveState('error');
       return false;
     }
@@ -618,7 +623,11 @@ export function DesignStudio({
             </>
           )}
 
-          {saveState === 'error' && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">Tasarım kaydedilemedi. Bağlantını kontrol edip tekrar dene.</p>}
+          {saveState === 'error' && (
+            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {saveError ?? 'Tasarım kaydedilemedi. Bağlantını kontrol edip tekrar dene.'}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-3 pb-10">
             <button onClick={() => setSettings({ ...DEFAULT_MENU_DESIGN })} className="rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">Varsayılana dön</button>
             <button type="button" onClick={() => void openFullscreenMenu()} disabled={saveState === 'saving'} className="text-sm font-semibold text-brand-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50">
