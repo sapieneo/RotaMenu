@@ -620,7 +620,9 @@ export function GuestMenu({
           className="flex items-center gap-2.5 rounded-2xl border px-4 py-3"
           style={{
             borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)),
-            backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+            // OPAK olmalı: 'hero' kategori fotoğrafı bu bloğun arkasından
+            // geçtiği için yarı saydam bir zeminde placeholder okunmuyordu.
+            backgroundColor: design.surfaceColor,
             boxShadow: tintedShadow(design),
           }}
         >
@@ -736,7 +738,7 @@ export function GuestMenu({
                   className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium"
                   style={hidden
                     ? { backgroundColor: design.primaryColor, borderColor: design.primaryColor, color: design.surfaceColor }
-                    : { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), color: design.textColor }}
+                    : { backgroundColor: design.surfaceColor, borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)), color: design.textColor }}
                 >
                   {a?.emoji && <span aria-hidden>{a.emoji}</span>}
                   {a?.tr ?? code}
