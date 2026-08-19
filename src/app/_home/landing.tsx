@@ -441,12 +441,12 @@ function Faq() {
       a: 'QR kodları kalıcıdır. Menü adresinizi (slug) değiştirseniz bile basılı kodlar çalışmaya devam eder.',
     },
     {
-      q: 'Deneme bitince verilerim silinir mi?',
-      a: 'Hayır. Deneme bitince yalnızca menünüzün yayını durur; ürünleriniz, onaylarınız ve QR kodlarınız olduğu gibi kalır. Abonelik başlattığınızda kaldığınız yerden devam edersiniz.',
+      q: 'Menüm ne kadar süre yayında kalır?',
+      a: 'Süre sınırı yok. Menünüz, onaylarınız ve QR kodlarınız siz kaldırana kadar yayında kalır; ürün sayısı ya da dil sayısı için de bir üst sınır uygulanmaz.',
     },
     {
       q: 'Kaç dile çeviri yapabilirim?',
-      a: 'Abonelikte sınır yok. Arapça, Rusça, İngilizce, Almanca, Farsça gibi Türkiye’de en çok ihtiyaç duyulan diller dahil 10’dan fazla dil destekleniyor.',
+      a: 'Sınır yok. Arapça, Rusça, İngilizce, Almanca, Farsça gibi Türkiye’de en çok ihtiyaç duyulan diller dahil 10’dan fazla dil destekleniyor.',
     },
     {
       q: 'Sipariş alabiliyor muyum?',
