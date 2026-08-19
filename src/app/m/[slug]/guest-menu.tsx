@@ -1157,6 +1157,13 @@ function CategoryStrip({
             {numberLabel}
           </span>
         )}
+        {/* Ürün sayısı fotoğraflı şeritte de görünsün — fotoğrafsız (editoryal)
+            başlıkta zaten vardı, ikisi arasında tutarsızlık kalmasın. */}
+        {itemCount != null && (
+          <span className="absolute right-3 top-2.5 text-xs font-medium text-white/70">
+            {itemCount} ürün
+          </span>
+        )}
         <div className="absolute inset-0 flex items-center justify-center px-4 text-center">
           <h2 className="text-xl font-bold text-white drop-shadow-md" style={{ fontFamily: design.headingFont }}>
             {name}
