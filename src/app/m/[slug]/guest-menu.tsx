@@ -1065,7 +1065,14 @@ export function GuestMenu({
                       Seçili alerjen filtreleriyle eşleşen ürün yok.
                     </p>
                   ) : (
-                    <ul className="relative flex flex-col px-0.5 pb-1" style={{ gap: `${design.itemSpacing}px` }}>
+                    /* Hero (tam boy fotoğraflı) kategorilerde de masaüstünde iki
+                       sütun — normal kategorilerle aynı düzen. Eskiden burada
+                       tek sütunlu bir flex listesi vardı ve geniş ekranda
+                       kartlar aşırı uzuyordu. */
+                    <ul
+                      className="relative grid grid-cols-1 px-0.5 pb-1 lg:grid-cols-2"
+                      style={{ gap: `${design.itemSpacing}px` }}
+                    >
                       {heroShownItems.map((it) => (
                         <li key={it.id}>
                           <Pressable
