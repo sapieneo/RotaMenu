@@ -894,7 +894,15 @@ export function GuestMenu({
           const cats = group.categories;
           return (
             <div key={`hero-${cats[0].id}`} className="relative">
-              <div className="sticky top-[50vh] z-0 h-[25.2rem] -translate-y-1/2 overflow-hidden sm:h-[28rem]" style={{ borderRadius: `${design.heroImageRadius}px` }} aria-hidden>
+              {/* DİKKAT (düzeltme): eskiden `top-[50vh] -translate-y-1/2` idi —
+                  fotoğraf ekranın DİKEY ORTASINA sabitleniyordu. Transform,
+                  katmanı sarmalayıcının üst kenarının ~200px YUKARISINA taşıdığı
+                  için sayfanın en başında (henüz bu gruba gelinmemişken bile)
+                  arama kutusunun ve alerjen filtrelerinin arkasından sızıyordu.
+                  Artık nav'ın hemen altına (top-[110px]) sabitleniyor: sticky,
+                  katmanı sarmalayıcının sınırları içinde tuttuğu için taşma
+                  olmuyor; gruptaki kategoriler arası crossfade aynen korunuyor. */}
+              <div className="sticky top-[110px] z-0 h-[25.2rem] overflow-hidden sm:h-[28rem]" style={{ borderRadius: `${design.heroImageRadius}px` }} aria-hidden>
                 {cats.map((c) => (
                   <div
                     key={c.id}
