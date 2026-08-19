@@ -243,6 +243,16 @@ export const MENU_DESIGN_PRESETS: MenuDesignPreset[] = [
     backgroundColor: '#fdfaeb', primaryColor: '#9f8500', accentColor: '#9f8500',
   },
   {
+    // Referans menünün (AYANA) birebir tonu: kireç beyazı zemin, koyu deniz-gri
+    // vurgu ve altın kenarlı duyuru şeridi. Diğer curated kartlarla aynı
+    // tipografiyi (Fraunces başlık + DM Sans gövde) ve bronz fiyat rengini
+    // paylaşır — yalnız renk paleti değişir.
+    templateId: 'rota-liman', name: 'RotaMenu Liman', description: 'Kireç beyazı zemin, koyu deniz grisi ve altın vurgu — referans menünün tonu.', mood: 'Hızlı · Sahil',
+    keywords: 'rotamenu, hızlı, liman, deniz, gri, altın, balık, meyhane, editoryal, fraunces, sade, tutarlı',
+    curated: true, ...CURATED_BASE,
+    backgroundColor: '#f4f5f3', primaryColor: '#4a5f6b', accentColor: '#c2a15a',
+  },
+  {
     templateId: 'sade', name: 'Sade', description: 'Temiz, ferah ve hızlı okunur.', mood: 'Modern',
     keywords: 'sade, modern, minimal, temiz, ferah, günlük, hızlı okunur',
     backgroundColor: '#f5f5f4', surfaceColor: '#ffffff', primaryColor: '#ea580c', accentColor: '#fb923c',
