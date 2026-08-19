@@ -583,7 +583,10 @@ export function GuestMenu({
           gösterilir (yukarıda), ama RotaMenu referansı aynı içeriği popup
           kapandıktan SONRA da bir hatırlatma çubuğu olarak tutuyor. */}
       {venue.announcement && (
-        <div className="px-4 pt-4">
+        // relative z-10: aşağıdaki 'hero' kategori grubunun sticky fotoğraf
+        // katmanı (z-0) ekranın ortasına sabitlendiği için, üstteki bu
+        // bloklar konumlandırılmazsa fotoğrafın ALTINDA kalıp kayboluyor.
+        <div className="relative z-10 px-4 pt-4">
           <button
             type="button"
             onClick={() => setShowAnnouncement(true)}
@@ -612,7 +615,7 @@ export function GuestMenu({
 
       {/* Her zaman görünen arama kutusu — referanstaki "…menüsünde lezzet ara…"
           alanı. Yazdıkça ürünler süzülür; boş kalan kategoriler gizlenir. */}
-      <div className="px-4 pt-4">
+      <div className="relative z-10 px-4 pt-4">
         <label
           className="flex items-center gap-2.5 rounded-2xl border px-4 py-3"
           style={{
@@ -714,7 +717,7 @@ export function GuestMenu({
       )}
 
       {availableAllergenCodes.length > 0 && (
-        <div className="px-4 pt-4">
+        <div className="relative z-10 px-4 pt-4">
           <h2
             className="px-0.5 text-sm font-bold uppercase tracking-wide"
             style={{ fontFamily: design.headingFont, color: design.textColor }}
@@ -746,7 +749,7 @@ export function GuestMenu({
       )}
 
       {featuredItems.length > 0 && (
-        <div className="px-4 pt-4">
+        <div className="relative z-10 px-4 pt-4">
           <h2
             className="px-0.5 text-sm font-bold uppercase tracking-wide"
             style={{ fontFamily: design.headingFont, color: design.textColor }}
@@ -976,7 +979,7 @@ export function GuestMenu({
           beyaz bilgi kartı. İçeriği Stüdyo → Ayarlar'daki "Marka hikayesi"
           alanından gelir; her paragraf ayrı satır olarak dizilir. */}
       {venue.story && (
-        <section className="px-4 pt-8">
+        <section className="relative z-10 px-4 pt-8">
           <div
             className="overflow-hidden rounded-2xl border-l-4 px-5 py-5"
             style={{
@@ -1472,7 +1475,7 @@ function ContactFooter({ venue }: { venue: GuestVenue }) {
   );
 
   return (
-    <footer className="mt-8 border-t px-5 py-6" style={{ borderColor: hexToRgba(venue.design.dividerColor, venue.design.dividerOpacity), backgroundColor: hexToRgba(venue.design.surfaceColor, 75) }}>
+    <footer className="relative z-10 mt-8 border-t px-5 py-6" style={{ borderColor: hexToRgba(venue.design.dividerColor, venue.design.dividerOpacity), backgroundColor: hexToRgba(venue.design.surfaceColor, 75) }}>
       {rows.length > 0 && (
         <dl className="space-y-3">
           {rows.map((r) => (
