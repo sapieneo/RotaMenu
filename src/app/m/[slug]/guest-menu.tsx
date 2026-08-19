@@ -35,6 +35,7 @@ type UiStrings = {
   hidden: string;
   chefPicks: string;
   chefPick: string;
+  chefPicksNote: string;
   noItemsForFilters: string;
   noSearchResults: (query: string) => string;
   allergensUnverified: string;
@@ -78,6 +79,7 @@ const UI_TR: UiStrings = {
   hidden: '— gizli',
   chefPicks: 'Şefin Seçtikleri',
   chefPick: 'Şef Seçimi',
+  chefPicksNote: 'Bugün için özenle seçildi',
   noItemsForFilters: 'Seçili alerjen filtreleriyle eşleşen ürün yok.',
   noSearchResults: (q) => `“${q}” için sonuç bulunamadı.`,
   allergensUnverified: 'Alerjen bilgisi doğrulanmadı',
@@ -123,6 +125,7 @@ const UI_EN: UiStrings = {
   hidden: '— hidden',
   chefPicks: "Chef's Picks",
   chefPick: "Chef's Pick",
+  chefPicksNote: 'Specially selected for today',
   noItemsForFilters: 'No items match the selected allergen filters.',
   noSearchResults: (q) => `No results for “${q}”.`,
   allergensUnverified: 'Allergen info not verified',
@@ -510,9 +513,23 @@ export function GuestMenu({
   // öne çıkarılmış, alerjen filtresinden geçmiş ürünler. Kısa tutulur (ilk 6)
   // — bu bir vitrin, tam liste zaten altta kategorilerde var.
   const featuredItems = useMemo(
-    () => visibleCategories.flatMap((c) => visibleItemsOf(c).filter((it) => it.isFeatured)).slice(0, 6),
+    () => {
+      const manual = visibleCategories.flatMap((c) => visibleItemsOf(c).filter((it) => it.isFeatured));
+      if (manual.length > 0) return manual.slice(0, 6);
+      // Hiçbir ürün elle "Şefin Seçtikleri"ne eklenmemişse şerit boş kalmasın:
+      // ilk kategorilerden birer ürün seçilir — görseli olan varsa o tercih
+      // edilir, çünkü bu şerit menünün vitrini ve boş kart iyi görünmüyor.
+      const auto: GuestItem[] = [];
+      for (const c of visibleCategories) {
+        const items = visibleItemsOf(c);
+        const pick = items.find((it) => it.imageUrl) ?? items[0];
+        if (pick) auto.push(pick);
+        if (auto.length >= 3) break;
+      }
+      return auto;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visibleCategories, hiddenAllergens]
+    [visibleCategories, hiddenAllergens, needle]
   );
 
   useEffect(() => {
@@ -1085,20 +1102,33 @@ export function GuestMenu({
 
       {featuredItems.length > 0 && (
         <div ref={featuredRef} className="relative z-10 scroll-mt-28 px-4 pt-4">
-          <h2
-            className="px-0.5 text-sm font-bold uppercase tracking-wide"
-            style={{ fontFamily: design.headingFont, color: design.textColor }}
-          >
-            {t.chefPicks}
-          </h2>
+          <p className="px-0.5 text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: design.mutedTextColor }}>
+            {venue.name}
+          </p>
+          <div className="flex items-end justify-between gap-3 px-0.5">
+            <h2
+              className="flex items-center gap-2 font-bold leading-tight"
+              style={{
+                fontFamily: design.headingFont,
+                color: design.textColor,
+                fontSize: `${design.baseFontSize * design.headingScale * 2.05}px`,
+              }}
+            >
+              <span style={{ color: design.accentColor }} aria-hidden>★</span>
+              {t.chefPicks}
+            </h2>
+            <span className="shrink-0 pb-1 text-xs" style={{ color: design.mutedTextColor }}>
+              {t.chefPicksNote}
+            </span>
+          </div>
           {/* Telefonda yatay kaydırmalı şerit, masaüstünde referanstaki gibi
               yan yana dizilen kartlar. */}
-          <div className="mt-2.5 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+          <div className="mt-3 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] lg:grid lg:grid-cols-3 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
             {featuredItems.map((it) => (
               <Pressable
                 key={it.id}
                 onClick={() => openItem(it)}
-                className="w-40 shrink-0 overflow-hidden border text-left lg:w-auto"
+                className="w-44 shrink-0 overflow-hidden border text-left lg:w-auto"
                 style={{
                   borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)),
                   borderRadius: `${Math.min(design.cardRadius, 18)}px`,
@@ -1106,7 +1136,7 @@ export function GuestMenu({
                   boxShadow: tintedShadow(design),
                 }}
               >
-                <div className="relative h-24 w-full">
+                <div className="relative h-28 w-full lg:h-40">
                   <ItemThumb item={it} design={design} className="h-full w-full" showCaption t={t} />
                   <span
                     className="absolute left-1.5 top-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
@@ -1207,7 +1237,7 @@ export function GuestMenu({
                 ref={(el) => {
                   sectionRefs.current[c.id] = el;
                 }}
-                className="scroll-mt-16 pt-6"
+                className="scroll-mt-16 pt-12"
               >
                 <CategoryFrame design={design} variant="plain">
                   <CategoryStrip
@@ -1322,7 +1352,7 @@ export function GuestMenu({
                       ref={(el) => {
                         sectionRefs.current[c.id] = el;
                       }}
-                      className={index === 0 ? 'scroll-mt-16 pt-28 sm:pt-32' : 'scroll-mt-16 pt-6'}
+                      className={index === 0 ? 'scroll-mt-16 pt-28 sm:pt-32' : 'scroll-mt-16 pt-12'}
                     >
                       <CategoryFrame design={design}>
                         <CategoryStrip name={c.name} design={design} number={categoryIndexById.get(c.id)} itemCount={heroShownItems.length} t={t} />
@@ -1468,7 +1498,7 @@ function CategoryStrip({
             fontFamily: design.headingFont,
             // Referanstaki kategori başlıkları gövde metninin ~2 katı; 1.15
             // çarpanı fazla küçük kalıyordu.
-            fontSize: `${design.baseFontSize * design.headingScale * 1.75}px`,
+            fontSize: `${design.baseFontSize * design.headingScale * 2.05}px`,
           }}
         >
           {name}
@@ -1479,10 +1509,9 @@ function CategoryStrip({
           </span>
         )}
       </div>
-      <div
-        className="mt-2 h-px w-full"
-        style={{ backgroundColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 45)) }}
-      />
+      {/* Referansta bu çizgi ince gri değil, metin rengiyle basılmış KALIN
+          bir ayraç — kategoriyi bir dergi bölüm başlığı gibi ayırıyor. */}
+      <div className="mt-2.5 h-[2px] w-full" style={{ backgroundColor: hexToRgba(design.textColor, 82) }} />
     </div>
   );
 }
