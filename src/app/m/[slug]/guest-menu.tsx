@@ -1792,13 +1792,25 @@ function SplashScreen({
       className={`fixed inset-0 z-[60] flex flex-col items-center justify-center transition-opacity duration-500 ${
         fading ? 'pointer-events-none opacity-0' : 'opacity-100'
       }`}
-      style={
-        venue.coverUrl
-          ? { backgroundImage: `url(${venue.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-          : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }
-      }
+      /* TABAN katman her zaman markanın gradyanı. Fotoğraf bunun ÜSTÜNE ayrı
+         bir katman olarak biner; dosya eksikse ya da yüklenemezse gradyan
+         görünmeye devam eder, ekran asla boş/bozuk kalmaz. */
+      style={{ background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }}
       aria-hidden
     >
+      {/*
+        Arka plan önceliği:
+          1. İşletmenin kendi kapak fotoğrafı (Stüdyo → Tasarım)
+          2. Yoksa ortak açılış görseli: /public/splash.jpg
+          3. O da yoksa yukarıdaki gradyan
+        Ortak görseli değiştirmek için tek yapılması gereken public/splash.jpg
+        dosyasını değiştirmek — kod dokunmaya gerek yok.
+      */}
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: `url(${venue.coverUrl ?? '/splash.jpg'})` }}
+      />
+
       {/* Fotoğraf üzerinde yazının okunması için koyu perde. */}
       <div className="absolute inset-0" style={{ backgroundColor: hexToRgba(design.textColor, 55) }} />
 
