@@ -8,6 +8,152 @@ import { hexToRgba, menuBackgroundStyle, normalizeMenuDesign, type MenuDesignSet
 import { Sheet } from '@/components/ui/sheet';
 import { Pressable } from '@/components/ui/pressable';
 
+/**
+ * Misafir menüsünün ARAYÜZ metinleri.
+ *
+ * Menü içeriği (ürün adı, açıklama, kategori) `item_translations` /
+ * `category_translations` tablolarından geliyordu; ama "9 ürün", "Alerjen
+ * filtreleri", "Tümü" gibi arayüz metinleri koda gömülüydü ve İngilizce
+ * menüde bile Türkçe kalıyordu. Yabancı misafir için menünün yarısı çevrilmiş
+ * gibi görünüyordu. Türkçe dışındaki tüm diller İngilizce'ye düşer — Rusça
+ * ya da Arapça arayüz istenirse buraya bir anahtar eklemek yeterli.
+ */
+type UiStrings = {
+  mainMenus: string;
+  digitalMenu: string;
+  itemsAndCategories: (items: number, categories: number) => string;
+  itemCount: (n: number) => string;
+  searchPlaceholder: (menuName: string) => string;
+  searchLabel: string;
+  clearSearch: string;
+  all: string;
+  allCategories: string;
+  categories: string;
+  noCategoryMatch: string;
+  allergenFilters: string;
+  hideContaining: string;
+  hidden: string;
+  chefPicks: string;
+  chefPick: string;
+  noItemsForFilters: string;
+  noSearchResults: (query: string) => string;
+  allergensUnverified: string;
+  allergensUnverifiedLong: string;
+  noDeclaredAllergens: string;
+  terms: string;
+  ingredients: string;
+  caloriesPerServing: string;
+  allergens: string;
+  allergenDisclaimer: string;
+  seeMenu: string;
+  imagePending: string;
+  menuLanguage: string;
+  close: string;
+  notPublished: string;
+  menuBeingPrepared: string;
+  preparedWith: string;
+  address: string;
+  openingHours: string;
+  phone: string;
+  wifi: string;
+};
+
+const UI_TR: UiStrings = {
+  mainMenus: 'Ana menüler:',
+  digitalMenu: 'Dijital menü',
+  itemsAndCategories: (i, c) => `${i} ürün · ${c} kategori`,
+  itemCount: (n) => `${n} ürün`,
+  searchPlaceholder: (m) => `${m} menüsünde lezzet ara…`,
+  searchLabel: 'Menüde ara',
+  clearSearch: 'Aramayı temizle',
+  all: 'Tümü',
+  allCategories: 'Tüm kategoriler',
+  categories: 'Kategoriler',
+  noCategoryMatch: 'Eşleşen kategori yok.',
+  allergenFilters: 'Alerjen filtreleri',
+  hideContaining: '— içerenleri gizle',
+  hidden: '— gizli',
+  chefPicks: 'Şefin Seçtikleri',
+  chefPick: 'Şef Seçimi',
+  noItemsForFilters: 'Seçili alerjen filtreleriyle eşleşen ürün yok.',
+  noSearchResults: (q) => `“${q}” için sonuç bulunamadı.`,
+  allergensUnverified: 'Alerjen bilgisi doğrulanmadı',
+  allergensUnverifiedLong:
+    '⚠ Bu ürünün alerjen bilgisi henüz doğrulanmadı. Lütfen sipariş sırasında personele danışın.',
+  noDeclaredAllergens: 'İşletme beyanına göre bildirilmesi gereken alerjen içermiyor.',
+  terms: 'Bilgilendirme & Şartlar',
+  ingredients: 'İÇİNDEKİLER',
+  caloriesPerServing: 'KALORİ (PORSİYON)',
+  allergens: 'ALERJENLER',
+  allergenDisclaimer:
+    'Alerjen ve diyet bilgileri işletme beyanına dayanır. Ağır alerjiniz varsa lütfen personele danışın.',
+  seeMenu: 'Menüyü gör',
+  imagePending: 'Görsel hazırlanıyor',
+  menuLanguage: 'Menü dili',
+  close: 'Kapat',
+  notPublished: 'Önizleme — bu menü henüz yayınlanmadı. Yalnızca siz görüyorsunuz.',
+  menuBeingPrepared: 'Menü henüz hazırlanıyor. Kısa süre sonra tekrar deneyin.',
+  preparedWith: 'Rotamenu ile hazırlandı',
+  address: 'Adres',
+  openingHours: 'Çalışma saatleri',
+  phone: 'Telefon',
+  wifi: 'Wi-Fi',
+};
+
+const UI_EN: UiStrings = {
+  mainMenus: 'Main menus:',
+  digitalMenu: 'Digital menu',
+  itemsAndCategories: (i, c) => `${i} items · ${c} categories`,
+  itemCount: (n) => `${n} items`,
+  searchPlaceholder: (m) => `Search the ${m} menu…`,
+  searchLabel: 'Search the menu',
+  clearSearch: 'Clear search',
+  all: 'All',
+  allCategories: 'All categories',
+  categories: 'Categories',
+  noCategoryMatch: 'No matching category.',
+  allergenFilters: 'Allergen filters',
+  hideContaining: '— hide items with this',
+  hidden: '— hidden',
+  chefPicks: "Chef's Picks",
+  chefPick: "Chef's Pick",
+  noItemsForFilters: 'No items match the selected allergen filters.',
+  noSearchResults: (q) => `No results for “${q}”.`,
+  allergensUnverified: 'Allergen info not verified',
+  allergensUnverifiedLong:
+    '⚠ Allergen information for this item has not been verified yet. Please ask our staff when ordering.',
+  noDeclaredAllergens: 'Contains no allergens that require declaration, per the venue.',
+  terms: 'Information & Terms',
+  ingredients: 'INGREDIENTS',
+  caloriesPerServing: 'CALORIES (PER SERVING)',
+  allergens: 'ALLERGENS',
+  allergenDisclaimer:
+    'Allergen and dietary information is based on the venue’s declaration. If you have a severe allergy, please ask our staff.',
+  seeMenu: 'View menu',
+  imagePending: 'Image coming soon',
+  menuLanguage: 'Menu language',
+  close: 'Close',
+  notPublished: 'Preview — this menu is not published yet. Only you can see it.',
+  menuBeingPrepared: 'The menu is still being prepared. Please try again shortly.',
+  preparedWith: 'Made with Rotamenu',
+  address: 'Address',
+  openingHours: 'Opening hours',
+  phone: 'Phone',
+  wifi: 'Wi-Fi',
+};
+
+/** Türkçe dışındaki her dil İngilizce arayüze düşer. */
+function uiStrings(locale: string): UiStrings {
+  return locale === 'tr' ? UI_TR : UI_EN;
+}
+
+/** Alerjen adı — seçili dile göre. */
+function allergenLabel(code: string, locale: string): string {
+  const a = (ALLERGENS as Record<string, { tr: string; en: string } | undefined>)[code];
+  if (!a) return code;
+  return locale === 'tr' ? a.tr : a.en;
+}
+
 export type GuestItem = {
   id: string;
   name: string;
@@ -118,10 +264,12 @@ function ItemThumb({
   design,
   className,
   showCaption = false,
+  t,
 }: {
   item: GuestItem;
   design: MenuDesignSettings;
   className?: string;
+  t: UiStrings;
   /** Büyük kartlarda (Şefin Seçtikleri) ürün adı + "hazırlanıyor" notu da yazılır. */
   showCaption?: boolean;
 }) {
@@ -158,7 +306,7 @@ function ItemThumb({
             className="relative mt-1 text-[7px] font-semibold uppercase tracking-[0.18em]"
             style={{ color: hexToRgba(design.textColor, 40) }}
           >
-            Görsel hazırlanıyor
+            {t.imagePending}
           </span>
         </>
       )}
@@ -171,32 +319,29 @@ function ItemThumb({
  * inceleme onaylanmışsa alerjenler çip olarak listelenir (alerjen yoksa hiç
  * bir şey yazılmaz), onaylanmamışsa tek bir uyarı çipi çıkar.
  */
-function AllergenLine({ item, design }: { item: GuestItem; design: MenuDesignSettings }) {
+function AllergenLine({ item, design, t, locale }: { item: GuestItem; design: MenuDesignSettings; t: UiStrings; locale: string }) {
   if (!item.allergensReviewed) {
     return (
       <span
         className="mt-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
         style={{ backgroundColor: hexToRgba(design.dividerColor, 28), color: design.mutedTextColor }}
       >
-        <span aria-hidden>⚠</span> Alerjen bilgisi doğrulanmadı
+        <span aria-hidden>⚠</span> {t.allergensUnverified}
       </span>
     );
   }
   if (item.allergenCodes.length === 0) return null;
   return (
     <span className="mt-1.5 flex flex-wrap gap-1">
-      {item.allergenCodes.map((code) => {
-        const a = (ALLERGENS as Record<string, { tr: string } | undefined>)[code];
-        return (
-          <span
-            key={code}
-            className="rounded-md px-1.5 py-0.5 text-[10px] font-medium"
-            style={{ backgroundColor: hexToRgba(design.primaryColor, 10), color: design.primaryColor }}
-          >
-            {a?.tr ?? code}
-          </span>
-        );
-      })}
+      {item.allergenCodes.map((code) => (
+        <span
+          key={code}
+          className="rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+          style={{ backgroundColor: hexToRgba(design.primaryColor, 10), color: design.primaryColor }}
+        >
+          {allergenLabel(code, locale)}
+        </span>
+      ))}
     </span>
   );
 }
@@ -273,6 +418,8 @@ export function GuestMenu({
     const qs = params.toString();
     window.location.href = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
   }
+
+  const t = uiStrings(currentLocale);
 
   const [design, setDesign] = useState<MenuDesignSettings>(initialVenue.design);
   const [logoUrl, setLogoUrl] = useState<string | null>(initialVenue.logoUrl);
@@ -506,7 +653,7 @@ export function GuestMenu({
     return (
       <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-3 px-6 text-center">
         <h1 className="text-2xl font-bold">{venue.name}</h1>
-        <p className="text-stone-500">Menü henüz hazırlanıyor. Kısa süre sonra tekrar deneyin.</p>
+        <p className="text-stone-500">{uiStrings(currentLocale).menuBeingPrepared}</p>
       </main>
     );
   }
@@ -532,6 +679,7 @@ export function GuestMenu({
         <WelcomeAnnouncement
           announcement={venue.announcement}
           design={design}
+          t={t}
           onClose={() => setShowAnnouncement(false)}
         />
       )}
@@ -567,7 +715,7 @@ export function GuestMenu({
         {showMenuSwitcher && (
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide" style={{ color: design.mutedTextColor }}>
-              Ana menüler:
+              {t.mainMenus}
             </span>
             {menus.map((m) => {
               const isActive = m.id === activeMenuId;
@@ -606,7 +754,7 @@ export function GuestMenu({
             className="ml-auto flex shrink-0 overflow-hidden rounded-xl border"
             style={{ borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)) }}
             role="group"
-            aria-label="Menü dili"
+            aria-label={t.menuLanguage}
           >
             {availableLocales.map((language) => {
               const isCurrent = language.code === currentLocale;
@@ -634,12 +782,12 @@ export function GuestMenu({
             style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), color: design.textColor }}
           >
             <span aria-hidden>🌐</span>
-            <span className="sr-only">Menü dili</span>
+            <span className="sr-only">{t.menuLanguage}</span>
             <select
               value={currentLocale}
               onChange={(event) => switchLocale(event.target.value)}
               className="bg-transparent pr-0.5 font-medium outline-none"
-              aria-label="Menü dili"
+              aria-label={t.menuLanguage}
             >
               {availableLocales.map((language) => (
                 <option key={language.code} value={language.code}>{language.name}</option>
@@ -651,7 +799,7 @@ export function GuestMenu({
 
       {!venue.isPublished && (
         <div className="bg-amber-100 px-4 py-2 text-center text-xs font-medium text-amber-800">
-          Önizleme — bu menü henüz yayınlanmadı. Yalnızca siz görüyorsunuz.
+          {t.notPublished}
         </div>
       )}
 
@@ -686,7 +834,7 @@ export function GuestMenu({
               className="text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={heroSubStyle}
             >
-              {showMenuSwitcher ? venue.name : 'Dijital menü'}
+              {showMenuSwitcher ? venue.name : t.digitalMenu}
             </span>
             <h1
               className="mt-1 flex items-center gap-2 font-bold leading-none tracking-tight"
@@ -700,7 +848,7 @@ export function GuestMenu({
               {showMenuSwitcher ? activeMenu?.name ?? venue.name : venue.name}
             </h1>
             <span className="mt-2 text-xs font-medium" style={heroSubStyle}>
-              {visibleItemTotal} ürün · {visibleCategories.length} kategori
+              {t.itemsAndCategories(visibleItemTotal, visibleCategories.length)}
             </span>
           </div>
           {/* Logo artık üstteki sabit çubukta duruyor (referanstaki gibi) —
@@ -762,18 +910,18 @@ export function GuestMenu({
           }}
         >
           <span aria-hidden style={{ color: design.mutedTextColor }}>🔍</span>
-          <span className="sr-only">Menüde ara</span>
+          <span className="sr-only">{t.searchLabel}</span>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`${menus.find((m) => m.id === activeMenuId)?.name ?? venue.name} menüsünde lezzet ara…`}
+            placeholder={t.searchPlaceholder(menus.find((m) => m.id === activeMenuId)?.name ?? venue.name)}
             className="min-w-0 flex-1 bg-transparent text-base outline-none"
             style={{ color: design.textColor }}
           />
           {query && (
             <Pressable
               onClick={() => setQuery('')}
-              aria-label="Aramayı temizle"
+              aria-label={t.clearSearch}
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs"
               style={{ backgroundColor: hexToRgba(design.dividerColor, 40), color: design.mutedTextColor }}
             >
@@ -806,7 +954,7 @@ export function GuestMenu({
             className="whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium"
             style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.mutedTextColor }}
           >
-            Tümü
+            {t.all}
           </Pressable>
           {renderedCategories.map((c) => {
             const isActive = c.id === active;
@@ -843,7 +991,7 @@ export function GuestMenu({
             <Pressable
               type="button"
               onClick={() => setCategoryListOpen(true)}
-              aria-label="Tüm kategoriler"
+              aria-label={t.allCategories}
               className="shrink-0 rounded-full px-2.5 py-1.5 text-sm font-medium"
               style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.textColor }}
             >
@@ -857,6 +1005,7 @@ export function GuestMenu({
         <CategoryListSheet
           categories={renderedCategories}
           design={design}
+          t={t}
           activeId={active}
           onPick={(id) => {
             setCategoryListOpen(false);
@@ -872,11 +1021,10 @@ export function GuestMenu({
             className="px-0.5 text-sm font-bold uppercase tracking-wide"
             style={{ fontFamily: design.headingFont, color: design.textColor }}
           >
-            Alerjen filtreleri
+            {t.allergenFilters}
           </h2>
           <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {availableAllergenCodes.map((code) => {
-              const a = (ALLERGENS as Record<string, { tr: string; emoji?: string } | undefined>)[code];
               const hidden = hiddenAllergens.has(code);
               return (
                 <Pressable
@@ -888,9 +1036,8 @@ export function GuestMenu({
                     ? { backgroundColor: design.primaryColor, borderColor: design.primaryColor, color: design.surfaceColor }
                     : { backgroundColor: design.surfaceColor, borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)), color: design.textColor }}
                 >
-                  {a?.emoji && <span aria-hidden>{a.emoji}</span>}
-                  {a?.tr ?? code}
-                  <span className="opacity-70">{hidden ? '— gizli' : '— içerenleri gizle'}</span>
+                  {allergenLabel(code, currentLocale)}
+                  <span className="opacity-70">{hidden ? t.hidden : t.hideContaining}</span>
                 </Pressable>
               );
             })}
@@ -904,7 +1051,7 @@ export function GuestMenu({
             className="px-0.5 text-sm font-bold uppercase tracking-wide"
             style={{ fontFamily: design.headingFont, color: design.textColor }}
           >
-            Şefin Seçtikleri
+            {t.chefPicks}
           </h2>
           {/* Telefonda yatay kaydırmalı şerit, masaüstünde referanstaki gibi
               yan yana dizilen kartlar. */}
@@ -922,12 +1069,12 @@ export function GuestMenu({
                 }}
               >
                 <div className="relative h-24 w-full">
-                  <ItemThumb item={it} design={design} className="h-full w-full" showCaption />
+                  <ItemThumb item={it} design={design} className="h-full w-full" showCaption t={t} />
                   <span
                     className="absolute left-1.5 top-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
                     style={{ backgroundColor: design.primaryColor, color: design.surfaceColor }}
                   >
-                    Şef Seçimi
+                    {t.chefPick}
                   </span>
                 </div>
                 <div className="p-2.5">
@@ -937,7 +1084,7 @@ export function GuestMenu({
                       {formatPrice(it.price, venue.currency)}
                     </p>
                   )}
-                  <AllergenLine item={it} design={design} />
+                  <AllergenLine item={it} design={design} t={t} locale={currentLocale} />
                 </div>
               </Pressable>
             ))}
@@ -949,7 +1096,7 @@ export function GuestMenu({
       <main className="px-4">
         {renderedCategories.length === 0 && (
           <p className="px-1 py-10 text-center text-sm" style={{ color: design.mutedTextColor }}>
-            {needle ? `“${query.trim()}” için sonuç bulunamadı.` : 'Seçili alerjen filtreleriyle eşleşen ürün yok.'}
+            {needle ? t.noSearchResults(query.trim()) : t.noItemsForFilters}
           </p>
         )}
         {(() => {
@@ -960,7 +1107,7 @@ export function GuestMenu({
             const shownItems = visibleItemsOf(c);
             const itemList = shownItems.length === 0 ? (
               <p className="px-1 py-3 text-sm" style={{ color: design.mutedTextColor }}>
-                Seçili alerjen filtreleriyle eşleşen ürün yok.
+                {t.noItemsForFilters}
               </p>
             ) : (
               /* Sütun sayısı: telefonda tasarım ayarındaki düzen (tek ya da
@@ -990,7 +1137,7 @@ export function GuestMenu({
                           className="h-16 w-16 shrink-0 overflow-hidden"
                           style={{ borderRadius: `${Math.min(design.cardRadius, 16)}px` }}
                         >
-                          <ItemThumb item={it} design={design} className="h-full w-full" />
+                          <ItemThumb item={it} design={design} className="h-full w-full" t={t} />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
@@ -1007,7 +1154,7 @@ export function GuestMenu({
                             {it.description}
                           </p>
                         )}
-                        <AllergenLine item={it} design={design} />
+                        <AllergenLine item={it} design={design} t={t} locale={currentLocale} />
                       </div>
                     </Pressable>
                   </li>
@@ -1032,6 +1179,7 @@ export function GuestMenu({
                     positionY={c.backgroundPositionY}
                     number={categoryIndexById.get(c.id)}
                     itemCount={shownItems.length}
+                    t={t}
                   />
                   <div>{itemList}</div>
                 </CategoryFrame>
@@ -1085,7 +1233,7 @@ export function GuestMenu({
                   const heroShownItems = visibleItemsOf(c);
                   const heroList = heroShownItems.length === 0 ? (
                     <p className="px-1 py-3 text-sm" style={{ color: design.mutedTextColor }}>
-                      Seçili alerjen filtreleriyle eşleşen ürün yok.
+                      {t.noItemsForFilters}
                     </p>
                   ) : (
                     /* Hero (tam boy fotoğraflı) kategorilerde de masaüstünde iki
@@ -1105,7 +1253,7 @@ export function GuestMenu({
                             style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderRadius: `${design.cardRadius}px`, borderBottom: `1px solid ${hexToRgba(design.dividerColor, design.dividerOpacity)}`, boxShadow: tintedShadow(design) }}
                           >
                             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-                              <ItemThumb item={it} design={design} className="h-full w-full" />
+                              <ItemThumb item={it} design={design} className="h-full w-full" t={t} />
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-baseline justify-between gap-2">
@@ -1121,7 +1269,7 @@ export function GuestMenu({
                                   {it.description}
                                 </p>
                               )}
-                              <AllergenLine item={it} design={design} />
+                              <AllergenLine item={it} design={design} t={t} locale={currentLocale} />
                             </div>
                           </Pressable>
                         </li>
@@ -1139,7 +1287,7 @@ export function GuestMenu({
                       className={index === 0 ? 'scroll-mt-16 pt-28 sm:pt-32' : 'scroll-mt-16 pt-6'}
                     >
                       <CategoryFrame design={design}>
-                        <CategoryStrip name={c.name} design={design} number={categoryIndexById.get(c.id)} itemCount={heroShownItems.length} />
+                        <CategoryStrip name={c.name} design={design} number={categoryIndexById.get(c.id)} itemCount={heroShownItems.length} t={t} />
                         <div className="p-3">{heroList}</div>
                       </CategoryFrame>
                     </section>
@@ -1169,7 +1317,7 @@ export function GuestMenu({
               className="text-base font-bold"
               style={{ fontFamily: design.headingFont, color: design.textColor }}
             >
-              Bilgilendirme &amp; Şartlar
+              {t.terms}
             </h2>
             <div className="mt-2 space-y-2">
               {venue.story
@@ -1186,13 +1334,15 @@ export function GuestMenu({
         </section>
       )}
 
-      <ContactFooter venue={venue} />
+      <ContactFooter venue={venue} t={t} />
 
       {selected && (
         <ItemModal
           item={selected}
           currency={venue.currency}
           design={design}
+          t={t}
+          locale={currentLocale}
           onClose={() => setSelected(null)}
         />
       )}
@@ -1214,6 +1364,7 @@ function CategoryStrip({
   positionY = 50,
   number,
   itemCount,
+  t,
 }: {
   name: string;
   design: MenuDesignSettings;
@@ -1223,6 +1374,7 @@ function CategoryStrip({
   number?: number;
   /** Kategorideki (filtrelenmiş) ürün sayısı — başlığın sağında "14 ürün" olarak. */
   itemCount?: number;
+  t: UiStrings;
 }) {
   const numberLabel = number != null ? String(number + 1).padStart(2, '0') : null;
   if (backgroundUrl) {
@@ -1245,7 +1397,7 @@ function CategoryStrip({
             başlıkta zaten vardı, ikisi arasında tutarsızlık kalmasın. */}
         {itemCount != null && (
           <span className="absolute right-3 top-2.5 text-xs font-medium text-white/70">
-            {itemCount} ürün
+            {t.itemCount(itemCount)}
           </span>
         )}
         <div className="absolute inset-0 flex items-center justify-center px-4 text-center">
@@ -1285,7 +1437,7 @@ function CategoryStrip({
         </h2>
         {itemCount != null && (
           <span className="shrink-0 pb-1 text-xs" style={{ color: design.mutedTextColor }}>
-            {itemCount} ürün
+            {t.itemCount(itemCount)}
           </span>
         )}
       </div>
@@ -1336,12 +1488,14 @@ function CategoryFrame({
 function CategoryListSheet({
   categories,
   design,
+  t,
   activeId,
   onPick,
   onClose,
 }: {
   categories: GuestCategory[];
   design: MenuDesignSettings;
+  t: UiStrings;
   activeId: string;
   onPick: (id: string) => void;
   onClose: () => void;
@@ -1370,7 +1524,7 @@ function CategoryListSheet({
     <Sheet
       open
       onClose={onClose}
-      label="Kategoriler"
+      label={t.categories}
       placement="bottom"
       panelClassName="ros-draggable flex max-h-[80vh] w-full max-w-lg flex-col rounded-t-3xl shadow-2xl sm:rounded-3xl"
       // Sabit beyaz yerine menünün kendi yüzey rengi — koyu/markalı
@@ -1386,8 +1540,8 @@ function CategoryListSheet({
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Menüde ara…"
-            aria-label="Menüde ara"
+            placeholder={`${t.searchLabel}…`}
+            aria-label={t.searchLabel}
             className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-base outline-none"
             style={{
               borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 60)),
@@ -1397,7 +1551,7 @@ function CategoryListSheet({
           />
           <Pressable
             onClick={onClose}
-            aria-label="Kapat"
+            aria-label={t.close}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
             style={{
               backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
@@ -1427,7 +1581,7 @@ function CategoryListSheet({
           ))}
           {shown.length === 0 && (
             <li className="px-3 py-6 text-center text-sm" style={{ color: design.mutedTextColor }}>
-              Eşleşen kategori yok.
+              {t.noCategoryMatch}
             </li>
           )}
         </ul>
@@ -1436,13 +1590,13 @@ function CategoryListSheet({
   );
 }
 
-function DietaryChip({ code }: { code: string }) {
-  const d = (DIETARY as Record<string, { tr: string; emoji: string } | undefined>)[code];
+function DietaryChip({ code, locale }: { code: string; locale: string }) {
+  const d = (DIETARY as Record<string, { tr: string; en: string; emoji: string } | undefined>)[code];
   if (!d) return null;
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
       <span aria-hidden>{d.emoji}</span>
-      {d.tr}
+      {locale === 'tr' ? d.tr : d.en}
     </span>
   );
 }
@@ -1456,11 +1610,15 @@ function ItemModal({
   item,
   currency,
   design,
+  t,
+  locale,
   onClose,
 }: {
   item: GuestItem;
   currency: string;
   design: MenuDesignSettings;
+  t: UiStrings;
+  locale: string;
   onClose: () => void;
 }) {
   return (
@@ -1484,7 +1642,7 @@ function ItemModal({
             </h2>
             <Pressable
               onClick={onClose}
-              aria-label="Kapat"
+              aria-label={t.close}
               className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
               style={{
                 backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
@@ -1504,7 +1662,7 @@ function ItemModal({
           {item.dietaryCodes.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {item.dietaryCodes.map((code) => (
-                <DietaryChip key={code} code={code} />
+                <DietaryChip key={code} code={code} locale={locale} />
               ))}
             </div>
           )}
@@ -1516,7 +1674,7 @@ function ItemModal({
           )}
 
           {item.ingredients && (
-            <ModalSection title="İÇİNDEKİLER" design={design}>
+            <ModalSection title={t.ingredients} design={design}>
               <p className="text-sm leading-relaxed" style={{ color: design.mutedTextColor }}>
                 {item.ingredients}
               </p>
@@ -1524,35 +1682,31 @@ function ItemModal({
           )}
 
           {item.calories != null && (
-            <ModalSection title="KALORİ (PORSİYON)" design={design}>
+            <ModalSection title={t.caloriesPerServing} design={design}>
               <p className="text-sm font-medium">{item.calories} kcal</p>
             </ModalSection>
           )}
 
-          <ModalSection title="ALERJENLER" design={design}>
+          <ModalSection title={t.allergens} design={design}>
             {!item.allergensReviewed ? (
               <p className="text-sm" style={{ color: design.mutedTextColor }}>
-                ⚠ Bu ürünün alerjen bilgisi henüz doğrulanmadı. Lütfen sipariş sırasında personele
-                danışın.
+                {t.allergensUnverifiedLong}
               </p>
             ) : item.allergenCodes.length === 0 ? (
               <p className="text-sm" style={{ color: design.mutedTextColor }}>
-                İşletme beyanına göre bildirilmesi gereken alerjen içermiyor.
+                {t.noDeclaredAllergens}
               </p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
-                {item.allergenCodes.map((code) => {
-                  const a = (ALLERGENS as Record<string, { tr: string } | undefined>)[code];
-                  return (
-                    <span
-                      key={code}
-                      className="rounded-lg px-2.5 py-1 text-xs font-medium"
-                      style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity) }}
-                    >
-                      {a?.tr ?? code}
-                    </span>
-                  );
-                })}
+                {item.allergenCodes.map((code) => (
+                  <span
+                    key={code}
+                    className="rounded-lg px-2.5 py-1 text-xs font-medium"
+                    style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity) }}
+                  >
+                    {allergenLabel(code, locale)}
+                  </span>
+                ))}
               </div>
             )}
           </ModalSection>
@@ -1564,8 +1718,7 @@ function ItemModal({
               color: design.mutedTextColor,
             }}
           >
-            Alerjen ve diyet bilgileri işletme beyanına dayanır. Ağır alerjiniz varsa lütfen
-            personele danışın.
+            {t.allergenDisclaimer}
           </p>
         </div>
       </div>
@@ -1582,10 +1735,12 @@ function ItemModal({
 function WelcomeAnnouncement({
   announcement,
   design,
+  t,
   onClose,
 }: {
   announcement: GuestAnnouncement;
   design: MenuDesignSettings;
+  t: UiStrings;
   onClose: () => void;
 }) {
   return (
@@ -1616,7 +1771,7 @@ function WelcomeAnnouncement({
             className="mt-5 inline-flex w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold"
             style={{ backgroundColor: design.priceColor ?? design.primaryColor, color: design.surfaceColor }}
           >
-            {announcement.buttonText || 'Menüyü gör'}
+            {announcement.buttonText || t.seeMenu}
           </Pressable>
         </div>
       </div>
@@ -1646,7 +1801,7 @@ function ModalSection({
   );
 }
 
-function ContactFooter({ venue }: { venue: GuestVenue }) {
+function ContactFooter({ venue, t }: { venue: GuestVenue; t: UiStrings }) {
   const waDigits = venue.whatsapp?.replace(/[^\d]/g, '') || null;
   const igHandle = venue.instagram
     ? venue.instagram.replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '')
@@ -1656,17 +1811,17 @@ function ContactFooter({ venue }: { venue: GuestVenue }) {
     () =>
       [
         venue.address && {
-          label: 'Adres',
+          label: t.address,
           value: venue.address,
           href: venue.googleMapsUrl ?? undefined,
         },
-        venue.openingHours && { label: 'Çalışma saatleri', value: venue.openingHours },
-        venue.phone && { label: 'Telefon', value: venue.phone, href: `tel:${venue.phone.replace(/\s/g, '')}` },
+        venue.openingHours && { label: t.openingHours, value: venue.openingHours },
+        venue.phone && { label: t.phone, value: venue.phone, href: `tel:${venue.phone.replace(/\s/g, '')}` },
         waDigits && { label: 'WhatsApp', value: venue.whatsapp!, href: `https://wa.me/${waDigits}` },
         igHandle && { label: 'Instagram', value: `@${igHandle}`, href: `https://instagram.com/${igHandle}` },
-        venue.wifiSsid && { label: 'Wi-Fi', value: venue.wifiSsid },
+        venue.wifiSsid && { label: t.wifi, value: venue.wifiSsid },
       ].filter(Boolean) as { label: string; value: string; href?: string }[],
-    [venue, waDigits, igHandle]
+    [venue, waDigits, igHandle, t]
   );
 
   return (
@@ -1699,7 +1854,7 @@ function ContactFooter({ venue }: { venue: GuestVenue }) {
       )}
       {venue.showBadge && (
         <p className="mt-6 text-center text-xs text-stone-300">
-          Rotamenu ile hazırlandı
+          {t.preparedWith}
         </p>
       )}
     </footer>
