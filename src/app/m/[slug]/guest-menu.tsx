@@ -1816,59 +1816,66 @@ function SplashScreen({
   t: UiStrings;
   fading: boolean;
 }) {
+  /**
+   * İKİ AYRI DURUM — karıştırılmamalı:
+   *
+   *  a) İşletmenin KENDİ kapak fotoğrafı varsa: fotoğraf sade bir manzaradır,
+   *     üzerine koyu perde + işletme adı + "hazırlanıyor" satırı basarız.
+   *
+   *  b) Kapak yoksa ortak marka görseli (/splash.jpg) kullanılır. Bu görselin
+   *     ÜZERİNDE zaten RotaMenu logosu ve "yükleniyor" yazısı basılıdır; bir de
+   *     bizim yazılarımızı üstüne koyunca iki metin üst üste biniyordu. Bu
+   *     durumda hiçbir şey yazmayız — görsel kendi başına yeterlidir.
+   */
+  const usingBrandSplash = !venue.coverUrl;
+
   return (
     <div
       className={`fixed inset-0 z-[60] flex flex-col items-center justify-center transition-opacity duration-500 ${
         fading ? 'pointer-events-none opacity-0' : 'opacity-100'
       }`}
-      /* TABAN katman her zaman markanın gradyanı. Fotoğraf bunun ÜSTÜNE ayrı
-         bir katman olarak biner; dosya eksikse ya da yüklenemezse gradyan
-         görünmeye devam eder, ekran asla boş/bozuk kalmaz. */
+      /* Taban katman markanın gradyanı: görsel yüklenemezse ekran boş kalmaz. */
       style={{ background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }}
       aria-hidden
     >
-      {/*
-        Arka plan önceliği:
-          1. İşletmenin kendi kapak fotoğrafı (Stüdyo → Tasarım)
-          2. Yoksa ortak açılış görseli: /public/splash.jpg
-          3. O da yoksa yukarıdaki gradyan
-        Ortak görseli değiştirmek için tek yapılması gereken public/splash.jpg
-        dosyasını değiştirmek — kod dokunmaya gerek yok.
-      */}
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: `url(${venue.coverUrl ?? '/splash.jpg'})` }}
       />
 
-      {/* Fotoğraf üzerinde yazının okunması için koyu perde. */}
-      <div className="absolute inset-0" style={{ backgroundColor: hexToRgba(design.textColor, 55) }} />
+      {/* Yazı basılacaksa okunurluk için perde; marka görselinde yazı yok,
+          perde de yok — görsel olduğu gibi, net görünsün. */}
+      {!usingBrandSplash && (
+        <>
+          <div className="absolute inset-0" style={{ backgroundColor: hexToRgba(design.textColor, 55) }} />
 
-      <div className="relative flex flex-col items-center px-8 text-center">
-        {venue.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={venue.logoUrl} alt="" className="mb-4 h-14 w-auto object-contain drop-shadow" />
-        ) : null}
-        <h1
-          className="text-4xl font-bold leading-none tracking-tight text-white drop-shadow-lg sm:text-5xl"
-          style={{ fontFamily: design.headingFont }}
-        >
-          {venue.name}
-        </h1>
-        <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/80">
-          {t.preparingMenu}
-        </p>
-      </div>
+          <div className="relative flex flex-col items-center px-8 text-center">
+            {venue.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={venue.logoUrl} alt="" className="mb-4 h-14 w-auto object-contain drop-shadow" />
+            ) : null}
+            <h1
+              className="text-4xl font-bold leading-none tracking-tight text-white drop-shadow-lg sm:text-5xl"
+              style={{ fontFamily: design.headingFont }}
+            >
+              {venue.name}
+            </h1>
+            <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/80">
+              {t.preparingMenu}
+            </p>
+          </div>
 
-      {/* Üç noktalı sırayla yanıp sönen bekleme göstergesi. */}
-      <div className="absolute bottom-16 flex gap-1.5">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/70"
-            style={{ animationDelay: `${i * 180}ms` }}
-          />
-        ))}
-      </div>
+          <div className="absolute bottom-16 flex gap-1.5">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/70"
+                style={{ animationDelay: `${i * 180}ms` }}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
