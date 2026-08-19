@@ -1,93 +1,45 @@
-import { createClient } from '@/lib/supabase/server';
-import { planLimits, resolvePlanContext } from '@/lib/plans';
-import { isIyzicoConfigured } from '@/lib/iyzico';
-import { isAdminSession } from '@/lib/admin-auth';
-import { PlanClient, type PlanClientData } from './plan-client';
-import { resolveManagedVenue } from '@/lib/managed-venue';
-
 export const dynamic = 'force-dynamic';
 
 /**
- * Plan & yükseltme ekranı (Faz C · Faturalama).
- * Ücretsiz planda: fatura bilgi formu → iyzico abonelik Checkout Form.
- * Pro planda: durum + iptal. Fiyat/periyot iyzico pricing plan'da tanımlıdır.
+ * AJANS MODU: plan/yükseltme ekranı devre dışı.
+ *
+ * Bu kurulum dışarıya satılan bir SaaS değil; ajansın kendi müşterileri için
+ * menü ürettiği kapalı bir ortam. Tüm plan kapıları kapalı (bkz. lib/plans.ts
+ * → PLANS), dolayısıyla yükseltilecek bir şey yok ve fiyat/paket göstermek
+ * yanıltıcı olur.
+ *
+ * Rota bilerek SİLİNMEDİ: kodun birkaç yerinde (yayın kartı, görseller sayfası,
+ * ayarlar) hâlâ buraya bağlantı veren — ama artık ulaşılamayan — dallar var.
+ * Rota dursun ki o dallardan biri beklenmedik şekilde tetiklenirse kullanıcı
+ * 404 yerine anlamlı bir açıklama görsün. Faturalama altyapısı (iyzico
+ * rotaları, plan-client.tsx) kodda duruyor; ileride tekrar SaaS'a dönülmek
+ * istenirse bu dosyayı eski haline döndürmek yeterli.
  */
-export default async function PlanPage({ searchParams }: { searchParams?: { venue?: string } }) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
-        <h1 className="text-xl font-semibold">Oturum bulunamadı</h1>
-        <a href="/studyo" className="mt-2 rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow">
-          Studyoya git
+export default function PlanPage() {
+  return (
+    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
+      <span className="text-4xl" aria-hidden>
+        ✨
+      </span>
+      <h1 className="text-xl font-semibold">Tüm özellikler açık</h1>
+      <p className="text-stone-600">
+        Bu kurulumda plan, paket veya kullanım sınırı yok. Ürün sayısı, dil, görsel üretimi ve
+        yayınlama dahil her şey sınırsız kullanılabilir — yükseltmeniz gereken bir şey yok.
+      </p>
+      <div className="mt-2 flex flex-wrap justify-center gap-2">
+        <a
+          href="/studyo/pano"
+          className="rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow transition hover:bg-brand-700"
+        >
+          Panoya dön
         </a>
-      </main>
-    );
-  }
-
-  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
-  const { data: membership } = venue
-    ? await supabase
-        .from('organization_members')
-        .select('org_id, role')
-        .eq('user_id', user.id)
-        .eq('org_id', venue.org_id)
-        .maybeSingle()
-    : { data: null };
-
-  let plan = 'free';
-  let contactPhone: string | null = null;
-  let orgName = '';
-  let subStatus: string | null = null;
-  let periodEnd: string | null = null;
-  let trial: PlanClientData['trial'] = { state: 'none', endsAt: null, daysLeft: 0 };
-
-  if (membership) {
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('plan, contact_phone, name, trial_ends_at')
-      .eq('id', membership.org_id)
-      .maybeSingle();
-    const ctx = resolvePlanContext(org?.plan, org?.trial_ends_at as string | null);
-    trial = ctx.trial;
-    plan = ctx.basePlan;
-    contactPhone = (org?.contact_phone as string | null) ?? null;
-    orgName = (org?.name as string | null) ?? '';
-
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('status, current_period_end')
-      .eq('org_id', membership.org_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    subStatus = (sub?.status as string | null) ?? null;
-    periodEnd = (sub?.current_period_end as string | null) ?? null;
-  }
-
-  const isOwner = membership?.role === 'owner' || membership?.role === 'admin';
-
-  const data: PlanClientData = {
-    venueId: venue?.id ?? null,
-    dashboardHref: venue?.id ? `/studyo/pano?venue=${venue.id}` : '/studyo/pano',
-    plan: plan as 'free' | 'pro' | 'enterprise',
-    planLabel: planLimits(plan).label,
-    isOwner,
-    isSuperAdmin: isAdminSession(),
-    billingConfigured: isIyzicoConfigured(),
-    subStatus,
-    periodEnd,
-    trial,
-    prefill: {
-      email: user.email ?? '',
-      gsmNumber: contactPhone ?? '',
-      name: orgName,
-    },
-  };
-
-  return <PlanClient data={data} />;
+        <a
+          href="/studyo"
+          className="rounded-xl border border-stone-300 px-6 py-3 font-semibold text-stone-700 transition hover:bg-stone-50"
+        >
+          Menü yükle
+        </a>
+      </div>
+    </main>
+  );
 }
