@@ -17,6 +17,13 @@ export type GuestItem = {
   calories: number | null;
   imageUrl: string | null;
   allergenCodes: string[];
+  /**
+   * Alerjen incelemesi işletme tarafından ONAYLANDI mı? false ise kartta
+   * "⚠ Alerjen bilgisi doğrulanmadı" uyarısı gösterilir — boş bir
+   * `allergenCodes` listesi "alerjen yok" anlamına gelmez, "henüz kontrol
+   * edilmedi" de olabilir (misafire RLS yalnız onaylı satırları verir).
+   */
+  allergensReviewed: boolean;
   dietaryCodes: string[];
   /** Stüdyo'da "Şefin Seçtikleri"ne eklenmiş mi — menünün üstünde öne çıkan şeritte gösterilir. */
   isFeatured: boolean;
@@ -156,6 +163,41 @@ function ItemThumb({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Ürün kartının altındaki alerjen satırı — referanstaki davranışın aynısı:
+ * inceleme onaylanmışsa alerjenler çip olarak listelenir (alerjen yoksa hiç
+ * bir şey yazılmaz), onaylanmamışsa tek bir uyarı çipi çıkar.
+ */
+function AllergenLine({ item, design }: { item: GuestItem; design: MenuDesignSettings }) {
+  if (!item.allergensReviewed) {
+    return (
+      <span
+        className="mt-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+        style={{ backgroundColor: hexToRgba(design.dividerColor, 28), color: design.mutedTextColor }}
+      >
+        <span aria-hidden>⚠</span> Alerjen bilgisi doğrulanmadı
+      </span>
+    );
+  }
+  if (item.allergenCodes.length === 0) return null;
+  return (
+    <span className="mt-1.5 flex flex-wrap gap-1">
+      {item.allergenCodes.map((code) => {
+        const a = (ALLERGENS as Record<string, { tr: string } | undefined>)[code];
+        return (
+          <span
+            key={code}
+            className="rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+            style={{ backgroundColor: hexToRgba(design.primaryColor, 10), color: design.primaryColor }}
+          >
+            {a?.tr ?? code}
+          </span>
+        );
+      })}
+    </span>
   );
 }
 
@@ -700,6 +742,7 @@ export function GuestMenu({
           </Pressable>
           {renderedCategories.map((c) => {
             const isActive = c.id === active;
+            const count = visibleItemsOf(c).length;
             return (
               <Pressable
                 key={c.id}
@@ -707,12 +750,20 @@ export function GuestMenu({
                   tabRefs.current[c.id] = el;
                 }}
                 onClick={() => goTo(c.id)}
-                className="whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium"
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium"
                 style={isActive
                   ? { backgroundColor: design.primaryColor, color: design.surfaceColor }
                   : { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.mutedTextColor }}
               >
                 {c.name}
+                <span
+                  className="rounded-full px-1.5 text-[10px] font-bold"
+                  style={isActive
+                    ? { backgroundColor: hexToRgba(design.surfaceColor, 25), color: design.surfaceColor }
+                    : { backgroundColor: hexToRgba(design.primaryColor, 10), color: design.primaryColor }}
+                >
+                  {count}
+                </span>
               </Pressable>
             );
           })}
@@ -816,6 +867,7 @@ export function GuestMenu({
                       {formatPrice(it.price, venue.currency)}
                     </p>
                   )}
+                  <AllergenLine item={it} design={design} />
                 </div>
               </Pressable>
             ))}
@@ -878,6 +930,7 @@ export function GuestMenu({
                             {it.description}
                           </p>
                         )}
+                        <AllergenLine item={it} design={design} />
                       </div>
                     </Pressable>
                   </li>
@@ -984,6 +1037,7 @@ export function GuestMenu({
                                   {it.description}
                                 </p>
                               )}
+                              <AllergenLine item={it} design={design} />
                             </div>
                           </Pressable>
                         </li>
@@ -1382,8 +1436,17 @@ function ItemModal({
             </ModalSection>
           )}
 
-          {item.allergenCodes.length > 0 && (
-            <ModalSection title="ALERJENLER" design={design}>
+          <ModalSection title="ALERJENLER" design={design}>
+            {!item.allergensReviewed ? (
+              <p className="text-sm" style={{ color: design.mutedTextColor }}>
+                ⚠ Bu ürünün alerjen bilgisi henüz doğrulanmadı. Lütfen sipariş sırasında personele
+                danışın.
+              </p>
+            ) : item.allergenCodes.length === 0 ? (
+              <p className="text-sm" style={{ color: design.mutedTextColor }}>
+                İşletme beyanına göre bildirilmesi gereken alerjen içermiyor.
+              </p>
+            ) : (
               <div className="flex flex-wrap gap-1.5">
                 {item.allergenCodes.map((code) => {
                   const a = (ALLERGENS as Record<string, { tr: string } | undefined>)[code];
@@ -1398,8 +1461,8 @@ function ItemModal({
                   );
                 })}
               </div>
-            </ModalSection>
-          )}
+            )}
+          </ModalSection>
 
           <p
             className="mt-5 border-t pt-3 text-xs leading-relaxed"

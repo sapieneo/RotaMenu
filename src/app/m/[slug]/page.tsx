@@ -209,8 +209,8 @@ export default async function GuestMenuPage({
       ? supabase.from('item_translations').select('item_id, locale, name, description, ingredients').in('item_id', itemIds)
       : Promise.resolve({ data: [] as { item_id: string; locale: string; name: string; description: string | null; ingredients: string | null }[] }),
     itemIds.length
-      ? createAdminClient().from('item_compliance').select('item_id, calories_review').in('item_id', itemIds)
-      : Promise.resolve({ data: [] as { item_id: string; calories_review: string }[] }),
+      ? createAdminClient().from('item_compliance').select('item_id, calories_review, allergen_review').in('item_id', itemIds)
+      : Promise.resolve({ data: [] as { item_id: string; calories_review: string; allergen_review: string }[] }),
     // Dil seçici, kategori/ürün çevirilerinin tek tek TAM eşleşmesini beklemek
     // yerine (yeni eklenen bir ürün çevrilmeden diğer her şeyi gizlerdi) dil
     // yönetimi ekranındaki "tamamlandı" işaretine bakar — misafir görmesin
@@ -227,6 +227,15 @@ export default async function GuestMenuPage({
   const confirmedCalories = new Set(
     (complianceRows ?? [])
       .filter((row) => row.calories_review === 'confirmed')
+      .map((row) => row.item_id)
+  );
+  // Alerjen incelemesi onaylanmış ürünler. Onaylanmamışsa misafir kartında
+  // "⚠ Alerjen bilgisi doğrulanmadı" uyarısı çıkar — çünkü boş bir alerjen
+  // listesi "alerjen yok" DEĞİL, "henüz kontrol edilmedi" anlamına gelebilir
+  // (RLS misafire yalnız 'confirmed' satırları gösterir).
+  const confirmedAllergens = new Set(
+    (complianceRows ?? [])
+      .filter((row) => (row as { allergen_review?: string }).allergen_review === 'confirmed')
       .map((row) => row.item_id)
   );
   const categoryTranslationsList = categoryTranslations ?? [];
@@ -280,6 +289,7 @@ export default async function GuestMenuPage({
         : null,
       imageUrl: (it.image_url as string | null) ?? null,
       allergenCodes: alg,
+      allergensReviewed: confirmedAllergens.has(it.id as string),
       dietaryCodes: diet,
       isFeatured: Boolean(it.is_featured),
     });
