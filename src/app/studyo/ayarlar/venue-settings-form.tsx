@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CURRENCIES } from '@/lib/currency';
+import { createClient } from '@/lib/supabase/client';
 
 export type VenueSettings = {
   id: string;
+  /** Storage yolu için gerekli — bkz. popup görseli yükleme. */
+  orgId: string;
   slug: string;
   name: string;
   description: string;
@@ -19,6 +22,8 @@ export type VenueSettings = {
   announcementTitle: string;
   announcementBody: string;
   announcementButtonText: string;
+  /** Popup'ın üst görseli. null = görselsiz popup. */
+  announcementImageUrl: string | null;
   story: string;
 };
 
@@ -84,6 +89,7 @@ export function VenueSettingsForm({
           announcementTitle: v.announcementTitle,
           announcementBody: v.announcementBody,
           announcementButtonText: v.announcementButtonText,
+          announcementImageUrl: v.announcementImageUrl,
           story: v.story,
         }),
       });
@@ -303,6 +309,13 @@ export function VenueSettingsForm({
               onChange={(e) => set('announcementButtonText', e.target.value)}
               placeholder="Menüyü gör"
               className={inputCls}
+            />
+          </Field>
+          <Field label="Görsel">
+            <AnnouncementImageField
+              orgId={v.orgId}
+              url={v.announcementImageUrl}
+              onChange={(url) => set('announcementImageUrl', url)}
             />
           </Field>
         </Section>
@@ -583,6 +596,114 @@ function PanoPasswordCard({ venueId, initialHasPassword }: { venueId: string; in
 
 const inputCls =
   'w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500';
+
+const ANNOUNCEMENT_ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
+const ANNOUNCEMENT_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Karşılama popup'ının üst görseli. Dosya doğrudan Supabase Storage'a
+ * (`venue-media` kovası, `{orgId}/announcements/…`) yüklenir; forma yalnız
+ * ortaya çıkan public URL yazılır ve "Kaydet"e basılınca diğer alanlarla
+ * birlikte gönderilir — yani yükleme tek başına bir şeyi değiştirmez,
+ * kullanıcı vazgeçerse kaydetmeden çıkabilir.
+ */
+function AnnouncementImageField({
+  orgId,
+  url,
+  onChange,
+}: {
+  orgId: string;
+  url: string | null;
+  onChange: (url: string | null) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function upload(file: File) {
+    if (!ANNOUNCEMENT_ACCEPTED.includes(file.type)) {
+      setErr('JPG, PNG veya WebP yükleyin.');
+      return;
+    }
+    if (file.size > ANNOUNCEMENT_MAX_BYTES) {
+      setErr('Görsel 5 MB sınırını aşıyor.');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const supabase = createClient();
+      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const path = `${orgId}/announcements/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage
+        .from('venue-media')
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (error) throw new Error('Yükleme başarısız. Bağlantınızı kontrol edin.');
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('venue-media').getPublicUrl(path);
+      onChange(publicUrl);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Beklenmeyen hata.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-start gap-3">
+        <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-stone-200 bg-stone-50">
+          {url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={url} alt="Popup görseli" className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-2xl text-stone-300" aria-hidden>
+              🖼
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+              className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+            >
+              {busy ? 'Yükleniyor…' : url ? 'Değiştir' : 'Görsel yükle'}
+            </button>
+            {url && (
+              <button
+                type="button"
+                onClick={() => onChange(null)}
+                disabled={busy}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium text-stone-400 transition hover:text-red-600 disabled:opacity-50"
+              >
+                Kaldır
+              </button>
+            )}
+          </div>
+          <p className="mt-1.5 text-xs text-stone-500">
+            JPG, PNG veya WebP · en fazla 5 MB. Popup'ın üstünde geniş bir şerit olarak görünür.
+          </p>
+          {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+        </div>
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept={ANNOUNCEMENT_ACCEPTED.join(',')}
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void upload(f);
+          e.target.value = '';
+        }}
+      />
+    </div>
+  );
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

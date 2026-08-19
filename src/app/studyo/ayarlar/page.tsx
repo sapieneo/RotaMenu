@@ -84,6 +84,9 @@ export default async function VenueSettingsPage({ searchParams }: { searchParams
 
   const initial: VenueSettings = {
     id: venue.id,
+    // Popup görseli Supabase Storage'a `{org_id}/announcements/…` yoluna
+    // yüklenir (venue-media kovasındaki diğer görsellerle aynı düzen).
+    orgId: venue.org_id,
     slug: venue.slug,
     name: venue.name ?? '',
     description: venue.description ?? '',
@@ -98,6 +101,7 @@ export default async function VenueSettingsPage({ searchParams }: { searchParams
     announcementTitle: venue.announcement_title ?? '',
     announcementBody: venue.announcement_body ?? '',
     announcementButtonText: venue.announcement_button_text ?? '',
+    announcementImageUrl: venue.announcement_image_url ?? null,
     story: venue.story ?? '',
   };
 
