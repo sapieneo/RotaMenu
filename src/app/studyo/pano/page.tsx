@@ -34,7 +34,17 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
     if (hasPanoSession(requestedVenueId)) {
       venue = await resolveVenueByIdAsAdmin(requestedVenueId);
       viaPanoPassword = true;
+      // Oturum çerezi duruyor ama işletme bu arada silinmişse, aşağıdaki
+      // "Henüz menün yok" ekranı yanıltıcı olur — durumu açıkça söyle.
+      if (!venue) return <VenueGoneNotice />;
     } else {
+      // ÖNCE işletme gerçekten var mı diye bak. Silinmiş bir işletmenin
+      // eski linkinde eskiden şifre ekranı çıkıyor, kullanıcı DOĞRU şifreyi
+      // girse bile "İşletme bulunamadı." hatası alıyordu (bkz.
+      // api/venue/pano-auth: kayıt yoksa şifre hiç kontrol edilmiyor).
+      // Şifre sorulmadan önce durumu söylemek hem dürüst hem daha hızlı.
+      const stillExists = await resolveVenueByIdAsAdmin(requestedVenueId);
+      if (!stillExists) return <VenueGoneNotice />;
       return <PanoPasswordGate venueId={requestedVenueId} />;
     }
   }
@@ -195,4 +205,35 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
   };
 
   return <Dashboard data={data} />;
+}
+
+/**
+ * Linkteki işletme veritabanında yok (silinmiş ya da adres yanlış). Şifre
+ * ekranı göstermek yerine bunu açıkça söyleriz: kullanıcı doğru şifreyi
+ * defalarca denemekle vakit kaybetmesin.
+ */
+function VenueGoneNotice() {
+  return (
+    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
+      <span className="text-4xl" aria-hidden>
+        🗂️
+      </span>
+      <h1 className="text-xl font-semibold">Bu işletme bulunamadı</h1>
+      <p className="text-stone-600">
+        Adresteki işletme silinmiş ya da bağlantı hatalı olabilir. Şifreyle açılamaz — kayıt
+        artık yok. Güncel işletmelerini yönetim panelinden açabilirsin.
+      </p>
+      <div className="mt-2 flex flex-wrap justify-center gap-2">
+        <a href="/admin" className="rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow">
+          Yönetim paneli
+        </a>
+        <a
+          href="/studyo"
+          className="rounded-xl border border-stone-300 px-6 py-3 font-semibold text-stone-700 transition hover:bg-stone-50"
+        >
+          Stüdyoya git
+        </a>
+      </div>
+    </main>
+  );
 }
