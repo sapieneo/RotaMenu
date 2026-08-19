@@ -414,6 +414,18 @@ export function GuestMenu({
     }, 700);
   }
 
+  // Hero başlığı için: aktif menü nesnesi, toplam ürün sayısı ve kapak
+  // fotoğrafı olup olmamasına göre metin kontrastı (fotoğraf üzerinde beyaz +
+  // gölge, düz gradyan üzerinde yüzey rengi).
+  const activeMenu = menus.find((m) => m.id === activeMenuId) ?? null;
+  const visibleItemTotal = visibleCategories.reduce((n, c) => n + c.items.length, 0);
+  const heroTextStyle: React.CSSProperties = venue.coverUrl
+    ? { color: '#ffffff', textShadow: '0 1px 8px rgba(0,0,0,0.5)' }
+    : { color: design.surfaceColor };
+  const heroSubStyle: React.CSSProperties = venue.coverUrl
+    ? { color: 'rgba(255,255,255,0.85)', textShadow: '0 1px 6px rgba(0,0,0,0.5)' }
+    : { color: hexToRgba(design.surfaceColor, 80) };
+
   if (!categories.length) {
     return (
       <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-3 px-6 text-center">
@@ -458,7 +470,14 @@ export function GuestMenu({
         <div className="flex shrink-0 items-center gap-2">
           {venue.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={venue.logoUrl} alt={venue.name} className="h-7 w-auto object-contain" />
+            <img
+              src={venue.logoUrl}
+              alt={venue.name}
+              className="w-auto object-contain"
+              // İnce Ayar'daki logo boyutu burada da geçerli; çubuk taşmasın
+              // diye 22–44px arasına sıkıştırılır.
+              style={{ height: `${Math.min(Math.max(design.logoSize, 22), 44)}px` }}
+            />
           ) : (
             <span className="text-sm font-bold" style={{ fontFamily: design.headingFont, color: design.textColor }}>
               {venue.name}
@@ -537,39 +556,49 @@ export function GuestMenu({
             başlayacak şekilde gösterilir; fotoğraf/gradyan üzerinde okunur
             kalması için kapak fotoğrafı varsa beyaz + gölge, yoksa (düz
             gradyan) `surfaceColor` kullanılır (bkz. CategoryStrip'teki aynı
-            kontrast mantığı). Logo, boyutu (logoSize) ve yatay konumu
-            (logoPositionX) İnce Ayar'dan ayarlanabilir şekilde şeridin üst
-            kısmında durur. */}
+            kontrast mantığı). Logo artık burada değil, en üstteki sabit
+            çubuktadır; boyutu yine İnce Ayar'daki logoSize ile ayarlanır. */}
         <div
           className="relative w-full bg-cover bg-center"
           style={{
-            height: `${design.headerHeight}px`,
+            // Üç satırlı hero tipografisi (etiket + büyük başlık + sayaç) için
+            // asgari yükseklik; İnce Ayar'daki headerHeight bundan büyükse o kazanır.
+            height: `${Math.max(design.headerHeight, 168)}px`,
             ...(venue.coverUrl
               ? { backgroundImage: `url(${venue.coverUrl})` }
               : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }),
           }}
         >
-          <div className="absolute inset-0 flex items-center px-5">
-            <h1
-              className="font-bold tracking-tight"
-              style={
-                venue.coverUrl
-                  ? { fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale * 1.35}px`, color: '#ffffff', textShadow: '0 1px 6px rgba(0,0,0,0.45)' }
-                  : { fontFamily: design.headingFont, fontSize: `${design.baseFontSize * design.headingScale * 1.35}px`, color: design.surfaceColor }
-              }
+          {/* Referanstaki hero tipografisi: üstte küçük harflendirilmiş etiket,
+              ortada (varsa menü ikonuyla) büyük serif başlık, altında
+              "60 ürün · 9 kategori" sayacı. Çoklu menülü işletmede başlık
+              AKTİF MENÜNÜN adıdır (sekme değişince değişir); tek menülüde
+              işletmenin adı kalır — tek menüde menü adı çoğu zaman jenerik
+              ("Menü") olduğu için işletme adı daha anlamlı. */}
+          <div className="absolute inset-0 flex flex-col justify-center px-5">
+            <span
+              className="text-[11px] font-semibold uppercase tracking-[0.22em]"
+              style={heroSubStyle}
             >
-              {venue.name}
+              {showMenuSwitcher ? venue.name : 'Dijital menü'}
+            </span>
+            <h1
+              className="mt-1 flex items-center gap-2 font-bold leading-none tracking-tight"
+              style={{
+                fontFamily: design.headingFont,
+                fontSize: `${design.baseFontSize * design.headingScale * 1.9}px`,
+                ...heroTextStyle,
+              }}
+            >
+              {showMenuSwitcher && activeMenu?.icon && <span aria-hidden>{activeMenu.icon}</span>}
+              {showMenuSwitcher ? activeMenu?.name ?? venue.name : venue.name}
             </h1>
+            <span className="mt-2 text-xs font-medium" style={heroSubStyle}>
+              {visibleItemTotal} ürün · {visibleCategories.length} kategori
+            </span>
           </div>
-          {venue.logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={venue.logoUrl}
-              alt={venue.name}
-              className="absolute top-3 object-contain drop-shadow-md"
-              style={{ height: `${design.logoSize}px`, maxWidth: '80%', left: `${design.logoPositionX}%`, transform: 'translateX(-50%)' }}
-            />
-          )}
+          {/* Logo artık üstteki sabit çubukta duruyor (referanstaki gibi) —
+              kapak şeridinde ikinci kez göstermek başlıkla çakışıyordu. */}
         </div>
 
         <div className="px-5 pt-3 pb-4">

@@ -15,6 +15,14 @@ const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_BYTES = 20 * 1024 * 1024;
 
 /**
+ * "Yeni menü" için hızlı ikon seçenekleri — misafir menüsünün üstündeki
+ * menü sekmelerinde (bkz. guest-menu.tsx) adın solunda görünür. Emoji
+ * klavyesi açmadan tek tıkla seçilebilsin diye burada sabit bir liste var;
+ * kullanıcı isterse yandaki kutuya kendi emojisini de yazabilir.
+ */
+const MENU_ICONS = ['🍽️', '🐟', '🥩', '🍕', '🍔', '🍷', '🍶', '🍸', '🍺', '☕', '🍵', '🧃', '🍰', '🥐', '🥗', '🏖️'];
+
+/**
  * Studyo giriş ekranı: anonim oturum + org/venue bootstrap + dosya yükleme.
  * Tek altın yol, adım 1: "yükle".
  */
@@ -215,24 +223,47 @@ export default function StudyoPage() {
             </button>
           </div>
           {newMenuMode && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <input
-                value={newMenuIcon}
-                onChange={(e) => setNewMenuIcon(e.target.value)}
-                placeholder="🍷"
-                aria-label="Menü ikonu (emoji, opsiyonel)"
-                maxLength={4}
-                className="w-16 rounded-xl border border-stone-200 px-3 py-2 text-center text-lg outline-none focus:border-brand-500"
-              />
-              <input
-                value={newMenuName}
-                onChange={(e) => setNewMenuName(e.target.value)}
-                placeholder="Menü adı (örn. Şarap Menüsü)"
-                aria-label="Yeni menü adı"
-                maxLength={60}
-                className="min-w-0 flex-1 rounded-xl border border-stone-200 px-3 py-2 text-sm outline-none focus:border-brand-500"
-              />
-            </div>
+            <>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <input
+                  value={newMenuIcon}
+                  onChange={(e) => setNewMenuIcon(e.target.value)}
+                  placeholder="🍷"
+                  aria-label="Menü ikonu (emoji, opsiyonel)"
+                  maxLength={4}
+                  className="w-16 rounded-xl border border-stone-200 px-3 py-2 text-center text-lg outline-none focus:border-brand-500"
+                />
+                <input
+                  value={newMenuName}
+                  onChange={(e) => setNewMenuName(e.target.value)}
+                  placeholder="Menü adı (örn. Şarap Menüsü)"
+                  aria-label="Yeni menü adı"
+                  maxLength={60}
+                  className="min-w-0 flex-1 rounded-xl border border-stone-200 px-3 py-2 text-sm outline-none focus:border-brand-500"
+                />
+              </div>
+              {/* Hızlı ikon seçimi: emoji klavyesi açmak zorunda kalmadan tek
+                  tıkla seçilsin. Seçili olan tekrar tıklanırsa kaldırılır. */}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {MENU_ICONS.map((icon) => {
+                  const selected = newMenuIcon === icon;
+                  return (
+                    <button
+                      key={icon}
+                      type="button"
+                      onClick={() => setNewMenuIcon(selected ? '' : icon)}
+                      aria-pressed={selected}
+                      aria-label={`Menü ikonu ${icon}`}
+                      className={`flex h-9 w-9 items-center justify-center rounded-lg border text-lg transition ${
+                        selected ? 'border-brand-600 bg-brand-50' : 'border-stone-200 bg-white hover:border-stone-300'
+                      }`}
+                    >
+                      {icon}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
           {newMenuMode ? (
             <p className="mt-2 text-xs text-stone-500">Bu sayfalar ayrı, adlandırılmış yeni bir menü olarak yüklenir — misafir menüsünde üstte ayrı bir sekme olarak çıkar.</p>
