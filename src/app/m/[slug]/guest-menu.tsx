@@ -46,6 +46,9 @@ type UiStrings = {
   allergens: string;
   allergenDisclaimer: string;
   seeMenu: string;
+  seeChefPicks: string;
+  continueToMenu: string;
+  preparingMenu: string;
   imagePending: string;
   menuLanguage: string;
   close: string;
@@ -88,6 +91,9 @@ const UI_TR: UiStrings = {
   allergenDisclaimer:
     'Alerjen ve diyet bilgileri işletme beyanına dayanır. Ağır alerjiniz varsa lütfen personele danışın.',
   seeMenu: 'Menüyü gör',
+  seeChefPicks: 'Şefin önerilerini gör',
+  continueToMenu: 'Menüye devam et',
+  preparingMenu: 'Menü hazırlanıyor…',
   imagePending: 'Görsel hazırlanıyor',
   menuLanguage: 'Menü dili',
   close: 'Kapat',
@@ -130,6 +136,9 @@ const UI_EN: UiStrings = {
   allergenDisclaimer:
     'Allergen and dietary information is based on the venue’s declaration. If you have a severe allergy, please ask our staff.',
   seeMenu: 'View menu',
+  seeChefPicks: "See the chef's selections",
+  continueToMenu: 'Continue to menu',
+  preparingMenu: 'Preparing menu…',
   imagePending: 'Image coming soon',
   menuLanguage: 'Menu language',
   close: 'Close',
@@ -563,18 +572,42 @@ export function GuestMenu({
   // görünmesin diye burada değil — venue.announcement zaten owner önizlemesinde
   // de gelir; bu kabul edilebilir çünkü sahibi de gerçek görünümü görmek ister.
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  /**
+   * Açılış (splash) ekranı — referanstaki gibi menü yüklenirken tam ekran
+   * marka kartı. Sıra şudur: splash (~2,2 sn) → kapanır → karşılama popup'ı.
+   * İkisi TEK bir "giriş" olarak sayılır ve oturum başına bir kez gösterilir;
+   * misafir menüde gezinip geri dönünce tekrar karşılaşmaz.
+   */
+  const [splash, setSplash] = useState<'hidden' | 'visible' | 'fading'>('hidden');
   useEffect(() => {
-    if (!venue.announcement) return;
-    const key = `ros:announcement-seen:${venue.name}`;
+    const key = `ros:intro-seen:${venue.name}`;
     try {
       if (window.sessionStorage.getItem(key)) return;
       window.sessionStorage.setItem(key, '1');
     } catch {
       /* gizlilik modunda sessionStorage kapalıysa yine göster, sorun değil */
     }
-    setShowAnnouncement(true);
+    setSplash('visible');
+    const fade = window.setTimeout(() => setSplash('fading'), 1900);
+    const done = window.setTimeout(() => {
+      setSplash('hidden');
+      if (venue.announcement) setShowAnnouncement(true);
+    }, 2400);
+    return () => {
+      window.clearTimeout(fade);
+      window.clearTimeout(done);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Popup'taki birincil eylem: "Şefin önerilerini gör" — vitrine kaydırır. */
+  const featuredRef = useRef<HTMLDivElement | null>(null);
+  function goToFeatured() {
+    setShowAnnouncement(false);
+    window.setTimeout(() => {
+      featuredRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  }
   const seenItems = useRef<Set<string>>(new Set());
 
   /**
@@ -675,11 +708,16 @@ export function GuestMenu({
       {/* DİKKAT: dış kapsayıcıda overflow-hidden OLMAMALI — position:sticky'nin
           "en yakın scroll ata"sını buraya sabitler ve nav'ı kırar. Yuvarlak
           köşe kırpma bunun yerine header/footer'ın kendi üzerinde yapılır. */}
+      {splash !== 'hidden' && (
+        <SplashScreen venue={venue} design={design} t={t} fading={splash === 'fading'} />
+      )}
+
       {venue.announcement && showAnnouncement && (
         <WelcomeAnnouncement
           announcement={venue.announcement}
           design={design}
           t={t}
+          onSeeChefPicks={featuredItems.length > 0 ? goToFeatured : null}
           onClose={() => setShowAnnouncement(false)}
         />
       )}
@@ -1046,7 +1084,7 @@ export function GuestMenu({
       )}
 
       {featuredItems.length > 0 && (
-        <div className="relative z-10 px-4 pt-4">
+        <div ref={featuredRef} className="relative z-10 scroll-mt-28 px-4 pt-4">
           <h2
             className="px-0.5 text-sm font-bold uppercase tracking-wide"
             style={{ fontFamily: design.headingFont, color: design.textColor }}
@@ -1727,6 +1765,74 @@ function ItemModal({
 }
 
 /**
+ * Açılış ekranı — referanstaki "menü yükleniyor" karşılaması.
+ *
+ * Tam ekran kapak fotoğrafı (yoksa markanın gradyanı) üzerinde işletmenin adı
+ * ve altında ince bir "hazırlanıyor" satırı. ~2 saniye durur, yumuşakça
+ * kaybolur ve arkasından karşılama popup'ı açılır (bkz. GuestMenu'deki
+ * intro effect'i). Oturum başına bir kez gösterilir.
+ *
+ * `aria-hidden` + `pointer-events-none` (fading sırasında): ekran okuyucu
+ * için gereksiz gürültü yapmasın ve kaybolurken altındaki menüye yapılan
+ * tıklamayı yutmasın.
+ */
+function SplashScreen({
+  venue,
+  design,
+  t,
+  fading,
+}: {
+  venue: GuestVenue;
+  design: MenuDesignSettings;
+  t: UiStrings;
+  fading: boolean;
+}) {
+  return (
+    <div
+      className={`fixed inset-0 z-[60] flex flex-col items-center justify-center transition-opacity duration-500 ${
+        fading ? 'pointer-events-none opacity-0' : 'opacity-100'
+      }`}
+      style={
+        venue.coverUrl
+          ? { backgroundImage: `url(${venue.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+          : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }
+      }
+      aria-hidden
+    >
+      {/* Fotoğraf üzerinde yazının okunması için koyu perde. */}
+      <div className="absolute inset-0" style={{ backgroundColor: hexToRgba(design.textColor, 55) }} />
+
+      <div className="relative flex flex-col items-center px-8 text-center">
+        {venue.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={venue.logoUrl} alt="" className="mb-4 h-14 w-auto object-contain drop-shadow" />
+        ) : null}
+        <h1
+          className="text-4xl font-bold leading-none tracking-tight text-white drop-shadow-lg sm:text-5xl"
+          style={{ fontFamily: design.headingFont }}
+        >
+          {venue.name}
+        </h1>
+        <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/80">
+          {t.preparingMenu}
+        </p>
+      </div>
+
+      {/* Üç noktalı sırayla yanıp sönen bekleme göstergesi. */}
+      <div className="absolute bottom-16 flex gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/70"
+            style={{ animationDelay: `${i * 180}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Karşılama/promosyon popup'ı — RotaMenu referansındaki "Bugünün ayrıcalığı"
  * kartına denk gelir. Yalnız Stüdyo → Ayarlar'da başlık girilmişse render
  * edilir; her sekme oturumunda bir kez gösterilir (bkz. sessionStorage kontrolü
@@ -1736,11 +1842,14 @@ function WelcomeAnnouncement({
   announcement,
   design,
   t,
+  onSeeChefPicks,
   onClose,
 }: {
   announcement: GuestAnnouncement;
   design: MenuDesignSettings;
   t: UiStrings;
+  /** "Şefin önerilerini gör" — öne çıkarılmış ürün yoksa null gelir, düğme çıkmaz. */
+  onSeeChefPicks: (() => void) | null;
   onClose: () => void;
 }) {
   return (
@@ -1766,13 +1875,23 @@ function WelcomeAnnouncement({
               {announcement.body}
             </p>
           )}
+          {/* Referanstaki iki seçenek: belirgin birincil eylem + sessiz
+              "menüye devam et" bağlantısı. */}
           <Pressable
-            onClick={onClose}
+            onClick={onSeeChefPicks ?? onClose}
             className="mt-5 inline-flex w-full items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold"
-            style={{ backgroundColor: design.priceColor ?? design.primaryColor, color: design.surfaceColor }}
+            style={{ backgroundColor: design.primaryColor, color: design.surfaceColor }}
           >
-            {announcement.buttonText || t.seeMenu}
+            {announcement.buttonText || (onSeeChefPicks ? t.seeChefPicks : t.seeMenu)}
           </Pressable>
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-3 w-full text-sm font-medium"
+            style={{ color: design.mutedTextColor }}
+          >
+            {t.continueToMenu}
+          </button>
         </div>
       </div>
     </Sheet>
