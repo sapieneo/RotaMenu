@@ -908,7 +908,7 @@ export function GuestMenu({
                   </span>
                 </div>
                 <div className="p-2.5">
-                  <p className="truncate text-sm font-semibold" style={{ color: design.textColor }}>{it.name}</p>
+                  <p className="truncate text-sm font-semibold" style={{ color: design.textColor, fontFamily: design.headingFont }}>{it.name}</p>
                   {it.price != null && (
                     <p className="mt-0.5 text-xs font-bold" style={{ color: design.priceColor ?? design.primaryColor }}>
                       {formatPrice(it.price, venue.currency)}
@@ -972,7 +972,7 @@ export function GuestMenu({
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
-                          <h3 className="font-semibold" style={{ color: design.textColor }}>{it.name}</h3>
+                          <h3 className="font-semibold" style={{ color: design.textColor, fontFamily: design.headingFont }}>{it.name}</h3>
                           {it.price != null && (
                             <span className="shrink-0 font-semibold" style={{ color: design.priceColor ?? design.primaryColor }}>
                               {formatPrice(it.price, venue.currency)}
@@ -1086,7 +1086,7 @@ export function GuestMenu({
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-baseline justify-between gap-2">
-                                <h3 className="font-semibold" style={{ color: design.textColor }}>{it.name}</h3>
+                                <h3 className="font-semibold" style={{ color: design.textColor, fontFamily: design.headingFont }}>{it.name}</h3>
                                 {it.price != null && (
                                   <span className="shrink-0 font-semibold" style={{ color: design.primaryColor }}>
                                     {formatPrice(it.price, venue.currency)}
