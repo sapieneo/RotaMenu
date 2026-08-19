@@ -605,11 +605,11 @@ export function GuestMenu({
       /* gizlilik modunda sessionStorage kapalıysa yine göster, sorun değil */
     }
     setSplash('visible');
-    const fade = window.setTimeout(() => setSplash('fading'), 1900);
+    const fade = window.setTimeout(() => setSplash('fading'), 3200);
     const done = window.setTimeout(() => {
       setSplash('hidden');
       if (venue.announcement) setShowAnnouncement(true);
-    }, 2400);
+    }, 4000);
     return () => {
       window.clearTimeout(fade);
       window.clearTimeout(done);
@@ -1829,9 +1829,21 @@ function SplashScreen({
    */
   const usingBrandSplash = !venue.coverUrl;
 
+  /**
+   * Küçük bir "yerleşme" animasyonu: görsel hafifçe büyük ve yukarıda başlar,
+   * yavaşça kendi yerine oturur. Tek karelik bir gecikmeyle tetiklenir —
+   * ilk çizimde `false`, hemen ardından `true` olur ki CSS geçişi çalışsın
+   * (doğrudan `true` başlarsa tarayıcı geçişi atlar ve hareket görünmez).
+   */
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => setSettled(true));
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+
   return (
     <div
-      className={`fixed inset-0 z-[60] flex flex-col items-center justify-center transition-opacity duration-500 ${
+      className={`fixed inset-0 z-[60] flex flex-col items-center justify-center transition-opacity duration-[800ms] ${
         fading ? 'pointer-events-none opacity-0' : 'opacity-100'
       }`}
       /* Taban katman markanın gradyanı: görsel yüklenemezse ekran boş kalmaz. */
@@ -1840,7 +1852,13 @@ function SplashScreen({
     >
       <div
         className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: `url(${venue.coverUrl ?? '/splash.jpg'})` }}
+        style={{
+          backgroundImage: `url(${venue.coverUrl ?? '/splash.jpg'})`,
+          transform: settled ? 'scale(1) translateY(0)' : 'scale(1.09) translateY(-10px)',
+          // Uzun ve sona doğru yavaşlayan bir eğri: hareket "duruyor" gibi
+          // hissettirsin, mekanik bir kayma gibi değil.
+          transition: 'transform 3200ms cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
       />
 
       {/* Yazı basılacaksa okunurluk için perde; marka görselinde yazı yok,
@@ -1849,7 +1867,14 @@ function SplashScreen({
         <>
           <div className="absolute inset-0" style={{ backgroundColor: hexToRgba(design.textColor, 55) }} />
 
-          <div className="relative flex flex-col items-center px-8 text-center">
+          <div
+            className="relative flex flex-col items-center px-8 text-center"
+            style={{
+              opacity: settled ? 1 : 0,
+              transform: settled ? 'translateY(0)' : 'translateY(14px)',
+              transition: 'opacity 900ms ease-out 200ms, transform 900ms cubic-bezier(0.16, 1, 0.3, 1) 200ms',
+            }}
+          >
             {venue.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={venue.logoUrl} alt="" className="mb-4 h-14 w-auto object-contain drop-shadow" />
