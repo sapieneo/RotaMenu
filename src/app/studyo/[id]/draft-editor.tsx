@@ -14,6 +14,28 @@ const ALLERGEN_LABELS: Record<string, string> = {
   lupin: 'Lüpen', molluscs: 'Yumuşakça', alcohol: 'Alkol', pork: 'Domuz',
 };
 
+/**
+ * Sunucudan gelen yanıtı güvenle JSON'a çevirir.
+ *
+ * NEDEN: `/api/menu/extract-pages` yapay zeka OCR'ını eşzamanlı çalıştırıyor.
+ * Netlify'ın senkron fonksiyon süresi dolduğunda yanıt JSON değil, ağ geçidinin
+ * ürettiği bir HTML hata sayfası oluyor. Doğrudan `res.json()` çağırınca
+ * kullanıcı "Unexpected token '<' ... is not valid JSON" gibi anlamsız bir
+ * mesaj görüyordu. Artık ne olduğunu ve ne yapması gerektiğini söylüyoruz.
+ */
+async function readJson(res: Response): Promise<Record<string, unknown>> {
+  const contentType = res.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    return (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  }
+  await res.text().catch(() => '');
+  throw new Error(
+    'Sayfa okuma işlemi sunucuda zaman aşımına uğradı. Çok sayfalı ya da yoğun ' +
+      'menülerde bu olabiliyor. Sayfaları tek tek ekleyin ya da "Menüye sayfa ekle" ' +
+      'ekranından yükleyin — orası uzun süren işleri arka planda çalıştırır.'
+  );
+}
+
 type SaveState = { name: 'idle' } | { name: 'saving' } | { name: 'done'; itemCount: number } | { name: 'error'; message: string };
 
 const DEFAULT_VENUE_NAME = 'İşletmem';
@@ -81,12 +103,13 @@ export function DraftEditor({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ venueId, pages }),
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? 'Sayfa okunamadı.');
+      const body = await readJson(res);
+      if (!res.ok) throw new Error((body.error as string) ?? 'Sayfa okunamadı.');
+      const added = body as unknown as { categories: ExtractedMenu['categories']; warnings?: string[] };
       setDraft((d) => ({
         ...d,
-        categories: [...d.categories, ...body.categories],
-        warnings: [...d.warnings, ...(body.warnings ?? [])],
+        categories: [...d.categories, ...added.categories],
+        warnings: [...d.warnings, ...(added.warnings ?? [])],
       }));
     } catch (err) {
       setSave({ name: 'error', message: err instanceof Error ? err.message : 'Sayfa eklenemedi.' });
@@ -185,9 +208,9 @@ export function DraftEditor({
           venueName: venueName.trim() || undefined,
         }),
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? 'Kaydetme başarısız.');
-      setSave({ name: 'done', itemCount: body.itemCount });
+      const body = await readJson(res);
+      if (!res.ok) throw new Error((body.error as string) ?? 'Kaydetme başarısız.');
+      setSave({ name: 'done', itemCount: body.itemCount as number });
     } catch (err) {
       setSave({ name: 'error', message: err instanceof Error ? err.message : 'Beklenmeyen hata.' });
     }
