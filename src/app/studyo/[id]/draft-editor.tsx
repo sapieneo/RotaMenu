@@ -127,6 +127,41 @@ export function DraftEditor({
     }));
   }
 
+  /* ------------------------------------------------------------------ *
+   * Çoklu menü: bu yüklemedeki kategoriler birden fazla menüye dağıtılabilir.
+   * Menü listesi ve kategori→menü eşleşmesi doğrudan `draft` içinde durur;
+   * böylece "Onayla ve Kaydet" gövdesiyle birlikte tek parça gider
+   * (bkz. lib/schemas/menu.ts → menus / menu_key).
+   * ------------------------------------------------------------------ */
+
+  function addMenu() {
+    const key = crypto.randomUUID();
+    setDraft((d) => ({ ...d, menus: [...(d.menus ?? []), { key, name: '', icon: null }] }));
+  }
+
+  function updateMenu(key: string, patch: { name?: string; icon?: string | null }) {
+    setDraft((d) => ({
+      ...d,
+      menus: (d.menus ?? []).map((m) => (m.key === key ? { ...m, ...patch } : m)),
+    }));
+  }
+
+  /** Menüyü siler ve ona bağlı kategorileri ana menüye geri alır. */
+  function removeMenu(key: string) {
+    setDraft((d) => ({
+      ...d,
+      menus: (d.menus ?? []).filter((m) => m.key !== key),
+      categories: d.categories.map((c) => (c.menu_key === key ? { ...c, menu_key: null } : c)),
+    }));
+  }
+
+  function setCategoryMenu(ci: number, key: string) {
+    setDraft((d) => ({
+      ...d,
+      categories: d.categories.map((c, i) => (i === ci ? { ...c, menu_key: key || null } : c)),
+    }));
+  }
+
   function addCategory() {
     setDraft((d) => ({
       ...d,
@@ -195,6 +230,13 @@ export function DraftEditor({
       setSave({ name: 'error', message: 'Önce işletmenizin adını yazın — menünün başlığında görünecek.' });
       nameRef.current?.focus();
       nameRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    // Adsız bir menü sessizce yok sayılırdı ve ona bağladığın kategoriler
+    // ana menüye düşerdi — kullanıcı bunu ancak menüyü açınca fark ederdi.
+    const namelessMenu = (draft.menus ?? []).some((m) => !m.name.trim());
+    if (namelessMenu) {
+      setSave({ name: 'error', message: 'Eklediğin menülerden birinin adı boş. Ad ver ya da menüyü kaldır.' });
       return;
     }
     setSave({ name: 'saving' });
@@ -319,6 +361,15 @@ export function DraftEditor({
             {adding ? 'Okunuyor…' : '+ Sayfa ekle'}
           </button>
           <button
+            type="button"
+            onClick={addMenu}
+            disabled={save.name === 'saving'}
+            title="Bu yüklemedeki kategorileri birden fazla menüye dağıt"
+            className="rounded-xl border border-stone-300 px-4 py-3 font-semibold text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+          >
+            + Menü ekle
+          </button>
+          <button
             onClick={approve}
             disabled={save.name === 'saving' || adding || itemCount === 0}
             className="rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white shadow transition hover:bg-brand-700 disabled:opacity-50"
@@ -353,6 +404,46 @@ export function DraftEditor({
         </div>
       )}
 
+      {(draft.menus ?? []).length > 0 && (
+        <div className="mb-4 rounded-2xl border border-brand-200 bg-brand-50/50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Menüler</p>
+          <p className="mt-1 text-xs text-stone-600">
+            Buraya eklediğin her menü misafir menüsünde üstte ayrı bir sekme olur. Aşağıda her ürün
+            grubunun hangi menüye gideceğini seçebilirsin — seçmediklerin ana menüde kalır.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {(draft.menus ?? []).map((m) => (
+              <li key={m.key} className="flex flex-wrap items-center gap-2">
+                <input
+                  value={m.icon ?? ''}
+                  onChange={(e) => updateMenu(m.key, { icon: e.target.value || null })}
+                  placeholder="🍷"
+                  aria-label="Menü ikonu"
+                  maxLength={4}
+                  className="w-14 rounded-lg border border-stone-200 bg-white px-2 py-2 text-center text-lg outline-none focus:border-brand-500"
+                />
+                <input
+                  value={m.name}
+                  onChange={(e) => updateMenu(m.key, { name: e.target.value })}
+                  placeholder="Menü adı (örn. Şarap Menüsü)"
+                  aria-label="Menü adı"
+                  maxLength={60}
+                  className="min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeMenu(m.key)}
+                  aria-label="Menüyü kaldır"
+                  className="rounded-lg px-2 py-2 text-stone-400 transition hover:bg-red-50 hover:text-red-600"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {draft.warnings.length > 0 && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-medium">Yapay zekanın notları:</p>
@@ -374,6 +465,26 @@ export function DraftEditor({
                 className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent text-lg font-semibold outline-none focus:border-stone-300"
                 aria-label={`Kategori adı ${ci + 1}`}
               />
+              {/* Bu ürün grubu hangi menüye gitsin? Yalnız menü tanımlandıysa
+                  görünür — tek menülü akışta ekranı kalabalıklaştırmasın. */}
+              {(draft.menus ?? []).length > 0 && (
+                <select
+                  value={cat.menu_key ?? ''}
+                  onChange={(e) => setCategoryMenu(ci, e.target.value)}
+                  aria-label={`${cat.name} hangi menüde olsun`}
+                  className="shrink-0 rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-xs font-medium text-stone-700 outline-none focus:border-brand-500"
+                >
+                  <option value="">Ana menü</option>
+                  {(draft.menus ?? [])
+                    .filter((m) => m.name.trim())
+                    .map((m) => (
+                      <option key={m.key} value={m.key}>
+                        {m.icon ? `${m.icon} ` : ''}
+                        {m.name}
+                      </option>
+                    ))}
+                </select>
+              )}
               <div className="flex shrink-0 items-center gap-0.5">
                 <button
                   onClick={() => moveCategory(ci, -1)}

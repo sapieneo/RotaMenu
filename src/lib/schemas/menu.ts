@@ -35,6 +35,12 @@ export const extractedItemSchema = z.object({
 export const extractedCategorySchema = z.object({
   name: z.string().min(1).max(120),
   items: z.array(extractedItemSchema).default([]),
+  /**
+   * Bu kategori hangi menüye yazılacak? Taslak editöründeki menü seçicisiyle
+   * belirlenir (bkz. studyo/[id]/draft-editor.tsx). Boş/null = işletmenin ana
+   * menüsü. AI çıktısında bu alan hiç bulunmaz; onay adımında doldurulur.
+   */
+  menu_key: z.string().max(40).nullish(),
 });
 
 /** AI menü çıkarım çıktısının uygulama tarafındaki doğrulama şeması. */
@@ -46,6 +52,21 @@ export const extractedMenuSchema = z.object({
   language_guess: z.string().min(2).max(5).nullish(), // BCP 47 tahmini
   categories: z.array(extractedCategorySchema).min(1),
   warnings: z.array(z.string()).default([]), // okunamayan bölümler vb.
+  /**
+   * Bu yüklemeden oluşturulacak menülerin listesi. Kullanıcı taslak
+   * editöründe "Menü ekle" ile tanımlar; her kategori `menu_key` ile
+   * bunlardan birine bağlanır. Boş liste = tek menü (eski davranış).
+   */
+  menus: z
+    .array(
+      z.object({
+        key: z.string().min(1).max(40),
+        name: z.string().trim().min(1).max(60),
+        icon: z.string().trim().max(4).nullish(),
+      })
+    )
+    .max(12)
+    .default([]),
 });
 
 export type ExtractedMenu = z.infer<typeof extractedMenuSchema>;
@@ -57,6 +78,12 @@ export const rawResultSchema = z.object({
   extracted: extractedMenuSchema,
   /** Onay (approve) idempotency'si: yeniden onaylanırsa eski menü silinip yenisi yazılır. */
   created_menu_id: z.string().uuid().nullish(),
+  /**
+   * Çoklu menü onayında her `menu_key` için oluşturulan menü kimliği.
+   * Yeniden onayda AYNI menülere yazılsın diye saklanır — yoksa her
+   * "Yeniden Kaydet" yeni menüler çoğaltırdı.
+   */
+  created_menu_ids: z.record(z.string(), z.string().uuid()).nullish(),
   model: z.string(),
   extracted_at: z.string(),
 });
