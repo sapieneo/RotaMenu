@@ -52,7 +52,7 @@ function splitIngredients(s: string | null): string[] {
 /**
  * Yapay zekâ çıkarımının gözden kaçan hataları. Uyum ekranı alerjen/kaloriye
  * odaklandığı için fiyat ve yapı hataları onaydan sessizce geçebiliyordu
- * (canlı bir menüde "Soda 350 ₺" — aynı ürün başka kategoride 40 ₺ — bu
+ * (canlı bir menüde "Soda 350 TL" — aynı ürün başka kategoride 40 TL — bu
  * şekilde yayına çıkmıştı). Burada üç ucuz sinyal arıyoruz.
  */
 type DataIssue = { kind: 'price-missing' | 'price-outlier' | 'duplicate-category'; text: string };
@@ -87,7 +87,7 @@ function findDataIssues(items: ReviewItem[]): DataIssue[] {
     if (min > 0 && max / min >= 5) {
       issues.push({
         kind: 'price-outlier',
-        text: `"${sameName[0]!.name}" iki yerde çok farklı fiyatlarla geçiyor (${min} ₺ ve ${max} ₺). Basamak hatası olabilir.`,
+        text: `"${sameName[0]!.name}" iki yerde çok farklı fiyatlarla geçiyor (${min} TL ve ${max} TL). Basamak hatası olabilir.`,
       });
     }
   }

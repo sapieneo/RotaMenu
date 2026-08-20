@@ -412,7 +412,11 @@ export function DraftEditor({
             grubunun hangi menüye gideceğini seçebilirsin — seçmediklerin ana menüde kalır.
           </p>
           <ul className="mt-3 space-y-2">
-            {(draft.menus ?? []).map((m) => (
+            {(draft.menus ?? []).map((m) => {
+              // Menüyü kaldırmak ona bağlı kategorileri ana menüye geri alır —
+              // kaç kategoriyi etkileyeceği silmeden ÖNCE görünmeli.
+              const assigned = draft.categories.filter((c) => c.menu_key === m.key).length;
+              return (
               <li key={m.key} className="flex flex-wrap items-center gap-2">
                 <input
                   value={m.icon ?? ''}
@@ -430,16 +434,30 @@ export function DraftEditor({
                   maxLength={60}
                   className="min-w-0 flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500"
                 />
+                <span
+                  className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
+                    assigned > 0 ? 'bg-brand-100 text-brand-700' : 'bg-stone-100 text-stone-400'
+                  }`}
+                  title="Bu menüye atanmış kategori sayısı"
+                >
+                  {assigned} kategori
+                </span>
                 <button
                   type="button"
                   onClick={() => removeMenu(m.key)}
                   aria-label="Menüyü kaldır"
+                  title={
+                    assigned > 0
+                      ? `Menüyü kaldır — ${assigned} kategori ana menüye döner`
+                      : 'Menüyü kaldır'
+                  }
                   className="rounded-lg px-2 py-2 text-stone-400 transition hover:bg-red-50 hover:text-red-600"
                 >
                   ✕
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       )}

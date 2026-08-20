@@ -20,6 +20,9 @@ import { Pressable } from '@/components/ui/pressable';
  */
 type UiStrings = {
   mainMenus: string;
+  /** Açılır menü başlığı — `mainMenus` iki nokta ile bitiyor, başlıkta olmaz. */
+  mainMenusTitle: string;
+  switchMenu: string;
   digitalMenu: string;
   itemsAndCategories: (items: number, categories: number) => string;
   itemCount: (n: number) => string;
@@ -64,6 +67,8 @@ type UiStrings = {
 
 const UI_TR: UiStrings = {
   mainMenus: 'Ana menüler:',
+  mainMenusTitle: 'Ana menüler',
+  switchMenu: 'Menü değiştir',
   digitalMenu: 'Dijital menü',
   itemsAndCategories: (i, c) => `${i} ürün · ${c} kategori`,
   itemCount: (n) => `${n} ürün`,
@@ -110,6 +115,8 @@ const UI_TR: UiStrings = {
 
 const UI_EN: UiStrings = {
   mainMenus: 'Main menus:',
+  mainMenusTitle: 'Main menus',
+  switchMenu: 'Switch menu',
   digitalMenu: 'Digital menu',
   itemsAndCategories: (i, c) => `${i} items · ${c} categories`,
   itemCount: (n) => `${n} items`,
@@ -384,6 +391,247 @@ function groupCategories(categories: GuestCategory[]): CategoryGroup[] {
     }
   }
   return groups;
+}
+
+/**
+ * Üst şeritteki "Ana menüler" seçicisi — iki görünümü var ve aralarında
+ * ÖLÇEREK geçer:
+ *
+ *  • Yer varsa  → menüler yan yana sekme olarak (referans tasarımdaki şerit).
+ *  • Sıkışırsa  → tek bir "Menü değiştir" düğmesi + açılır liste.
+ *
+ * NEDEN görünmez bir ölçüm kopyası: doğrudan `scrollWidth > clientWidth`
+ * bakmak SALINIM yaratır — açılır menüye düşünce şeridin içeriği daralır,
+ * ölçüm "artık sığıyor" der, sekmelere geri döner, yine taşar, tekrar
+ * düşer… Kopya HER ZAMAN doğal genişlikte (görünmez) çizildiği için karar
+ * o an hangi görünümde olduğumuzdan bağımsız kalır ve kararlıdır.
+ *
+ * Ölçüm çalışmazsa (ResizeObserver yok) sekmeler yatay kaydırılabilir
+ * kalır — yani eski davranış hâlâ emniyet ağı.
+ */
+function MenuSwitcher({
+  menus,
+  activeMenuId,
+  counts,
+  onSelect,
+  design,
+  t,
+}: {
+  menus: GuestMenuSummary[];
+  activeMenuId: string | null;
+  counts: Map<string, number>;
+  onSelect: (id: string) => void;
+  design: MenuDesignSettings;
+  t: UiStrings;
+}) {
+  const slotRef = useRef<HTMLDivElement>(null);
+  const probeRef = useRef<HTMLDivElement>(null);
+  const [inline, setInline] = useState(true);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const slot = slotRef.current;
+    const probe = probeRef.current;
+    if (!slot || !probe || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      const available = slot.clientWidth;
+      const needed = probe.scrollWidth;
+      // 8px pay: kenarlık/yuvarlama farkları yüzünden tam sınırda titremesin.
+      if (available > 0 && needed > 0) setInline(needed + 8 <= available);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(slot);
+    ro.observe(probe);
+    return () => ro.disconnect();
+  }, [menus, counts, t]);
+
+  // Ekran genişleyip sekmelere dönülünce açık liste havada asılı kalmasın.
+  useEffect(() => {
+    if (inline) setOpen(false);
+  }, [inline]);
+
+  // Dışarı tıklama ve Esc ile kapanma.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (slotRef.current && !slotRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  // Sekme ve ölçüm kopyası BİREBİR aynı kutuyu üretmeli, yoksa ölçüm yanılır.
+  const chipBase =
+    'shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold';
+  const badgeBase = 'rounded-full px-1.5 py-0.5 text-[10px] font-bold';
+  const chipStyle = (isActive: boolean) =>
+    isActive
+      ? { backgroundColor: design.primaryColor, borderColor: design.primaryColor, color: design.surfaceColor }
+      : {
+          backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+          borderColor: hexToRgba(design.dividerColor, design.dividerOpacity),
+          color: design.textColor,
+        };
+  const badgeStyle = (isActive: boolean) =>
+    isActive
+      ? { backgroundColor: hexToRgba(design.surfaceColor, 25), color: design.surfaceColor }
+      : { backgroundColor: hexToRgba(design.primaryColor, 12), color: design.primaryColor };
+
+  const activeMenu = menus.find((m) => m.id === activeMenuId) ?? menus[0];
+
+  return (
+    <div ref={slotRef} className="relative flex min-w-0 flex-1 items-center">
+      {/* ÖLÇÜM KOPYASI — görünmez, tıklanamaz, düzeni etkilemez (absolute). */}
+      <div
+        ref={probeRef}
+        aria-hidden
+        className="pointer-events-none invisible absolute left-0 top-0 flex w-max items-center gap-2"
+      >
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide">{t.mainMenus}</span>
+        {menus.map((m) => (
+          <span key={m.id} className={`inline-flex ${chipBase}`} style={chipStyle(m.id === activeMenuId)}>
+            {m.icon && <span aria-hidden>{m.icon}</span>}
+            {m.name}
+            <span className={badgeBase} style={badgeStyle(m.id === activeMenuId)}>
+              {counts.get(m.id) ?? 0}
+            </span>
+          </span>
+        ))}
+      </div>
+
+      {inline ? (
+        <div
+          role="tablist"
+          aria-label={t.mainMenusTitle}
+          className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <span
+            className="shrink-0 text-[11px] font-semibold uppercase tracking-wide"
+            style={{ color: design.mutedTextColor }}
+          >
+            {t.mainMenus}
+          </span>
+          {menus.map((m) => {
+            const isActive = m.id === activeMenuId;
+            return (
+              <Pressable
+                key={m.id}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => onSelect(m.id)}
+                className={`flex ${chipBase}`}
+                style={chipStyle(isActive)}
+              >
+                {m.icon && <span aria-hidden>{m.icon}</span>}
+                {m.name}
+                <span className={badgeBase} style={badgeStyle(isActive)}>
+                  {counts.get(m.id) ?? 0}
+                </span>
+              </Pressable>
+            );
+          })}
+        </div>
+      ) : (
+        <>
+          <Pressable
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            className="flex min-w-0 max-w-full items-center gap-2 rounded-xl border px-3 py-1.5 text-left"
+            style={{
+              backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+              borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)),
+              color: design.textColor,
+            }}
+          >
+            <span className="min-w-0">
+              <span
+                className="block text-[9px] font-semibold uppercase leading-tight tracking-wide"
+                style={{ color: design.mutedTextColor }}
+              >
+                {t.switchMenu}
+              </span>
+              <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold leading-tight">
+                {activeMenu?.icon && <span aria-hidden>{activeMenu.icon}</span>}
+                <span className="truncate">{activeMenu?.name}</span>
+              </span>
+            </span>
+            <span aria-hidden className="ml-1 shrink-0 text-[10px] opacity-60">
+              ▼
+            </span>
+          </Pressable>
+
+          {open && (
+            <div
+              role="menu"
+              aria-label={t.mainMenusTitle}
+              className="absolute left-0 top-full z-50 mt-2 w-[min(21rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border shadow-xl"
+              style={{
+                backgroundColor: design.surfaceColor,
+                borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 45)),
+              }}
+            >
+              <p
+                className="border-b px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide"
+                style={{
+                  borderColor: hexToRgba(design.dividerColor, design.dividerOpacity),
+                  color: design.mutedTextColor,
+                }}
+              >
+                {t.mainMenusTitle}
+              </p>
+              <div className="max-h-[60vh] overflow-y-auto py-1">
+                {menus.map((m) => {
+                  const isActive = m.id === activeMenuId;
+                  return (
+                    <Pressable
+                      key={m.id}
+                      variant="dim"
+                      role="menuitemradio"
+                      aria-checked={isActive}
+                      onClick={() => {
+                        onSelect(m.id);
+                        setOpen(false);
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left"
+                      style={isActive ? { backgroundColor: hexToRgba(design.primaryColor, 10) } : undefined}
+                    >
+                      <span aria-hidden className="shrink-0 text-xl leading-none">
+                        {m.icon || '📋'}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[11px] font-medium leading-tight" style={{ color: design.mutedTextColor }}>
+                          {t.digitalMenu}
+                        </span>
+                        <span className="block truncate text-sm font-semibold leading-snug" style={{ color: design.textColor }}>
+                          {m.name}
+                        </span>
+                      </span>
+                      <span
+                        className="shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold"
+                        style={{ backgroundColor: hexToRgba(design.primaryColor, 12), color: design.primaryColor }}
+                      >
+                        {t.itemCount(counts.get(m.id) ?? 0)}
+                      </span>
+                    </Pressable>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 export function GuestMenu({
@@ -768,37 +1016,14 @@ export function GuestMenu({
           )}
         </div>
         {showMenuSwitcher && (
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide" style={{ color: design.mutedTextColor }}>
-              {t.mainMenus}
-            </span>
-            {menus.map((m) => {
-              const isActive = m.id === activeMenuId;
-              return (
-                <Pressable
-                  key={m.id}
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setActiveMenuId(m.id)}
-                  className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold"
-                  style={isActive
-                    ? { backgroundColor: design.primaryColor, borderColor: design.primaryColor, color: design.surfaceColor }
-                    : { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), color: design.textColor }}
-                >
-                  {m.icon && <span aria-hidden>{m.icon}</span>}
-                  {m.name}
-                  <span
-                    className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                    style={isActive
-                      ? { backgroundColor: hexToRgba(design.surfaceColor, 25), color: design.surfaceColor }
-                      : { backgroundColor: hexToRgba(design.primaryColor, 12), color: design.primaryColor }}
-                  >
-                    {menuItemCounts.get(m.id) ?? 0}
-                  </span>
-                </Pressable>
-              );
-            })}
-          </div>
+          <MenuSwitcher
+            menus={menus}
+            activeMenuId={activeMenuId}
+            counts={menuItemCounts}
+            onSelect={setActiveMenuId}
+            design={design}
+            t={t}
+          />
         )}
         {/* Dil seçici. Referansta açılır kutu değil, iki bölmeli bir anahtar
             var: üstte kod (TR / EN), altında dilin adı. 4'e kadar dilde bu

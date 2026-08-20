@@ -80,7 +80,7 @@ export const PLANS: Record<PlanTier, PlanLimits> = {
 export const PRICING = {
   monthly: 249,
   yearly: 2490,
-  currency: '₺',
+  currency: 'TL',
   trialDays: 14,
   /** Yıllık alınca kaç ay bedava gelir (pazarlama metni için). */
   get freeMonthsOnYearly() {

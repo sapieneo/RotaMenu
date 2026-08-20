@@ -76,9 +76,14 @@ export default async function ReviewPage({ params }: { params: { id: string } })
 
   // Onaylanmışsa canlı veriyle doldur; değilse ham çıkarımı kullan.
   let initialDraft: ExtractedMenu = raw.data.extracted;
-  const menuId = raw.data.created_menu_id;
-  if (ingestion.status === 'approved' && menuId) {
-    const hydrated = await hydrateDraft(supabase, menuId, params.id, raw.data.extracted);
+  if (ingestion.status === 'approved') {
+    const hydrated = await hydrateDraft(
+      supabase,
+      params.id,
+      raw.data.extracted,
+      raw.data.created_menu_id ?? null,
+      raw.data.created_menu_ids ?? {}
+    );
     if (hydrated) initialDraft = hydrated;
   }
 
@@ -95,17 +100,28 @@ export default async function ReviewPage({ params }: { params: { id: string } })
   );
 }
 
-/** Bu ingestion'ın canlı kategorilerini/ürünlerini ExtractedMenu şekline çevirir. */
+/**
+ * Bu ingestion'ın canlı kategorilerini/ürünlerini ExtractedMenu şekline çevirir.
+ *
+ * ÇOKLU MENÜ: kategoriler ARTIK `menu_id` ile SÜZÜLMÜYOR, yalnız `ingestion_id`
+ * ile. Tek bir yükleme birden fazla menüye kategori yazabiliyor (bkz.
+ * api/ingest/[id]/approve). Eski hali yalnız ana menüdekileri getiriyordu;
+ * diğer menülerdeki kategoriler taslakta hiç görünmüyor, ardından bir
+ * "Yeniden Kaydet" onları veritabanından da siliyordu.
+ *
+ * Her kategorinin `menu_key`'i `created_menu_ids` haritası TERSTEN çözülerek
+ * geri yazılır ki editördeki menü seçicisi doğru menüyü göstersin.
+ */
 async function hydrateDraft(
   supabase: ReturnType<typeof createClient>,
-  menuId: string,
   ingestionId: string,
-  base: ExtractedMenu
+  base: ExtractedMenu,
+  baseMenuId: string | null,
+  createdMenuIds: Record<string, string>
 ): Promise<ExtractedMenu | null> {
   const { data: categories } = await supabase
     .from('categories')
-    .select('id, name, sort_order')
-    .eq('menu_id', menuId)
+    .select('id, name, sort_order, menu_id')
     .eq('ingestion_id', ingestionId)
     .order('sort_order');
   if (!categories || categories.length === 0) return null;
@@ -145,13 +161,44 @@ async function hydrateDraft(
     byCat.set(catId, list);
   }
 
+  // menü kimliği → taslaktaki menü anahtarı (created_menu_ids'in tersi)
+  const keyByMenuId = new Map<string, string>(
+    Object.entries(createdMenuIds).map(([key, id]) => [id, key])
+  );
+
+  // Sıralama: `sort_order` MENÜ BAŞINA hesaplanıyor, dolayısıyla menüler
+  // karışık gelir. Önce ana menü, sonra taslaktaki menü sırası, her grubun
+  // içinde kendi sort_order'ı.
+  const menuRank = new Map<string, number>();
+  if (baseMenuId) menuRank.set(baseMenuId, 0);
+  (base.menus ?? []).forEach((m, i) => {
+    const id = createdMenuIds[m.key];
+    if (id && !menuRank.has(id)) menuRank.set(id, i + 1);
+  });
+  const rankOf = (menuId: string | null): number => {
+    if (!menuId) return 999;
+    return menuRank.get(menuId) ?? 999;
+  };
+
+  const ordered = [...categories].sort((a, b) => {
+    const ra = rankOf((a.menu_id as string | null) ?? null);
+    const rb = rankOf((b.menu_id as string | null) ?? null);
+    if (ra !== rb) return ra - rb;
+    return Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
+  });
+
   return {
     menu_name: base.menu_name,
     venue_name_guess: base.venue_name_guess,
     currency_guess: base.currency_guess,
     language_guess: base.language_guess,
     warnings: [],
-    categories: categories.map((c) => ({ name: c.name, items: byCat.get(c.id) ?? [] })),
+    menus: base.menus ?? [],
+    categories: ordered.map((c) => ({
+      name: c.name,
+      items: byCat.get(c.id) ?? [],
+      menu_key: keyByMenuId.get((c.menu_id as string | null) ?? '') ?? null,
+    })),
   };
 }
 

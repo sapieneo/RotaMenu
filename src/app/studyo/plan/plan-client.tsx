@@ -156,7 +156,7 @@ export function PlanClient({ data }: { data: PlanClientData }) {
       <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <PlanBox
           title={`${PRICING.trialDays} gün ücretsiz deneme`}
-          price="0 ₺"
+          price="0 TL"
           priceNote="kart bilgisi istenmez"
           active={!isPro}
           features={[
@@ -168,8 +168,8 @@ export function PlanClient({ data }: { data: PlanClientData }) {
         />
         <PlanBox
           title="Abonelik"
-          price={`${PRICING.monthly} ₺`}
-          priceNote={`aylık · yıllık ${PRICING.yearly.toLocaleString('tr-TR')} ₺ (${PRICING.freeMonthsOnYearly} ay bedava)`}
+          price={`${PRICING.monthly} TL`}
+          priceNote={`aylık · yıllık ${PRICING.yearly.toLocaleString('tr-TR')} TL (${PRICING.freeMonthsOnYearly} ay bedava)`}
           highlight
           active={isPro}
           features={[

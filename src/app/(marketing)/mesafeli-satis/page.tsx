@@ -33,8 +33,8 @@ export default function MesafeliSatisPage() {
       <Section title="3. Hizmet ve bedel">
         <List
           items={[
-            `Aylık abonelik: ${PRICING.monthly} ₺ (KDV dahil), her ay otomatik yenilenir.`,
-            `Yıllık abonelik: ${PRICING.yearly.toLocaleString('tr-TR')} ₺ (KDV dahil), her yıl otomatik yenilenir.`,
+            `Aylık abonelik: ${PRICING.monthly} TL (KDV dahil), her ay otomatik yenilenir.`,
+            `Yıllık abonelik: ${PRICING.yearly.toLocaleString('tr-TR')} TL (KDV dahil), her yıl otomatik yenilenir.`,
             `Abonelik öncesi ${PRICING.trialDays} günlük ücretsiz deneme sunulur; deneme süresinde ödeme alınmaz.`,
             'Kurulum ücreti veya gizli maliyet bulunmamaktadır.',
           ]}

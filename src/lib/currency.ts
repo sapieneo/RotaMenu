@@ -1,6 +1,6 @@
 /** Desteklenen para birimleri (ISO 4217). Global mimari — kolayca genişletilebilir. */
 export const CURRENCIES = [
-  { code: 'TRY', symbol: '₺', name: 'Türk Lirası' },
+  { code: 'TRY', symbol: 'TL', name: 'Türk Lirası' },
   { code: 'USD', symbol: '$', name: 'ABD Doları' },
   { code: 'EUR', symbol: '€', name: 'Euro' },
   { code: 'GBP', symbol: '£', name: 'İngiliz Sterlini' },
@@ -17,7 +17,7 @@ export function currencySymbol(code: string | null | undefined): string {
   return (code && SYMBOLS[code]) || code || '';
 }
 
-/** Fiyatı sembolüyle biçimler: 600 → "600 ₺". Boşsa "". */
+/** Fiyatı sembolüyle biçimler: 600 → "600 TL". Boşsa "". */
 export function formatPrice(amount: number | null | undefined, code: string): string {
   if (amount == null) return '';
   const n = Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
