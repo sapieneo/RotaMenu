@@ -12,6 +12,7 @@ import {
 } from '@/lib/ai/image';
 import { UPGRADE_MESSAGES, normalizePlan, resolvePlanContext } from '@/lib/plans';
 import { aiTierFor, consumeAiQuota, quotaStatus, refundAiQuota } from '@/lib/ai-quota';
+import { authorizeImageTarget } from '@/lib/image-access';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -26,12 +27,11 @@ const bodySchema = z
     message: 'itemId veya categoryId (yalnızca biri) gerekli.',
   });
 
-const EDITOR_ROLES = ['owner', 'admin', 'editor'];
-
 /**
  * POST /api/image/generate
  * Ürün (itemId) veya kategori arka planı (categoryId) için AI görseli üretir,
- * venue-media'ya kaydeder, ilgili URL alanını günceller. Üyelik (editor+) şart.
+ * venue-media'ya kaydeder, ilgili URL alanını günceller. Org editörü,
+ * süper-admin veya hedef işletmenin pano oturumu şarttır.
  */
 export async function POST(request: NextRequest) {
   if (!isImageConfigured()) {
@@ -41,27 +41,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
-  }
-
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 });
   }
   const { itemId, categoryId, prompt: customPrompt } = parsed.data;
+  const supabase = createClient();
+  const access = await authorizeImageTarget(supabase, { itemId, categoryId });
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+  const { target, user } = access;
   const admin = createAdminClient();
 
   // Hedefi çöz: ürün mü kategori mi
-  let orgId: string;
-  let table: 'items' | 'categories';
-  let column: 'image_url' | 'background_url';
-  let subdir: 'items' | 'categories';
-  let targetId: string;
+  const { orgId, table, column, subdir, id: targetId } = target;
   let prompt: string;
   let dims: { width: number; height: number } | undefined;
 
@@ -72,11 +66,6 @@ export async function POST(request: NextRequest) {
       .eq('id', itemId)
       .maybeSingle();
     if (!item) return NextResponse.json({ error: 'Ürün bulunamadı.' }, { status: 404 });
-    orgId = item.org_id;
-    table = 'items';
-    column = 'image_url';
-    subdir = 'items';
-    targetId = item.id;
     const subject = await describeDishInEnglish(item.name, item.description, item.ingredients);
     prompt = customPrompt ?? buildFoodPrompt(subject);
   } else {
@@ -86,25 +75,9 @@ export async function POST(request: NextRequest) {
       .eq('id', categoryId!)
       .maybeSingle();
     if (!cat) return NextResponse.json({ error: 'Kategori bulunamadı.' }, { status: 404 });
-    orgId = cat.org_id;
-    table = 'categories';
-    column = 'background_url';
-    subdir = 'categories';
-    targetId = cat.id;
     const subject = await describeCategoryBackground(cat.name);
     prompt = customPrompt ?? buildBackgroundPrompt(subject);
     dims = { width: 1024, height: 512 };
-  }
-
-  // Üyelik doğrula (editor+)
-  const { data: mem } = await admin
-    .from('organization_members')
-    .select('role')
-    .eq('org_id', orgId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!mem || !EDITOR_ROLES.includes(mem.role)) {
-    return NextResponse.json({ error: 'Bu işlem için yetkiniz yok.' }, { status: 403 });
   }
 
   // Plan kapısı: görsel üretimi yalnız görsele izin veren planlarda (Pro+).
@@ -124,8 +97,8 @@ export async function POST(request: NextRequest) {
   // Plan kapısı deneme sürerken herkesi 'pro' saydığı için TEK BAŞINA yetmez:
   // anonim ziyaretçi de görsel üretebiliyordu. Kimlik + günlük kota şart.
   const imgTier = aiTierFor({
-    isAnonymous: Boolean(user.is_anonymous),
-    email: user.email,
+    isAnonymous: Boolean(user?.is_anonymous),
+    email: user?.email,
     basePlan: normalizePlan(orgRow?.plan),
   });
   const imgQuota = await consumeAiQuota(orgId, 'image', 1, imgTier);

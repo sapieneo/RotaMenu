@@ -116,7 +116,6 @@ export default async function ImagesPage({ searchParams }: { searchParams?: { ve
 
   return (
     <ImageManager
-      orgId={venue.org_id}
       venueId={venue.id}
       slug={venue.slug}
       categories={imgCategories}
