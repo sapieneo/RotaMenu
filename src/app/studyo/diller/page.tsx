@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { isAdminSession } from '@/lib/admin-auth';
 import { resolvePlanContext } from '@/lib/plans';
 import { MENU_LANGUAGES } from '@/lib/languages';
 import { resolveManagedVenue } from '@/lib/managed-venue';
@@ -14,8 +15,13 @@ export default async function LanguagesPage({ searchParams }: { searchParams?: {
   const venue = await resolveManagedVenue(supabase, searchParams?.venue);
   if (!venue) return <EmptyState title="Henüz menünüz yok" text="Önce menünüzü oluşturun." />;
 
+  // Admin oturumunda seçilen işletmenin çeviri durumları normal kullanıcı
+  // RLS'iyle görünmez. Venue erişimi doğrulandıktan sonra sunucu istemcisini
+  // kullanarak aynı veriyi güvenli biçimde oku.
+  const database = isAdminSession() ? createAdminClient() : supabase;
+
   const [{ data: menu }, { data: org }] = await Promise.all([
-    supabase
+    database
       .from('menus')
       .select('id')
       .eq('venue_id', venue.id)
@@ -23,7 +29,7 @@ export default async function LanguagesPage({ searchParams }: { searchParams?: {
       .order('sort_order')
       .limit(1)
       .maybeSingle(),
-    supabase
+    database
       .from('organizations')
       .select('plan, trial_ends_at')
       .eq('id', venue.org_id)
@@ -31,13 +37,13 @@ export default async function LanguagesPage({ searchParams }: { searchParams?: {
   ]);
   if (!menu) return <EmptyState title="Aktif menü bulunamadı" text="Menünüzü tamamlayıp tekrar deneyin." />;
 
-  const { data: categories } = await supabase.from('categories').select('id').eq('menu_id', menu.id);
+  const { data: categories } = await database.from('categories').select('id').eq('menu_id', menu.id);
   const categoryIds = (categories ?? []).map((category) => category.id);
   const [{ data: items }, { data: jobs }] = await Promise.all([
     categoryIds.length
-      ? supabase.from('items').select('id, description').in('category_id', categoryIds)
+      ? database.from('items').select('id, description').in('category_id', categoryIds)
       : Promise.resolve({ data: [] as { id: string; description: string | null }[] }),
-    supabase
+    database
       .from('menu_translation_jobs')
       .select('id, job_type, locale, status, progress, total_items, error_message, updated_at')
       .eq('menu_id', menu.id)

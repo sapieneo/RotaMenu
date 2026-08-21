@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { isAdminSession } from '@/lib/admin-auth';
 import { isSupportedMenuLanguage } from '@/lib/languages';
 import { normalizePlan, resolvePlanContext } from '@/lib/plans';
 import { signTranslationBackgroundPayload } from '@/lib/ai/background-auth';
@@ -35,7 +36,12 @@ export async function POST(request: NextRequest) {
   const venue = await resolveManagedVenue(supabase, parsed.data.venueId);
   if (!venue) return NextResponse.json({ error: 'Menü bulunamadı.' }, { status: 404 });
 
-  const { data: menu } = await supabase
+  // resolveManagedVenue süper-admin oturumunda üyelikten bağımsız erişimi
+  // doğrular. Bu durumda iş kayıtlarını da service-role ile yazmak gerekir;
+  // aksi halde başka organizasyondaki menü için RLS 403 döndürür.
+  const database = isAdminSession() ? createAdminClient() : supabase;
+
+  const { data: menu } = await database
     .from('menus')
     .select('id')
     .eq('venue_id', venue.id)
@@ -45,7 +51,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
   if (!menu) return NextResponse.json({ error: 'Aktif menü bulunamadı.' }, { status: 404 });
 
-  const { data: organization } = await supabase
+  const { data: organization } = await database
     .from('organizations')
     .select('plan, trial_ends_at')
     .eq('id', venue.org_id)
@@ -59,16 +65,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: categories } = await supabase.from('categories').select('id').eq('menu_id', menu.id);
+  const { data: categories } = await database.from('categories').select('id').eq('menu_id', menu.id);
   const categoryIds = (categories ?? []).map((category) => category.id);
   const { data: items } = categoryIds.length
-    ? await supabase.from('items').select('id, description').in('category_id', categoryIds)
+    ? await database.from('items').select('id, description').in('category_id', categoryIds)
     : { data: [] as { id: string; description: string | null }[] };
   const missingDescriptionCount = parsed.data.withDescriptions
     ? (items ?? []).filter((item) => !item.description?.trim()).length
     : 0;
 
-  const { data: existingJobs } = await supabase
+  const { data: existingJobs } = await database
     .from('menu_translation_jobs')
     .select('locale, status')
     .eq('menu_id', menu.id)
@@ -120,7 +126,7 @@ export async function POST(request: NextRequest) {
     requested_by: user.id,
   }));
   const translationResult = translationRows.length
-    ? await supabase
+    ? await database
         .from('menu_translation_jobs')
         .upsert(translationRows, { onConflict: 'menu_id,job_type,locale' })
         .select('id')
@@ -134,6 +140,12 @@ export async function POST(request: NextRequest) {
   };
 
   if (translationResult.error || !translationJobs) {
+    console.error('Translation jobs could not be created', {
+      code: translationResult.error?.code,
+      message: translationResult.error?.message,
+      details: translationResult.error?.details,
+      hint: translationResult.error?.hint,
+    });
     await refundAll();
     return NextResponse.json({ error: 'Çeviri işleri oluşturulamadı.' }, { status: 500 });
   }
@@ -150,7 +162,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (missingDescriptionCount > 0) {
-    const { data: descriptionJob, error } = await supabase
+    const { data: descriptionJob, error } = await database
       .from('menu_translation_jobs')
       .upsert(
         {

@@ -44,7 +44,14 @@ export function LanguageManager({
     () => languages.filter((language) => latestJobs.get(language.code)?.status === 'completed').map((language) => language.code),
     [languages, latestJobs]
   );
-  const [selected, setSelected] = useState<string[]>(completed);
+  const translationsDisabled = maxTargets === 0;
+  const [selected, setSelected] = useState<string[]>(() => {
+    const initial = [...completed];
+    const englishIsAvailable = languages.some((language) => language.code === 'en');
+    const hasCapacity = maxTargets == null || initial.length < maxTargets;
+    if (englishIsAvailable && !initial.includes('en') && hasCapacity) initial.unshift('en');
+    return initial;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [generatingDescriptions, setGeneratingDescriptions] = useState(false);
   /**
@@ -167,20 +174,24 @@ export function LanguageManager({
         <JobBanner label="Ürün açıklamaları" job={descriptionJob} />
       )}
 
-      <LanguageSection title="Türkiye ve komşu coğrafya için önemli diller" languages={neighborLanguages} selected={selected} jobs={latestJobs} onToggle={toggle} />
-      <LanguageSection title="Dünyada yaygın diller" languages={popularLanguages} selected={selected} jobs={latestJobs} onToggle={toggle} />
+      <LanguageSection title="Türkiye ve komşu coğrafya için önemli diller" languages={neighborLanguages} selected={selected} jobs={latestJobs} onToggle={toggle} disabled={translationsDisabled} />
+      <LanguageSection title="Dünyada yaygın diller" languages={popularLanguages} selected={selected} jobs={latestJobs} onToggle={toggle} disabled={translationsDisabled} />
 
       <div className="sticky bottom-4 mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-lg backdrop-blur">
         <div>
-          <p className="font-semibold text-stone-800">{selected.length} hedef dil seçildi</p>
-          <p className="text-xs text-stone-500">Türkçe kaynak dil olarak her zaman korunur.</p>
+          <p className="font-semibold text-stone-800">
+            {translationsDisabled ? 'Planınızda çeviri kapalı' : `${selected.length} hedef dil seçildi`}
+          </p>
+          <p className="text-xs text-stone-500">
+            {translationsDisabled ? 'Çeviri özelliğini kullanmak için planınızı yükseltin.' : 'Türkçe kaynak dil olarak korunur; İngilizce başlangıçta seçilidir.'}
+          </p>
         </div>
         <button
           onClick={start}
-          disabled={submitting || active || !selected.length}
+          disabled={submitting || active || translationsDisabled || !selected.length}
           className="rounded-xl bg-brand-600 px-5 py-3 font-semibold text-white shadow transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {active ? 'Çeviri sürüyor…' : submitting ? 'Başlatılıyor…' : 'Dillere çevir'}
+          {translationsDisabled ? 'Çeviri kapalı' : active ? 'Çeviri sürüyor…' : submitting ? 'Başlatılıyor…' : 'Dillere çevir'}
         </button>
       </div>
       {message && <p className="mt-3 rounded-xl bg-stone-100 px-4 py-3 text-sm text-stone-700">{message}</p>}
@@ -188,12 +199,13 @@ export function LanguageManager({
   );
 }
 
-function LanguageSection({ title, languages, selected, jobs, onToggle }: {
+function LanguageSection({ title, languages, selected, jobs, onToggle, disabled }: {
   title: string;
   languages: MenuLanguage[];
   selected: string[];
   jobs: Map<string, TranslationJobView>;
   onToggle: (code: string) => void;
+  disabled: boolean;
 }) {
   return (
     <section className="mt-8">
@@ -202,7 +214,7 @@ function LanguageSection({ title, languages, selected, jobs, onToggle }: {
         {languages.map((language) => {
           const job = jobs.get(language.code);
           return (
-            <button key={language.code} onClick={() => onToggle(language.code)} className={`rounded-2xl border p-4 text-left transition ${selected.includes(language.code) ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-stone-200 bg-white hover:border-brand-300'}`}>
+            <button key={language.code} onClick={() => onToggle(language.code)} disabled={disabled} className={`rounded-2xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-55 ${selected.includes(language.code) ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-stone-200 bg-white hover:border-brand-300'}`}>
               <div className="flex items-start justify-between gap-3">
                 <div><p className="font-semibold text-stone-900">{language.name}</p><p className="mt-0.5 text-sm text-stone-500">{language.nativeName}</p></div>
                 <span className={`flex h-5 w-5 items-center justify-center rounded border text-xs ${selected.includes(language.code) ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-300'}`}>{selected.includes(language.code) ? '✓' : ''}</span>

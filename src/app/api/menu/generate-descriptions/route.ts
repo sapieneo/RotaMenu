@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
+import { isAdminSession } from '@/lib/admin-auth';
 import { signTranslationBackgroundPayload } from '@/lib/ai/background-auth';
 import { resolveManagedVenue } from '@/lib/managed-venue';
 import { aiTierFor, consumeAiQuota, quotaStatus, refundAiQuota } from '@/lib/ai-quota';
@@ -31,7 +32,12 @@ export async function POST(request: NextRequest) {
   const venue = await resolveManagedVenue(supabase, parsed.data.venueId);
   if (!venue) return NextResponse.json({ error: 'Menü bulunamadı.' }, { status: 404 });
 
-  const { data: menu } = await supabase
+  // Süper-admin başka bir organizasyonun menüsünü yönetebilir. Erişim
+  // resolveManagedVenue tarafından doğrulandıktan sonra iş kaydı RLS'e
+  // takılmaması için yalnızca bu oturumda service-role kullanılır.
+  const database = isAdminSession() ? createAdminClient() : supabase;
+
+  const { data: menu } = await database
     .from('menus')
     .select('id')
     .eq('venue_id', venue.id)
@@ -41,10 +47,10 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
   if (!menu) return NextResponse.json({ error: 'Aktif menü bulunamadı.' }, { status: 404 });
 
-  const { data: categories } = await supabase.from('categories').select('id').eq('menu_id', menu.id);
+  const { data: categories } = await database.from('categories').select('id').eq('menu_id', menu.id);
   const categoryIds = (categories ?? []).map((category) => category.id);
   const { data: items } = categoryIds.length
-    ? await supabase.from('items').select('id, description').in('category_id', categoryIds)
+    ? await database.from('items').select('id, description').in('category_id', categoryIds)
     : { data: [] as { id: string; description: string | null }[] };
   const missingDescriptionCount = (items ?? []).filter((item) => !item.description?.trim()).length;
   if (missingDescriptionCount === 0) {
@@ -52,7 +58,7 @@ export async function POST(request: NextRequest) {
   }
 
   // ── AI maliyet koruması ── (bkz. lib/ai-quota.ts)
-  const { data: orgRow } = await supabase
+  const { data: orgRow } = await database
     .from('organizations')
     .select('plan')
     .eq('id', venue.org_id)
@@ -70,7 +76,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: descriptionJob, error } = await supabase
+  const { data: descriptionJob, error } = await database
     .from('menu_translation_jobs')
     .upsert(
       {
@@ -90,6 +96,12 @@ export async function POST(request: NextRequest) {
     .select('id')
     .single();
   if (error || !descriptionJob) {
+    console.error('Description job could not be created', {
+      code: error?.code,
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+    });
     await refundAiQuota(venue.org_id, 'description', 1);
     return NextResponse.json({ error: 'Açıklama işi oluşturulamadı.' }, { status: 500 });
   }
