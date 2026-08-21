@@ -4,6 +4,7 @@ import { rawResultSchema } from '@/lib/schemas/menu';
 import { CODE_BY_ID } from '@/lib/allergens';
 import { DIETARY_CODE_BY_ID } from '@/lib/dietary';
 import { ComplianceReviewer, type ReviewItem } from './compliance-reviewer';
+import { resolveComplianceIngestionAccess } from '@/lib/compliance-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,13 +15,9 @@ export const dynamic = 'force-dynamic';
  */
 export default async function CompliancePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-
-  const { data: ingestion } = await supabase
-    .from('menu_ingestions')
-    .select('id, status, raw_result, venue_id')
-    .eq('id', params.id)
-    .maybeSingle();
-  if (!ingestion) notFound();
+  const access = await resolveComplianceIngestionAccess(supabase, params.id);
+  if (!access) notFound();
+  const { ingestion, db } = access;
 
   const raw = rawResultSchema.safeParse(ingestion.raw_result);
   const menuId = raw.success ? raw.data.created_menu_id : null;
@@ -41,13 +38,13 @@ export default async function CompliancePage({ params }: { params: { id: string 
     );
   }
 
-  const { data: venue } = await supabase
+  const { data: venue } = await db
     .from('venues')
     .select('id, name, slug')
     .eq('id', ingestion.venue_id)
     .maybeSingle();
 
-  const { data: categories } = await supabase
+  const { data: categories } = await db
     .from('categories')
     .select('id, name, sort_order')
     .eq('menu_id', menuId)
@@ -61,7 +58,7 @@ export default async function CompliancePage({ params }: { params: { id: string 
   const catOrder = new Map((categories ?? []).map((c, index) => [c.id, index]));
 
   const { data: itemRows } = catIds.length
-    ? await supabase
+    ? await db
         .from('items')
         .select(
           'id, name, category_id, price, calories_kcal, ingredients, allergens_confirmed, sort_order, ' +
