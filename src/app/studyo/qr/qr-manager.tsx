@@ -16,13 +16,30 @@ type Props = {
   venueSlug: string;
   isPublished: boolean;
   initial: QrRow[];
+  qrBaseUrl: string;
 };
 
-export function QrManager({ venueId, venueName, venueSlug, isPublished, initial }: Props) {
+export function QrManager({ venueId, venueName, venueSlug, isPublished, initial, qrBaseUrl }: Props) {
   const [rows, setRows] = useState<QrRow[]>(initial);
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  function shortUrl(code: string): string {
+    return `${qrBaseUrl}/${code}`;
+  }
+
+  async function copyShortUrl(code: string) {
+    try {
+      const url = shortUrl(code) || `${window.location.origin}/${code}`;
+      await navigator.clipboard.writeText(url);
+      setCopiedCode(code);
+      window.setTimeout(() => setCopiedCode((current) => (current === code ? null : current)), 1600);
+    } catch {
+      setError('Kısa adres panoya kopyalanamadı. Adresi seçip elle kopyalayabilirsin.');
+    }
+  }
 
   async function create() {
     setBusy(true);
@@ -148,8 +165,17 @@ export function QrManager({ venueId, venueName, venueSlug, isPublished, initial 
               r.is_active ? 'border-stone-200' : 'border-stone-200 bg-stone-50 opacity-70'
             }`}
           >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
+            <div className="flex flex-wrap items-start gap-4">
+              <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-white p-1.5">
+                {/* inline=1 aynı güvenli indirme rotasını tarayıcı içi önizleme için kullanır. */}
+                <img
+                  src={`/api/qr/${r.code}?format=png&inline=1`}
+                  alt={`${r.label || venueName} QR kodu`}
+                  className="h-full w-full object-contain [image-rendering:pixelated]"
+                />
+              </div>
+
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <code className="rounded bg-stone-100 px-2 py-0.5 font-mono text-sm font-semibold">
                     {r.code}
@@ -173,12 +199,21 @@ export function QrManager({ venueId, venueName, venueSlug, isPublished, initial 
                   placeholder="Etiket ekle…"
                   className="mt-2 w-full rounded border border-transparent px-1 py-0.5 text-sm text-stone-600 outline-none hover:border-stone-200 focus:border-brand-500"
                 />
-                <p className="mt-1 truncate text-xs text-stone-400">
-                  /q/{r.code}
-                </p>
+                <div className="mt-2 flex min-w-0 items-center gap-2 rounded-lg bg-stone-50 px-2.5 py-2">
+                  <code className="min-w-0 flex-1 truncate text-xs font-medium text-stone-600">
+                    {shortUrl(r.code) || `/${r.code}`}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => void copyShortUrl(r.code)}
+                    className="shrink-0 rounded-md border border-stone-200 bg-white px-2 py-1 text-xs font-semibold text-stone-600 transition hover:border-stone-300"
+                  >
+                    {copiedCode === r.code ? 'Kopyalandı' : 'Kısa adresi kopyala'}
+                  </button>
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                 <a
                   href={`/api/qr/${r.code}?format=png`}
                   className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"

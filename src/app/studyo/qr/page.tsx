@@ -1,6 +1,9 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { QrManager, type QrRow } from './qr-manager';
-import { resolveManagedVenue } from '@/lib/managed-venue';
+import { resolveManagedVenue, resolveVenueByIdAsAdmin } from '@/lib/managed-venue';
+import { isAdminSession } from '@/lib/admin-auth';
+import { hasPanoSession } from '@/lib/pano-auth';
+import { qrOrigin } from '@/lib/qr';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +13,14 @@ export const dynamic = 'force-dynamic';
  */
 export default async function QrPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
-  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
+  const requestedVenueId = searchParams?.venue ?? null;
+  const privileged = Boolean(
+    requestedVenueId && (isAdminSession() || hasPanoSession(requestedVenueId))
+  );
+  let venue = await resolveManagedVenue(supabase, requestedVenueId);
+  if (!venue && requestedVenueId && privileged) {
+    venue = await resolveVenueByIdAsAdmin(requestedVenueId);
+  }
 
   if (!venue) {
     return (
@@ -27,7 +37,8 @@ export default async function QrPage({ searchParams }: { searchParams?: { venue?
     );
   }
 
-  const { data: codes } = await supabase
+  const db = privileged ? createAdminClient() : supabase;
+  const { data: codes } = await db
     .from('qr_codes')
     .select('id, code, label, is_active, created_at')
     .eq('venue_id', venue.id)
@@ -40,6 +51,7 @@ export default async function QrPage({ searchParams }: { searchParams?: { venue?
       venueSlug={venue.slug}
       isPublished={Boolean(venue.is_published)}
       initial={(codes ?? []) as QrRow[]}
+      qrBaseUrl={qrOrigin()}
     />
   );
 }

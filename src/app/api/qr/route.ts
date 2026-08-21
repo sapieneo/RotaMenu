@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { generateQrCode } from '@/lib/qr';
+import { isAdminSession } from '@/lib/admin-auth';
+import { hasPanoSession } from '@/lib/pano-auth';
 
 export const runtime = 'nodejs';
 
@@ -21,12 +23,6 @@ const updateSchema = z.object({
  * User-client + RLS: `qr_write` policy'si editor+ ister.
  */
 export async function POST(request: NextRequest) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
-
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
@@ -34,13 +30,26 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  // QR sayfası org üyeliğinin yanı sıra süper-admin veya işletmeye özel
+  // pano şifresiyle de açılabilir. API aynı kimlik yollarını kabul etmezse
+  // sayfa görünürken oluşturma isteği 401 ile kopar.
+  const privileged = isAdminSession() || hasPanoSession(parsed.data.venueId);
+  if (!user && !privileged) {
+    return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
+  }
+  const db = privileged ? createAdminClient() : supabase;
   const label = (parsed.data.label ?? '').trim() || null;
 
   // qr_codes.org_id NOT NULL ve 0001'deki app.fill_org_id trigger'ı bu tabloyu
   // KAPSAMIYOR (menus/categories/items/... var, qr_codes yok). Bu yüzden org_id'yi
   // venue'dan okuyup elle yazıyoruz. Okuma user-client + RLS: venue görünmüyorsa
   // zaten yetki yok demektir.
-  const { data: venue } = await supabase
+  const { data: venue } = await db
     .from('venues')
     .select('org_id')
     .eq('id', parsed.data.venueId)
@@ -53,7 +62,7 @@ export async function POST(request: NextRequest) {
   // unique violation'ı yakalayıp birkaç kez yeniden deniyoruz.
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const code = generateQrCode();
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('qr_codes')
       .insert({ venue_id: parsed.data.venueId, org_id: venue.org_id, code, label })
       .select('id, code, label, is_active, created_at')
@@ -75,12 +84,6 @@ export async function POST(request: NextRequest) {
  * /q/{code} üzerinde bilgilendirme sayfası gösterir.
  */
 export async function PATCH(request: NextRequest) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
-
   const parsed = updateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
@@ -88,7 +91,29 @@ export async function PATCH(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let privileged = isAdminSession();
+  if (!privileged) {
+    // PATCH gövdesinde venueId yok. Kodu yalnız venue kimliğini bulmak için
+    // service-role ile okuyor, ardından o venue'ye ait imzalı pano çerezini
+    // doğruluyoruz; çerez yoksa ayrıcalıklı istemci asla kullanılmıyor.
+    const { data: qrOwner } = await createAdminClient()
+      .from('qr_codes')
+      .select('venue_id')
+      .eq('id', parsed.data.id)
+      .maybeSingle();
+    privileged = Boolean(qrOwner && hasPanoSession(qrOwner.venue_id));
+  }
+  if (!user && !privileged) {
+    return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
+  }
   const b = parsed.data;
+  const db = privileged ? createAdminClient() : supabase;
 
   const patch: Record<string, string | boolean | null> = {};
   if (b.label !== undefined) patch.label = (b.label ?? '').trim() || null;
@@ -97,7 +122,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Güncellenecek alan yok.' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('qr_codes')
     .update(patch)
     .eq('id', b.id)

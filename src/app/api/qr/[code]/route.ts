@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import QRCode from 'qrcode';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { siteOrigin, qrTargetUrl } from '@/lib/qr';
+import { qrOrigin, qrTargetUrl } from '@/lib/qr';
 import { buildQrCardPdf } from '@/server/qr-pdf';
+import { isAdminSession } from '@/lib/admin-auth';
+import { hasPanoSession } from '@/lib/pano-auth';
 
 export const runtime = 'nodejs';
 
@@ -17,31 +19,42 @@ export async function GET(request: NextRequest, { params }: { params: { code: st
     return NextResponse.json({ error: 'Geçersiz kod.' }, { status: 400 });
   }
 
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('qr_codes')
+    .select('id, org_id, venue_id, label, venues(name)')
+    .eq('code', code)
+    .maybeSingle();
+  const qr = data as {
+    id: string;
+    org_id: string;
+    venue_id: string;
+    label: string | null;
+    venues: { name: string } | null;
+  } | null;
+  if (!qr) return NextResponse.json({ error: 'QR kodu bulunamadı.' }, { status: 404 });
+
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
-
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from('qr_codes')
-    .select('id, org_id, label, venues(name)')
-    .eq('code', code)
-    .maybeSingle();
-  const qr = data as { id: string; org_id: string; label: string | null; venues: { name: string } | null } | null;
-  if (!qr) return NextResponse.json({ error: 'QR kodu bulunamadı.' }, { status: 404 });
+  const privileged = isAdminSession() || hasPanoSession(qr.venue_id);
+  if (!user && !privileged) {
+    return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
+  }
 
   // Üyelik denetimi user-client + RLS ile: üye değilse satır dönmez.
-  const { data: membership } = await supabase
-    .from('organization_members')
-    .select('user_id')
-    .eq('org_id', qr.org_id)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!membership) return NextResponse.json({ error: 'Yetkin yok.' }, { status: 403 });
+  if (!privileged && user) {
+    const { data: membership } = await supabase
+      .from('organization_members')
+      .select('user_id')
+      .eq('org_id', qr.org_id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!membership) return NextResponse.json({ error: 'Yetkin yok.' }, { status: 403 });
+  }
 
-  const url = qrTargetUrl(siteOrigin(request), code);
+  const url = qrTargetUrl(qrOrigin(request), code);
   const format = request.nextUrl.searchParams.get('format') === 'pdf' ? 'pdf' : 'png';
   const venueName = qr.venues?.name ?? 'İşletme';
   const fileBase = `qr-${code}${qr.label ? `-${slugifyForFile(qr.label)}` : ''}`;
@@ -50,14 +63,16 @@ export async function GET(request: NextRequest, { params }: { params: { code: st
     const png = await QRCode.toBuffer(url, {
       type: 'png',
       width: 1024,
-      margin: 2,
-      errorCorrectionLevel: 'M',
+      margin: 4,
+      errorCorrectionLevel: 'Q',
       color: { dark: '#111111ff', light: '#ffffffff' },
     });
     return new NextResponse(new Uint8Array(png), {
       headers: {
         'Content-Type': 'image/png',
-        'Content-Disposition': `attachment; filename="${fileBase}.png"`,
+        'Content-Disposition': request.nextUrl.searchParams.get('inline') === '1'
+          ? `inline; filename="${fileBase}.png"`
+          : `attachment; filename="${fileBase}.png"`,
         'Cache-Control': 'private, no-store',
       },
     });
@@ -67,8 +82,8 @@ export async function GET(request: NextRequest, { params }: { params: { code: st
   const qrPng = await QRCode.toBuffer(url, {
     type: 'png',
     width: 900,
-    margin: 0,
-    errorCorrectionLevel: 'M',
+    margin: 4,
+    errorCorrectionLevel: 'Q',
   });
   const pdf = await buildQrCardPdf({ qrPng, venueName, label: qr.label, url });
   return new NextResponse(new Uint8Array(pdf), {
