@@ -538,22 +538,22 @@ function MenuSwitcher({
 
   return (
     <div ref={slotRef} className="relative flex min-w-0 flex-1 items-center">
-      {/* ÖLÇÜM KOPYASI — görünmez, tıklanamaz, düzeni etkilemez (absolute). */}
-      <div
-        ref={probeRef}
-        aria-hidden
-        className="pointer-events-none invisible absolute left-0 top-0 flex w-max items-center gap-2"
-      >
-        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide">{t.mainMenus}</span>
-        {menus.map((m) => (
-          <span key={m.id} className={`inline-flex ${chipBase}`} style={chipStyle(m.id === activeMenuId)}>
-            {m.icon && <span aria-hidden>{m.icon}</span>}
-            {m.name}
-            <span className={badgeBase} style={badgeStyle(m.id === activeMenuId)}>
-              {counts.get(m.id) ?? 0}
+      {/* ÖLÇÜM KOPYASI — doğal genişliği ölçülür ama sıfır boyutlu dış kap
+          tarafından kırpılır. Tek başına absolute bırakıldığında görünmez
+          içerik mobil document.scrollWidth'i büyütüp sağda boş alan açıyordu. */}
+      <div aria-hidden className="pointer-events-none invisible absolute left-0 top-0 h-0 w-0 overflow-hidden">
+        <div ref={probeRef} className="flex w-max items-center gap-2">
+          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide">{t.mainMenus}</span>
+          {menus.map((m) => (
+            <span key={m.id} className={`inline-flex ${chipBase}`} style={chipStyle(m.id === activeMenuId)}>
+              {m.icon && <span aria-hidden>{m.icon}</span>}
+              {m.name}
+              <span className={badgeBase} style={badgeStyle(m.id === activeMenuId)}>
+                {counts.get(m.id) ?? 0}
+              </span>
             </span>
-          </span>
-        ))}
+          ))}
+        </div>
       </div>
 
       {inline ? (
@@ -1087,16 +1087,16 @@ export function GuestMenu({
 
   return (
     <div
-      /* Genişlik: telefonda tek dar kolon (max-w-lg), masaüstünde referanstaki
-         gibi geniş sayfa (lg:max-w-6xl). Eskiden her ekranda 512px'e
-         sıkışıyordu ve masaüstünde ortada duran bir telefon maketi gibi
-         görünüyordu — referans ise geniş, iki sütunlu bir sayfa. */
+      /* Genişlik: telefon ve tabletlerde ekranın tamamını kullan. `max-w-lg`
+         geniş ekranlı/katlanabilir telefonlarda 512px sınırını erken devreye
+         sokup sağda boş bir şerit bırakıyordu. Yalnız gerçek masaüstü
+         düzeninde genişliği sınırla ve kart görünümüne geç. */
       /* lang: CSS `text-transform: uppercase` büyük harfe çevirirken dil
          kuralına bakar — sayfa kökü lang="tr" olduğu için İngilizce menüde
          "FİLTERS" gibi noktalı İ çıkıyordu. Seçili dili buraya işlemek
          hem bunu düzeltir hem ekran okuyucuya doğru dili söyler. */
       lang={locale}
-      className="gm-root mx-auto min-h-screen max-w-lg pb-16 shadow-sm sm:my-4 sm:rounded-2xl lg:max-w-6xl"
+      className="gm-root mx-auto min-h-screen w-full pb-16 shadow-sm lg:my-4 lg:max-w-6xl lg:rounded-2xl"
       style={{
         ...menuBackgroundStyle(design),
         color: design.textColor,
