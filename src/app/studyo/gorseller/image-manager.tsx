@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
 
 export type ImgItem = { id: string; name: string; imageUrl: string | null };
@@ -23,12 +22,10 @@ const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export function ImageManager({
-  orgId,
   venueId,
   slug,
   categories,
 }: {
-  orgId: string;
   venueId: string;
   slug: string;
   categories: ImgCategory[];
@@ -55,6 +52,17 @@ export function ImageManager({
   const fail = (id: string, m: string | null) => setErr((s) => ({ ...s, [id]: m }));
   const bodyId = (kind: Kind, id: string) => (kind === 'item' ? { itemId: id } : { categoryId: id });
 
+  async function uploadFile(kind: Kind, id: string, file: File, temporary = false) {
+    const form = new FormData();
+    form.set('file', file);
+    form.set(kind === 'item' ? 'itemId' : 'categoryId', id);
+    if (temporary) form.set('temporary', 'true');
+    const res = await fetch('/api/image/upload', { method: 'POST', body: form });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error ?? 'Yükleme başarısız.');
+    return body.imageUrl as string;
+  }
+
   async function generate(kind: Kind, id: string) {
     mark(id, 'gen');
     fail(id, null);
@@ -80,17 +88,7 @@ export function ImageManager({
     mark(id, 'upload');
     fail(id, null);
     try {
-      const supabase = createClient();
-      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-      const subdir = kind === 'item' ? 'items' : 'categories';
-      const path = `${orgId}/${subdir}/${id}-${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('venue-media')
-        .upload(path, file, { contentType: file.type, upsert: true });
-      if (upErr) throw new Error('Yükleme başarısız. Bağlantınızı kontrol edin.');
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('venue-media').getPublicUrl(path);
+      const publicUrl = await uploadFile(kind, id, file);
       const res = await fetch('/api/image', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -112,16 +110,7 @@ export function ImageManager({
     mark(id, 'enhance');
     fail(id, null);
     try {
-      const supabase = createClient();
-      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-      const tmpPath = `${orgId}/tmp/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('venue-media')
-        .upload(tmpPath, file, { contentType: file.type, upsert: true });
-      if (upErr) throw new Error('Yükleme başarısız. Bağlantınızı kontrol edin.');
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('venue-media').getPublicUrl(tmpPath);
+      const publicUrl = await uploadFile(kind, id, file, true);
       const res = await fetch('/api/image/enhance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

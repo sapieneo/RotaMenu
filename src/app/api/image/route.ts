@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { UPGRADE_MESSAGES, resolvePlanContext } from '@/lib/plans';
+import { authorizeImageTarget } from '@/lib/image-access';
 
 export const runtime = 'nodejs';
 
@@ -16,8 +17,6 @@ const bodySchema = z
     message: 'itemId veya categoryId (yalnızca biri) gerekli.',
   });
 
-const EDITOR_ROLES = ['owner', 'admin', 'editor'];
-
 /**
  * PATCH /api/image
  * Elle yüklenen görselin URL'ini ürüne (image_url) veya kategoriye
@@ -25,19 +24,17 @@ const EDITOR_ROLES = ['owner', 'admin', 'editor'];
  * public URL'imiz kabul edilir.
  */
 export async function PATCH(request: NextRequest) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
-  }
-
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 });
   }
   const { itemId, categoryId, imageUrl } = parsed.data;
+  const supabase = createClient();
+  const access = await authorizeImageTarget(supabase, { itemId, categoryId });
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+  const { target } = access;
 
   if (imageUrl !== null) {
     const allowedPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/venue-media/`;
@@ -47,24 +44,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const table = itemId ? 'items' : 'categories';
-  const column = itemId ? 'image_url' : 'background_url';
-  const id = (itemId ?? categoryId)!;
-
-  const { data: row } = await admin.from(table).select('id, org_id').eq('id', id).maybeSingle();
-  if (!row) {
-    return NextResponse.json({ error: 'Kayıt bulunamadı.' }, { status: 404 });
-  }
-
-  const { data: mem } = await admin
-    .from('organization_members')
-    .select('role')
-    .eq('org_id', row.org_id)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!mem || !EDITOR_ROLES.includes(mem.role)) {
-    return NextResponse.json({ error: 'Bu işlem için yetkiniz yok.' }, { status: 403 });
-  }
+  const { table, column, id, orgId } = target;
 
   // Plan kapısı: görsel BAĞLAMA yalnız Pro+ planlarda. Kaldırma (null) her
   // planda serbest — plan düşse bile mevcut görsel temizlenebilmeli.
@@ -72,7 +52,7 @@ export async function PATCH(request: NextRequest) {
     const { data: orgRow } = await admin
       .from('organizations')
       .select('plan, trial_ends_at')
-      .eq('id', row.org_id)
+      .eq('id', orgId)
       .maybeSingle();
     if (!resolvePlanContext(orgRow?.plan, orgRow?.trial_ends_at).limits.images) {
       return NextResponse.json(
