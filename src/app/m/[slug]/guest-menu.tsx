@@ -2293,7 +2293,29 @@ function WelcomeAnnouncement({
       panelClassName="ros-draggable w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-3xl shadow-2xl"
       panelStyle={{ backgroundColor: design.surfaceColor, color: design.textColor }}
     >
-      <div>
+      <div className="relative">
+        {/* Sağ üst kapatma düğmesi — referanstaki .dialog-close ile birebir:
+            13px içeriden, 40px beyaz daire, hafif gölge, görselin ÜZERİNE
+            biner. Renkler bilinçli sabit (beyaz zemin + koyu çarpı): düğme
+            fotoğrafın üstünde durduğu için temadan bağımsız okunur kalmalı. */}
+        <Pressable
+          onClick={onClose}
+          aria-label={t.close}
+          className="absolute right-[13px] top-[13px] z-10 flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ backgroundColor: '#ffffff', color: '#1c1917', boxShadow: '0 4px 12px rgba(0,0,0,.15)' }}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-[18px] w-[18px]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            aria-hidden
+          >
+            <path d="m5 5 14 14M19 5 5 19" />
+          </svg>
+        </Pressable>
         {announcement.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={announcement.imageUrl} alt="" className="h-40 w-full object-cover" />
