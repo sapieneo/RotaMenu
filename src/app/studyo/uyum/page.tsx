@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { resolveManagedVenue } from '@/lib/managed-venue';
+import { resolveComplianceVenueAccess } from '@/lib/compliance-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,16 +14,12 @@ export const dynamic = 'force-dynamic';
  */
 export default async function ComplianceEntryPage({ searchParams }: { searchParams?: { venue?: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/studyo');
-
-  const venue = await resolveManagedVenue(supabase, searchParams?.venue);
-  if (!venue) redirect('/studyo');
+  const access = await resolveComplianceVenueAccess(supabase, searchParams?.venue);
+  if (!access) redirect('/studyo/pano');
+  const { venue, db } = access;
 
   // En son onaylanmış çıkarım → onun uyum ekranı.
-  const { data: ingestion } = await supabase
+  const { data: ingestion } = await db
     .from('menu_ingestions')
     .select('id')
     .eq('venue_id', venue.id)
@@ -32,8 +28,8 @@ export default async function ComplianceEntryPage({ searchParams }: { searchPara
     .limit(1)
     .maybeSingle();
 
-  if (ingestion) redirect(`/studyo/${ingestion.id}/uyum`);
+  if (ingestion) redirect(`/studyo/${ingestion.id}/uyum?venue=${encodeURIComponent(venue.id)}`);
 
   // Onaylı menü yoksa: önce menüyü oluştur/onayla.
-  redirect('/studyo');
+  redirect(`/studyo/pano?venue=${encodeURIComponent(venue.id)}`);
 }

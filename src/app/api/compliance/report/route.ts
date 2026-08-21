@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { CODE_BY_ID } from '@/lib/allergens';
 import { buildCompliancePdf, type ReportItem } from '@/server/compliance-pdf';
+import { resolveComplianceVenueAccess } from '@/lib/compliance-access';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -9,43 +10,23 @@ export const maxDuration = 30;
 /**
  * GET /api/compliance/report?venueId=...
  * İşletmenin uyum raporunu PDF olarak indirir (ürün × alerjen matrisi + onay zinciri).
- * Yalnız org üyesi erişebilir.
+ * Org üyesi, süper-admin veya işletmeye özel pano oturumu erişebilir.
  */
 export async function GET(request: NextRequest) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
-  }
-
   const venueId = request.nextUrl.searchParams.get('venueId');
   if (!venueId) {
     return NextResponse.json({ error: 'venueId gerekli.' }, { status: 400 });
   }
 
-  // Venue + üyelik doğrulaması (yayınlı venue anon'a da görünür; üyeliği açıkça kontrol et)
-  const { data: venue } = await supabase
-    .from('venues')
-    .select('id, name, org_id')
-    .eq('id', venueId)
-    .maybeSingle();
-  if (!venue) {
-    return NextResponse.json({ error: 'İşletme bulunamadı.' }, { status: 404 });
-  }
-  const { data: membership } = await supabase
-    .from('organization_members')
-    .select('user_id')
-    .eq('org_id', venue.org_id)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!membership) {
+  const access = await resolveComplianceVenueAccess(supabase, venueId);
+  if (!access) {
     return NextResponse.json({ error: 'Bu rapora erişim yetkiniz yok.' }, { status: 403 });
   }
+  const { venue, db } = access;
 
   // Menü zinciri: menus → categories → items
-  const { data: menus } = await supabase
+  const { data: menus } = await db
     .from('menus')
     .select('id')
     .eq('venue_id', venueId)
@@ -53,13 +34,13 @@ export async function GET(request: NextRequest) {
   const menuIds = (menus ?? []).map((m) => m.id);
 
   const { data: categories } = menuIds.length
-    ? await supabase.from('categories').select('id, name').in('menu_id', menuIds)
+    ? await db.from('categories').select('id, name').in('menu_id', menuIds)
     : { data: [] as { id: string; name: string }[] };
   const catName = new Map((categories ?? []).map((c) => [c.id, c.name]));
   const catIds = (categories ?? []).map((c) => c.id);
 
   const { data: itemRows } = catIds.length
-    ? await supabase
+    ? await db
         .from('items')
         .select(
           'id, name, category_id, calories_kcal, allergens_confirmed, sort_order, ' +

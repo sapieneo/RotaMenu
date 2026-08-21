@@ -7,6 +7,10 @@ const sql3 = readFileSync(new URL('../supabase/migrations/0003_compliance.sql', 
 const sql4 = readFileSync(new URL('../supabase/migrations/0004_menu_enrichment.sql', import.meta.url), 'utf8');
 const sql5 = readFileSync(new URL('../supabase/migrations/0005_fix_confirm_ambiguity.sql', import.meta.url), 'utf8');
 const sql6 = readFileSync(new URL('../supabase/migrations/0006_multipage_menu.sql', import.meta.url), 'utf8');
+const sqlPrivilegedCompliance = readFileSync(
+  new URL('../supabase/migrations/20260821200041_privileged_compliance_rpc.sql', import.meta.url),
+  'utf8'
+);
 
 // --- Supabase ortam stub'u ---
 await db.exec(`
@@ -16,6 +20,7 @@ await db.exec(`
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create role authenticated;
   create role anon;
+  create role service_role;
 `);
 
 // --- Migration ---
@@ -24,6 +29,7 @@ try { await db.exec(sql3); } catch (e) { console.error("MIGRATION 0003 HATA:", e
 try { await db.exec(sql4); } catch (e) { console.error("MIGRATION 0004 HATA:", e.message); process.exit(1); }
 try { await db.exec(sql5); } catch (e) { console.error("MIGRATION 0005 HATA:", e.message); process.exit(1); }
 try { await db.exec(sql6); } catch (e) { console.error("MIGRATION 0006 HATA:", e.message); process.exit(1); }
+try { await db.exec(sqlPrivilegedCompliance); } catch (e) { console.error("PRIVILEGED COMPLIANCE MIGRATION HATA:", e.message); process.exit(1); }
 console.log('MIGRATION OK');
 
 // Supabase varsayilan grant'leri
@@ -153,6 +159,31 @@ r = (await db.query(`select allergens_confirmed from public.items where id='${it
 const st = (await db.query(`select state from public.item_allergens where item_id='${item.id}'`)).rows;
 console.log('M2 unconfirm rozet kapatır + ai_suggested: ' +
   ((r.allergens_confirmed === false && st.every(x => x.state === 'ai_suggested')) ? 'OK' : 'FAIL'));
+
+await db.exec(`reset role;`);
+
+// Sunucuya özel RPC: authenticated doğrudan çağıramaz; service_role çağrısı
+// atomik onay/geri alma işlemini kullanıcı kimliği olmadan tamamlar.
+await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${uid}', false);`);
+let privilegedDenied = false;
+try {
+  await db.exec(`select public.confirm_item_compliance_privileged('${item.id}', array['milk'], array[]::text[], true, 321, 'yumurta, süt');`);
+} catch {
+  privilegedDenied = true;
+}
+console.log('PRIV RPC authenticated kapalı: ' + (privilegedDenied ? 'OK' : 'FAIL'));
+
+await db.exec(`reset role; set role service_role; select set_config('request.jwt.claim.role', 'service_role', false);`);
+await db.exec(`select public.confirm_item_compliance_privileged('${item.id}', array['milk'], array['vegetarian']::text[], true, 321, 'yumurta, süt');`);
+await db.exec(`reset role;`);
+let privilegedRow = (await db.query(`select calories_kcal, ingredients, allergens_confirmed from public.items where id='${item.id}'`)).rows[0];
+console.log('PRIV RPC service_role onay: ' +
+  ((privilegedRow.calories_kcal === 321 && privilegedRow.ingredients === 'yumurta, süt' && privilegedRow.allergens_confirmed === true) ? 'OK' : 'FAIL'));
+await db.exec(`set role service_role; select set_config('request.jwt.claim.role', 'service_role', false);`);
+await db.exec(`select public.unconfirm_item_compliance_privileged('${item.id}');`);
+await db.exec(`reset role;`);
+privilegedRow = (await db.query(`select allergens_confirmed from public.items where id='${item.id}'`)).rows[0];
+console.log('PRIV RPC service_role geri alma: ' + (privilegedRow.allergens_confirmed === false ? 'OK' : 'FAIL'));
 
 await db.exec(`reset role;`);
 console.log('TÜM TESTLER TAMAM');

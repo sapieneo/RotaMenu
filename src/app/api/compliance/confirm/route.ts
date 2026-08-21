@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { ALLERGEN_CODES, DIETARY_CODES } from '@/lib/schemas/menu';
+import { resolveComplianceItemAccess } from '@/lib/compliance-access';
 
 export const runtime = 'nodejs';
 
@@ -27,23 +28,28 @@ const bodySchema = z.object({
  */
 export async function POST(request: NextRequest) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 401 });
-  }
-
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Geçersiz istek.' }, { status: 400 });
   }
   const { itemId, allergenCodes, dietaryCodes, caloriesOk, calories, ingredients, revert } =
     parsed.data;
+  const access = await resolveComplianceItemAccess(supabase, itemId);
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+
+  const db = access.privileged ? createAdminClient() : supabase;
+  const confirmRpc = access.privileged
+    ? 'confirm_item_compliance_privileged'
+    : 'confirm_item_compliance';
+  const unconfirmRpc = access.privileged
+    ? 'unconfirm_item_compliance_privileged'
+    : 'unconfirm_item_compliance';
 
   const { error } = revert
-    ? await supabase.rpc('unconfirm_item_compliance', { p_item: itemId })
-    : await supabase.rpc('confirm_item_compliance', {
+    ? await db.rpc(unconfirmRpc, { p_item: itemId })
+    : await db.rpc(confirmRpc, {
         p_item: itemId,
         p_allergen_codes: allergenCodes,
         p_dietary_codes: dietaryCodes,
