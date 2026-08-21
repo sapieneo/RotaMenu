@@ -38,6 +38,22 @@ export function siteOrigin(request: Request): string {
   return url.origin;
 }
 
+/**
+ * QR'ların içine gömülecek mümkün olan en kısa public kök adres.
+ *
+ * `QR_SHORT_ORIGIN` aynı Netlify sitesine bağlı kısa bir alan adı için
+ * ayrılmıştır (örn. https://r.menu). Ayarlanmadığında mevcut kanonik site
+ * adresine düşer; böylece eski kurulumların davranışı değişmez.
+ */
+export function qrOrigin(request?: Request): string {
+  const configured = process.env.QR_SHORT_ORIGIN?.trim();
+  if (configured) return configured.replace(/\/+$/, '');
+  if (request) return siteOrigin(request);
+  return process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') ?? '';
+}
+
 export function qrTargetUrl(origin: string, code: string): string {
-  return `${origin}/q/${code}`;
+  // Yeni baskılarda en kısa yol kullanılır. Eski /q/{code} rotası kalıcı
+  // olarak çalışmaya devam eder; daha önce basılmış hiçbir QR bozulmaz.
+  return `${origin}/${code}`;
 }
