@@ -34,6 +34,7 @@ type UiStrings = {
   categories: string;
   noCategoryMatch: string;
   allergenFilters: string;
+  allergenFiltersHint: string;
   hideContaining: string;
   hidden: string;
   chefPicks: string;
@@ -80,6 +81,7 @@ const UI_TR: UiStrings = {
   categories: 'Kategoriler',
   noCategoryMatch: 'Eşleşen kategori yok.',
   allergenFilters: 'Alerjen filtreleri',
+  allergenFiltersHint: 'Kaçınmak istediğiniz alerjenleri seçin; ilgili ürünleri menüden gizleyelim.',
   hideContaining: '— içerenleri gizle',
   hidden: '— gizli',
   chefPicks: 'Şefin Seçtikleri',
@@ -128,6 +130,7 @@ const UI_EN: UiStrings = {
   categories: 'Categories',
   noCategoryMatch: 'No matching category.',
   allergenFilters: 'Allergen filters',
+  allergenFiltersHint: 'Select allergens you want to avoid and we will hide matching items.',
   hideContaining: '— hide items with this',
   hidden: '— hidden',
   chefPicks: "Chef's Picks",
@@ -1435,31 +1438,73 @@ export function GuestMenu({
 
       {availableAllergenCodes.length > 0 && (
         <div className="relative z-10 px-4 pt-4">
-          <h2
-            className="px-0.5 text-sm font-bold uppercase tracking-wide"
-            style={{ fontFamily: design.headingFont, color: design.textColor }}
+          <section
+            aria-labelledby="allergen-filters-title"
+            className="rounded-2xl border p-3.5 sm:p-4"
+            style={{
+              background: `linear-gradient(135deg, ${hexToRgba(design.primaryColor, 10)}, ${hexToRgba(design.surfaceColor, 98)})`,
+              borderColor: hexToRgba(design.primaryColor, 34),
+              boxShadow: `0 8px 24px ${hexToRgba(design.primaryColor, 9)}`,
+            }}
           >
-            {t.allergenFilters}
-          </h2>
-          <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {availableAllergenCodes.map((code) => {
-              const hidden = hiddenAllergens.has(code);
-              return (
-                <Pressable
-                  key={code}
-                  onClick={() => toggleAllergen(code)}
-                  aria-pressed={hidden}
-                  className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium"
-                  style={hidden
-                    ? { backgroundColor: design.primaryColor, borderColor: design.primaryColor, color: design.surfaceColor }
-                    : { backgroundColor: design.surfaceColor, borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)), color: design.textColor }}
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+                style={{
+                  backgroundColor: hexToRgba(design.primaryColor, 14),
+                  borderColor: hexToRgba(design.primaryColor, 30),
+                  color: design.primaryColor,
+                }}
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M12 3.5 19 6v5.2c0 4.5-2.8 7.8-7 9.3-4.2-1.5-7-4.8-7-9.3V6l7-2.5Z" strokeLinejoin="round" />
+                  <path d="M12 8v4.5M12 16h.01" strokeLinecap="round" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <h2
+                  id="allergen-filters-title"
+                  className="text-sm font-extrabold uppercase tracking-[0.12em]"
+                  style={{ fontFamily: design.headingFont, color: design.textColor }}
                 >
-                  {allergenLabel(code, locale)}
-                  <span className="opacity-70">{hidden ? t.hidden : t.hideContaining}</span>
-                </Pressable>
-              );
-            })}
-          </div>
+                  {t.allergenFilters}
+                </h2>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: design.mutedTextColor }}>
+                  {t.allergenFiltersHint}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {availableAllergenCodes.map((code) => {
+                const hidden = hiddenAllergens.has(code);
+                return (
+                  <Pressable
+                    key={code}
+                    onClick={() => toggleAllergen(code)}
+                    aria-pressed={hidden}
+                    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-[13px] font-semibold"
+                    style={hidden
+                      ? {
+                          backgroundColor: design.primaryColor,
+                          borderColor: design.primaryColor,
+                          color: design.surfaceColor,
+                          boxShadow: `0 4px 12px ${hexToRgba(design.primaryColor, 22)}`,
+                        }
+                      : {
+                          backgroundColor: hexToRgba(design.surfaceColor, 94),
+                          borderColor: hexToRgba(design.primaryColor, 28),
+                          color: design.textColor,
+                        }}
+                  >
+                    {allergenLabel(code, locale)}
+                    <span className="font-medium opacity-70">{hidden ? t.hidden : t.hideContaining}</span>
+                  </Pressable>
+                );
+              })}
+            </div>
+          </section>
         </div>
       )}
 
