@@ -7,7 +7,13 @@ import { showRestaurantBadge, resolvePlanContext } from '@/lib/plans';
 import { CODE_BY_ID } from '@/lib/allergens';
 import { DIETARY_CODE_BY_ID } from '@/lib/dietary';
 import { MENU_LANGUAGE_BY_CODE, SOURCE_LANGUAGE } from '@/lib/languages';
-import { GuestMenu, type GuestCategory, type GuestVenue, type GuestMenuSummary } from './guest-menu';
+import {
+  GuestMenu,
+  type GuestCategory,
+  type GuestVenue,
+  type GuestMenuSummary,
+  type GuestTranslations,
+} from './guest-menu';
 import { normalizeMenuDesign } from '@/lib/themes';
 import { parsePreviewDesign } from '@/lib/schemas/design';
 
@@ -249,16 +255,29 @@ export default async function GuestMenuPage({
   );
   const requestedLocale = searchParams?.lang ?? SOURCE_LANGUAGE.code;
   const currentLocale = availableLocaleCodes.includes(requestedLocale) ? requestedLocale : SOURCE_LANGUAGE.code;
-  const categoryTranslationMap = new Map(
-    (categoryTranslations ?? [])
-      .filter((row) => row.locale === currentLocale)
-      .map((row) => [row.category_id, row.name])
-  );
-  const itemTranslationMap = new Map(
-    (itemTranslations ?? [])
-      .filter((row) => row.locale === currentLocale)
-      .map((row) => [row.item_id, row])
-  );
+
+  // ANINDA dil geçişi (referans davranışı): çeviriler artık sunucuda tek dile
+  // indirgenmez — TÜM dillerin sözlüğü istemciye gider ve dil düğmesi sayfayı
+  // yeniden yüklemeden, salt istemci state'iyle geçiş yapar. Kategori ve ürün
+  // adları props'ta HAM (Türkçe) gönderilir; seçili dile çevirme işini
+  // guest-menu.tsx üstlenir (ilk SSR çıktısı da aynı sözlükten geçtiği için
+  // hidrasyon uyumsuzluğu olmaz).
+  const guestTranslations: GuestTranslations = {};
+  for (const code of availableLocaleCodes) {
+    guestTranslations[code] = {
+      categories: Object.fromEntries(
+        categoryTranslationsList.filter((row) => row.locale === code).map((row) => [row.category_id, row.name])
+      ),
+      items: Object.fromEntries(
+        itemTranslationsList
+          .filter((row) => row.locale === code)
+          .map((row) => [
+            row.item_id,
+            { name: row.name, description: row.description ?? null, ingredients: row.ingredients ?? null },
+          ])
+      ),
+    };
+  }
 
   // Ürünleri kategoriye grupla
   const byCat = new Map<string, GuestCategory['items']>();
@@ -276,13 +295,12 @@ export default async function GuestMenuPage({
       .map((r) => DIETARY_CODE_BY_ID[r.tag_id])
       .filter(Boolean) as string[];
     const priceRaw = it.price as number | string | null;
-    const translation = itemTranslationMap.get(it.id as string);
     const list = byCat.get(catId) ?? [];
     list.push({
       id: it.id as string,
-      name: translation?.name ?? (it.name as string),
-      description: translation?.description ?? (it.description as string | null) ?? null,
-      ingredients: translation?.ingredients ?? (it.ingredients as string | null) ?? null,
+      name: it.name as string,
+      description: (it.description as string | null) ?? null,
+      ingredients: (it.ingredients as string | null) ?? null,
       price: priceRaw == null ? null : Number(priceRaw),
       calories: confirmedCalories.has(it.id as string)
         ? (it.calories_kcal as number | null) ?? null
@@ -300,7 +318,7 @@ export default async function GuestMenuPage({
     .map((c) => ({
       id: c.id,
       menuId: c.menu_id,
-      name: categoryTranslationMap.get(c.id) ?? c.name,
+      name: c.name,
       backgroundUrl: c.background_url ?? null,
       backgroundStyle: (c.background_style as 'strip' | 'hero' | null) ?? 'strip',
       backgroundPositionY: c.background_position_y ?? 50,
@@ -367,6 +385,7 @@ export default async function GuestMenuPage({
       venueId={venue.id}
       availableLocales={availableLocales}
       currentLocale={currentLocale}
+      translations={guestTranslations}
     />
   );
 }

@@ -17,9 +17,12 @@ export function currencySymbol(code: string | null | undefined): string {
   return (code && SYMBOLS[code]) || code || '';
 }
 
-/** Fiyatı sembolüyle biçimler: 600 → "600 TL". Boşsa "". */
+/**
+ * Fiyatı sembolüyle biçimler: 600 → "600 TL", 1000 → "1.000 TL" (referans
+ * menüdeki gibi tr-TR binlik ayracı). Boşsa "".
+ */
 export function formatPrice(amount: number | null | undefined, code: string): string {
   if (amount == null) return '';
-  const n = Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
+  const n = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(amount);
   return `${n} ${currencySymbol(code)}`.trim();
 }

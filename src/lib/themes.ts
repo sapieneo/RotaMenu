@@ -141,7 +141,10 @@ const GOOGLE_FONT_FAMILIES = [
   'Nunito:wght@400;700',
   'Raleway:wght@400;700',
   'Work+Sans:wght@400;700',
-  'DM+Sans:wght@400;700',
+  // Referans menü DM Sans'ı 500/600 ağırlıklarla da kullanıyor (çipler,
+  // etiketler) — yüklenmezse tarayıcı 700'e yuvarlıyor ve her şey fazla
+  // kalın görünüyordu.
+  'DM+Sans:wght@400;500;600;700',
   'Space+Grotesk:wght@400;700',
   'Josefin+Sans:wght@400;700',
   'Quicksand:wght@400;700',
@@ -161,7 +164,7 @@ const GOOGLE_FONT_FAMILIES = [
   'Caveat:wght@400;700',
   'Pacifico',
   'IBM+Plex+Mono:wght@400;700',
-  'Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700',
+  'Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700',
 ];
 
 export const GOOGLE_FONTS_STYLESHEET_URL = `https://fonts.googleapis.com/css2?${GOOGLE_FONT_FAMILIES.map(

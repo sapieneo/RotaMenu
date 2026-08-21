@@ -251,6 +251,44 @@ export type GuestMenuSummary = {
 };
 
 /**
+ * Dil sözlükleri — locale → { kategori adı, ürün alanları }. Sunucu TÜM
+ * dilleri tek seferde gönderir; dil düğmesi sayfayı yeniden yüklemeden
+ * (referans menüdeki gibi ANINDA) bu sözlükten geçiş yapar. Kaynak dil (tr)
+ * sözlükte YOKTUR — kategori/ürün props'ları zaten ham Türkçe metni taşır.
+ */
+export type GuestTranslations = Record<
+  string,
+  {
+    categories: Record<string, string>;
+    items: Record<string, { name: string; description: string | null; ingredients: string | null }>;
+  }
+>;
+
+/** Kategorileri seçili dile çevirir; kaynak dilde (veya sözlük yoksa) aynen döner. */
+function localizeCategories(
+  categories: GuestCategory[],
+  locale: string,
+  translations: GuestTranslations
+): GuestCategory[] {
+  const bundle = translations[locale];
+  if (!bundle) return categories;
+  return categories.map((c) => ({
+    ...c,
+    name: bundle.categories[c.id] ?? c.name,
+    items: c.items.map((it) => {
+      const tr = bundle.items[it.id];
+      if (!tr) return it;
+      return {
+        ...it,
+        name: tr.name || it.name,
+        description: tr.description ?? it.description,
+        ingredients: tr.ingredients ?? it.ingredients,
+      };
+    }),
+  }));
+}
+
+/**
  * Ardışık 'hero' arka planlı kategorileri tek bir grupta toplar. Her grup TEK
  * bir sticky arka plan katmanı paylaşır — böylece kategoriler arası geçişte
  * fotoğraf asla yer değiştirmez, yalnızca crossfade ile bir sonrakine geçer.
@@ -342,8 +380,12 @@ function AllergenLine({ item, design, t, locale }: { item: GuestItem; design: Me
   if (!item.allergensReviewed) {
     return (
       <span
-        className="mt-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
-        style={{ backgroundColor: hexToRgba(design.dividerColor, 28), color: design.mutedTextColor }}
+        className="gm-allergen-chip mt-2 inline-flex items-center gap-1 rounded-[5px] border px-1.5 py-[3px]"
+        style={{
+          backgroundColor: hexToRgba(design.dividerColor, 22),
+          borderColor: hexToRgba(design.dividerColor, 60),
+          color: design.mutedTextColor,
+        }}
       >
         <span aria-hidden>⚠</span> {t.allergensUnverified}
       </span>
@@ -351,12 +393,16 @@ function AllergenLine({ item, design, t, locale }: { item: GuestItem; design: Me
   }
   if (item.allergenCodes.length === 0) return null;
   return (
-    <span className="mt-1.5 flex flex-wrap gap-1">
+    <span className="mt-2 flex flex-wrap gap-1">
       {item.allergenCodes.map((code) => (
         <span
           key={code}
-          className="rounded-md px-1.5 py-0.5 text-[10px] font-medium"
-          style={{ backgroundColor: hexToRgba(design.primaryColor, 10), color: design.primaryColor }}
+          className="gm-allergen-chip rounded-[5px] border px-1.5 py-[3px]"
+          style={{
+            backgroundColor: hexToRgba(design.primaryColor, 8),
+            borderColor: hexToRgba(design.primaryColor, 24),
+            color: design.primaryColor,
+          }}
         >
           {allergenLabel(code, locale)}
         </span>
@@ -641,6 +687,7 @@ export function GuestMenu({
   venueId,
   availableLocales,
   currentLocale,
+  translations = {},
 }: {
   venue: GuestVenue;
   categories: GuestCategory[];
@@ -648,6 +695,7 @@ export function GuestMenu({
   venueId: string;
   availableLocales: { code: string; name: string }[];
   currentLocale: string;
+  translations?: GuestTranslations;
 }) {
   // Tasarım Stüdyosu'ndaki VE Görseller sayfasındaki maket bu bileşeni
   // YALNIZCA bir kez (ilk yüklemede) yükler; sonraki her değişiklik tam
@@ -656,45 +704,60 @@ export function GuestMenu({
   // anında yansır. (bkz. studyo/tasarim/design-studio.tsx ve
   // studyo/gorseller/image-manager.tsx → LivePreview)
   /**
-   * Dil değişimi.
+   * Dil değişimi — ANINDA, istemci tarafında (referans menü davranışı).
    *
-   * DİKKAT — burada iki kez tökezlendi, ikisini de tekrarlamayalım:
-   *   1. Bağlantı adresi `window` üzerinden üretiliyordu; sunucuda `window`
-   *      olmadığı için ilk çizimde adres boş ('#') kalıyor, sayfa
-   *      hidrasyonu bitmeden yapılan tıklama hiçbir şey yapmıyordu.
-   *   2. Sonra `router.push` (istemci tarafı geçiş) denendi: adres değişti
-   *      ama Next'in yönlendirici önbelleği aynı rotayı sunucudan yeniden
-   *      çekmediği için İÇERİK Türkçe kaldı — yani dil hiç değişmedi.
+   * Sunucu artık TÜM dillerin çevirilerini `translations` sözlüğü olarak
+   * gönderiyor (bkz. m/[slug]/page.tsx); düğmeye basınca yalnızca `locale`
+   * state'i değişir ve içerik network'e çıkmadan yeniden çizilir. Adres
+   * çubuğundaki `?lang=` yine güncellenir (replaceState) ki bağlantı
+   * paylaşılır/yenilenirse aynı dilde açılsın — ama SAYFA YÜKLENMEZ.
    *
-   * Çeviriler sunucuda seçiliyor (bkz. m/[slug]/page.tsx → searchParams.lang),
-   * bu yüzden tam gezinme yapıyoruz: her zaman doğru sonuç verir. Anında
-   * geçiş istenirse tüm dillerin çevirilerini istemciye baştan göndermek
-   * gerekir — ayrı ve daha büyük bir iş.
+   * (Tarihçe: önce tam gezinme kullanılıyordu — güvenilirdi ama her dil
+   * değişimi 1-2 saniyelik beyaz ekran demekti. `router.push` denemesi ise
+   * Next'in yönlendirici önbelleği yüzünden içeriği tazelemiyordu. Çözüm,
+   * çevirileri baştan istemciye indirmek oldu.)
    */
+  const [locale, setLocale] = useState(currentLocale);
   function switchLocale(code: string) {
-    const params = new URLSearchParams(window.location.search);
-    if (code === 'tr') params.delete('lang');
-    else params.set('lang', code);
-    const qs = params.toString();
-    window.location.href = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    setLocale(code);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (code === 'tr') params.delete('lang');
+      else params.set('lang', code);
+      const qs = params.toString();
+      window.history.replaceState(null, '', qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    } catch {
+      /* replaceState kısıtlı bir ortamda çalışmazsa dil yine de değişir */
+    }
   }
 
-  const t = uiStrings(currentLocale);
+  const t = uiStrings(locale);
 
   const [design, setDesign] = useState<MenuDesignSettings>(initialVenue.design);
   const [logoUrl, setLogoUrl] = useState<string | null>(initialVenue.logoUrl);
   const venue = useMemo(() => ({ ...initialVenue, design, logoUrl }), [initialVenue, design, logoUrl]);
   const [categories, setCategories] = useState<GuestCategory[]>(initialCategories);
 
+  // Seçili dile çevrilmiş kategoriler — dil değişince yalnızca bu memo
+  // yeniden hesaplanır, network'e çıkılmaz. Kaynak dilde (tr) sözlük boş
+  // döner ve `categories` olduğu gibi kullanılır.
+  const localizedCategories = useMemo(
+    () => localizeCategories(categories, locale, translations),
+    [categories, locale, translations]
+  );
+
   // Çoklu menü şeridi: yalnızca birden fazla menü varsa anlamlı. Tek menüde
   // (venue'lerin büyük çoğunluğu) `menus.length <= 1` olur, şerit hiç
-  // render edilmez ve `visibleCategories === categories` olduğu için görsel
-  // davranış eskisiyle birebir aynı kalır.
+  // render edilmez ve `visibleCategories === localizedCategories` olduğu için
+  // görsel davranış eskisiyle birebir aynı kalır.
   const [activeMenuId, setActiveMenuId] = useState<string | null>(menus[0]?.id ?? null);
   const showMenuSwitcher = menus.length > 1;
   const visibleCategories = useMemo(
-    () => (showMenuSwitcher && activeMenuId ? categories.filter((c) => c.menuId === activeMenuId) : categories),
-    [categories, showMenuSwitcher, activeMenuId]
+    () =>
+      showMenuSwitcher && activeMenuId
+        ? localizedCategories.filter((c) => c.menuId === activeMenuId)
+        : localizedCategories,
+    [localizedCategories, showMenuSwitcher, activeMenuId]
   );
 
   // Üst şeritteki menü sekmelerinde her menünün toplam ürün sayısı gösterilir
@@ -951,10 +1014,73 @@ export function GuestMenu({
     return (
       <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-3 px-6 text-center">
         <h1 className="text-2xl font-bold">{venue.name}</h1>
-        <p className="text-stone-500">{uiStrings(currentLocale).menuBeingPrepared}</p>
+        <p className="text-stone-500">{t.menuBeingPrepared}</p>
       </main>
     );
   }
+
+  /**
+   * Referans tipografi ölçeği (rotamenu.vercel.app / styles.css) — BİREBİR.
+   *
+   * Bütün boyutlar `--gm-base` (İnce Ayar'daki baseFontSize) üzerinden calc
+   * ile türetilir; büyük başlıklar ayrıca `headingScale`'e uyar. Curated
+   * temaların varsayılanı (base 16, headingScale 1.3) referansın 1rem
+   * ölçeğine denk gelir — yani varsayılan temada boyutlar referansla piksel
+   * piksel aynıdır, İnce Ayar kaydırıcıları yine de çalışır.
+   *
+   * Hover davranışları da referanstan: ürün satırı 1px yukarı kalkar ve
+   * kenarlığı vurgu rengine döner; kart görselleri .4s'lik yumuşak bir
+   * ölçekle (1.04) büyür. Yalnız gerçek imleçli cihazlarda (hover:hover) —
+   * dokunmatikte basış geri bildirimi zaten Pressable'da.
+   */
+  const hs = design.headingScale / 1.3; // curated varsayılanında 1 → referansla birebir
+  const gmCss = `
+.gm-root{--gm-base:${design.baseFontSize}px}
+.gm-hero-eyebrow{font-size:calc(var(--gm-base)*.66);font-weight:700;letter-spacing:.18em;text-transform:uppercase}
+.gm-hero-title{font-weight:600;line-height:.88;letter-spacing:-.05em;font-size:clamp(calc(var(--gm-base)*${(2.8 * hs).toFixed(3)}),9vw,calc(var(--gm-base)*${(5.5 * hs).toFixed(3)}))}
+.gm-hero-count{font-size:calc(var(--gm-base)*.78);font-weight:600}
+.gm-cat-number{font-size:calc(var(--gm-base)*.62);font-weight:700;letter-spacing:.02em}
+.gm-cat-title{font-weight:600;line-height:1;letter-spacing:-.035em;font-size:clamp(calc(var(--gm-base)*${(1.9 * hs).toFixed(3)}),5vw,calc(var(--gm-base)*${(3 * hs).toFixed(3)}))}
+.gm-cat-count{font-size:calc(var(--gm-base)*.68)}
+.gm-item-name{font-weight:600;line-height:1.2;font-size:calc(var(--gm-base)*.92)}
+.gm-item-price{font-weight:700;white-space:nowrap;font-size:calc(var(--gm-base)*.67)}
+.gm-item-desc{font-size:calc(var(--gm-base)*.72);line-height:1.48}
+.gm-thumb{width:92px;height:105px}
+.gm-chip{font-size:calc(var(--gm-base)*.76);font-weight:600}
+.gm-search{height:56px}
+.gm-search input{font-size:var(--gm-base)}
+.gm-allergen-chip{font-size:calc(var(--gm-base)*.52);font-weight:700;letter-spacing:.01em}
+.gm-feat-name{font-weight:600;line-height:1.2;font-size:calc(var(--gm-base)*1.05)}
+.gm-feat-price{font-weight:700;white-space:nowrap;font-size:calc(var(--gm-base)*.78)}
+.gm-feat-desc{font-size:calc(var(--gm-base)*.83);line-height:1.4}
+.gm-feat-badge{font-size:calc(var(--gm-base)*.6);font-weight:700}
+.gm-picks-eyebrow{font-size:calc(var(--gm-base)*.62);font-weight:700;letter-spacing:.15em;text-transform:uppercase}
+.gm-picks-title{font-weight:600;line-height:1;letter-spacing:-.02em;font-size:clamp(calc(var(--gm-base)*${(1.8 * hs).toFixed(3)}),5vw,calc(var(--gm-base)*${(2.6 * hs).toFixed(3)}))}
+.gm-modal-title{font-weight:600;line-height:1.05;letter-spacing:-.02em;font-size:calc(var(--gm-base)*2)}
+.gm-modal-price{font-weight:700;font-size:calc(var(--gm-base)*1.1)}
+.gm-modal-desc{font-size:var(--gm-base);line-height:1.55}
+.gm-modal-label{font-size:calc(var(--gm-base)*.63);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.gm-lang-code{font-size:calc(var(--gm-base)*.76);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.gm-lang-name{font-size:calc(var(--gm-base)*.52);font-weight:600}
+@media(min-width:521px){
+  .gm-item-name{font-size:var(--gm-base)}
+  .gm-item-price{font-size:calc(var(--gm-base)*.78)}
+  .gm-thumb{width:108px;height:108px}
+}
+@media(min-width:760px){
+  .gm-hero{min-height:320px}
+}
+.gm-img-zoom img{transition:transform .4s ease}
+@media(hover:hover){
+  .gm-card{transition:transform .18s ease,border-color .18s ease}
+  .gm-card:hover{transform:translateY(-1px)}
+  .gm-card--bordered:hover{border-color:color-mix(in srgb,${design.accentColor},white 55%)!important}
+  .gm-card:hover .gm-img-zoom img,.gm-feat:hover .gm-img-zoom img{transform:scale(1.04)}
+}
+@media(prefers-reduced-motion:reduce){
+  .gm-card:hover{transform:none}
+  .gm-card:hover .gm-img-zoom img,.gm-feat:hover .gm-img-zoom img{transform:none}
+}`;
 
   return (
     <div
@@ -962,7 +1088,12 @@ export function GuestMenu({
          gibi geniş sayfa (lg:max-w-6xl). Eskiden her ekranda 512px'e
          sıkışıyordu ve masaüstünde ortada duran bir telefon maketi gibi
          görünüyordu — referans ise geniş, iki sütunlu bir sayfa. */
-      className="mx-auto min-h-screen max-w-lg pb-16 shadow-sm sm:my-4 sm:rounded-2xl lg:max-w-6xl"
+      /* lang: CSS `text-transform: uppercase` büyük harfe çevirirken dil
+         kuralına bakar — sayfa kökü lang="tr" olduğu için İngilizce menüde
+         "FİLTERS" gibi noktalı İ çıkıyordu. Seçili dili buraya işlemek
+         hem bunu düzeltir hem ekran okuyucuya doğru dili söyler. */
+      lang={locale}
+      className="gm-root mx-auto min-h-screen max-w-lg pb-16 shadow-sm sm:my-4 sm:rounded-2xl lg:max-w-6xl"
       style={{
         ...menuBackgroundStyle(design),
         color: design.textColor,
@@ -970,6 +1101,7 @@ export function GuestMenu({
         fontSize: `${design.baseFontSize}px`,
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: gmCss }} />
       {/* DİKKAT: dış kapsayıcıda overflow-hidden OLMAMALI — position:sticky'nin
           "en yakın scroll ata"sını buraya sabitler ve nav'ı kırar. Yuvarlak
           köşe kırpma bunun yerine header/footer'ın kendi üzerinde yapılır. */}
@@ -1037,7 +1169,7 @@ export function GuestMenu({
             aria-label={t.menuLanguage}
           >
             {availableLocales.map((language) => {
-              const isCurrent = language.code === currentLocale;
+              const isCurrent = language.code === locale;
               return (
                 <button
                   key={language.code}
@@ -1049,8 +1181,8 @@ export function GuestMenu({
                     ? { backgroundColor: design.primaryColor, color: design.surfaceColor }
                     : { color: design.mutedTextColor }}
                 >
-                  <span className="text-xs font-bold uppercase">{language.code}</span>
-                  <span className="text-[9px] font-medium opacity-80">{language.name}</span>
+                  <span className="gm-lang-code">{language.code}</span>
+                  <span className="gm-lang-name mt-0.5 opacity-80">{language.name}</span>
                 </button>
               );
             })}
@@ -1064,7 +1196,7 @@ export function GuestMenu({
             <span aria-hidden>🌐</span>
             <span className="sr-only">{t.menuLanguage}</span>
             <select
-              value={currentLocale}
+              value={locale}
               onChange={(event) => switchLocale(event.target.value)}
               className="bg-transparent pr-0.5 font-medium outline-none"
               aria-label={t.menuLanguage}
@@ -1093,41 +1225,39 @@ export function GuestMenu({
             kontrast mantığı). Logo artık burada değil, en üstteki sabit
             çubuktadır; boyutu yine İnce Ayar'daki logoSize ile ayarlanır. */}
         <div
-          className="relative w-full bg-cover bg-center"
+          className="gm-hero relative w-full bg-cover bg-center"
           style={{
-            // Üç satırlı hero tipografisi (etiket + büyük başlık + sayaç) için
-            // asgari yükseklik; İnce Ayar'daki headerHeight bundan büyükse o kazanır.
-            height: `${Math.max(design.headerHeight, 168)}px`,
+            // Referans hero'su geniş bir açılış bloğu: min 260px (masaüstünde
+            // 320 — bkz. gmCss'teki .gm-hero medya kuralı). İnce Ayar'daki
+            // headerHeight bundan büyükse o kazanır.
+            height: `${Math.max(design.headerHeight, 260)}px`,
             ...(venue.coverUrl
               ? { backgroundImage: `url(${venue.coverUrl})` }
               : { background: `linear-gradient(135deg, ${design.primaryColor}, ${design.accentColor})` }),
           }}
         >
           {/* Referanstaki hero tipografisi: üstte küçük harflendirilmiş etiket,
-              ortada (varsa menü ikonuyla) büyük serif başlık, altında
-              "60 ürün · 9 kategori" sayacı. Çoklu menülü işletmede başlık
-              AKTİF MENÜNÜN adıdır (sekme değişince değişir); tek menülüde
-              işletmenin adı kalır — tek menüde menü adı çoğu zaman jenerik
-              ("Menü") olduğu için işletme adı daha anlamlı. */}
-          <div className="absolute inset-0 flex flex-col justify-center px-5">
-            <span
-              className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-              style={heroSubStyle}
-            >
+              altında (varsa menü ikonuyla) BÜYÜK serif başlık ve "60 ürün ·
+              9 kategori" sayacı — hepsi referanstaki gibi SOL-ALT köşede
+              (align-items:end). Çoklu menülü işletmede başlık AKTİF MENÜNÜN
+              adıdır (sekme değişince değişir); tek menülüde işletmenin adı
+              kalır — tek menüde menü adı çoğu zaman jenerik ("Menü") olduğu
+              için işletme adı daha anlamlı. */}
+          <div className="absolute inset-0 flex flex-col justify-end px-5 pb-8">
+            <span className="gm-hero-eyebrow" style={heroSubStyle}>
               {showMenuSwitcher ? venue.name : t.digitalMenu}
             </span>
             <h1
-              className="mt-1 flex items-center gap-2 font-bold leading-none tracking-tight"
+              className="gm-hero-title mt-1 flex items-center gap-2"
               style={{
                 fontFamily: design.headingFont,
-                fontSize: `${design.baseFontSize * design.headingScale * 1.9}px`,
                 ...heroTextStyle,
               }}
             >
               {showMenuSwitcher && activeMenu?.icon && <span aria-hidden>{activeMenu.icon}</span>}
               {showMenuSwitcher ? activeMenu?.name ?? venue.name : venue.name}
             </h1>
-            <span className="mt-2 text-xs font-medium" style={heroSubStyle}>
+            <span className="gm-hero-count mt-3" style={heroSubStyle}>
               {t.itemsAndCategories(visibleItemTotal, visibleCategories.length)}
             </span>
           </div>
@@ -1180,7 +1310,7 @@ export function GuestMenu({
           alanı. Yazdıkça ürünler süzülür; boş kalan kategoriler gizlenir. */}
       <div className="relative z-10 px-4 pt-4">
         <label
-          className="flex items-center gap-2.5 rounded-2xl border px-4 py-3"
+          className="gm-search flex items-center gap-2.5 rounded-xl border px-4"
           style={{
             borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)),
             // OPAK olmalı: 'hero' kategori fotoğrafı bu bloğun arkasından
@@ -1195,7 +1325,7 @@ export function GuestMenu({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t.searchPlaceholder(menus.find((m) => m.id === activeMenuId)?.name ?? venue.name)}
-            className="min-w-0 flex-1 bg-transparent text-base outline-none"
+            className="min-w-0 flex-1 bg-transparent outline-none"
             style={{ color: design.textColor }}
           />
           {query && (
@@ -1231,8 +1361,12 @@ export function GuestMenu({
               const first = renderedCategories[0]?.id;
               if (first) goTo(first);
             }}
-            className="whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium"
-            style={{ backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.mutedTextColor }}
+            className="gm-chip whitespace-nowrap rounded-full border px-4 py-[9px]"
+            style={{
+              backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+              borderColor: hexToRgba(design.dividerColor, design.dividerOpacity),
+              color: design.mutedTextColor,
+            }}
           >
             {t.all}
           </Pressable>
@@ -1246,10 +1380,14 @@ export function GuestMenu({
                   tabRefs.current[c.id] = el;
                 }}
                 onClick={() => goTo(c.id)}
-                className="flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium"
+                className="gm-chip flex items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-[9px]"
                 style={isActive
-                  ? { backgroundColor: design.primaryColor, color: design.surfaceColor }
-                  : { backgroundColor: hexToRgba(design.cardColor, design.cardOpacity), color: design.mutedTextColor }}
+                  ? { backgroundColor: design.primaryColor, borderColor: design.primaryColor, color: design.surfaceColor }
+                  : {
+                      backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+                      borderColor: hexToRgba(design.dividerColor, design.dividerOpacity),
+                      color: design.mutedTextColor,
+                    }}
               >
                 {c.name}
                 <span
@@ -1316,7 +1454,7 @@ export function GuestMenu({
                     ? { backgroundColor: design.primaryColor, borderColor: design.primaryColor, color: design.surfaceColor }
                     : { backgroundColor: design.surfaceColor, borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)), color: design.textColor }}
                 >
-                  {allergenLabel(code, currentLocale)}
+                  {allergenLabel(code, locale)}
                   <span className="opacity-70">{hidden ? t.hidden : t.hideContaining}</span>
                 </Pressable>
               );
@@ -1326,58 +1464,63 @@ export function GuestMenu({
       )}
 
       {featuredItems.length > 0 && (
-        <div ref={featuredRef} className="relative z-10 scroll-mt-28 px-4 pt-4">
-          <p className="px-0.5 text-[11px] font-semibold uppercase tracking-[0.22em]" style={{ color: design.mutedTextColor }}>
+        <div ref={featuredRef} className="relative z-10 scroll-mt-28 px-4 pt-6">
+          <p className="gm-picks-eyebrow px-0.5" style={{ color: design.accentColor }}>
             {venue.name}
           </p>
-          <div className="flex items-end justify-between gap-3 px-0.5">
+          <div className="mt-1 flex items-end justify-between gap-3 px-0.5">
             <h2
-              className="flex items-center gap-2 font-bold leading-tight"
-              style={{
-                fontFamily: design.headingFont,
-                color: design.textColor,
-                fontSize: `${design.baseFontSize * design.headingScale * 2.05}px`,
-              }}
+              className="gm-picks-title flex items-center gap-2"
+              style={{ fontFamily: design.headingFont, color: design.textColor }}
             >
               <span style={{ color: design.accentColor }} aria-hidden>★</span>
               {t.chefPicks}
             </h2>
-            <span className="shrink-0 pb-1 text-xs" style={{ color: design.mutedTextColor }}>
+            <span className="gm-cat-count shrink-0 pb-1" style={{ color: design.mutedTextColor }}>
               {t.chefPicksNote}
             </span>
           </div>
-          {/* Telefonda yatay kaydırmalı şerit, masaüstünde referanstaki gibi
-              yan yana dizilen kartlar. */}
-          <div className="mt-3 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] lg:grid lg:grid-cols-3 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+          {/* Telefonda referanstaki gibi GENİŞ (82vw), kaydırma kilitli
+              (scroll-snap) kartlar; masaüstünde yan yana ızgara. */}
+          <div className="mt-4 flex snap-x snap-mandatory gap-3.5 overflow-x-auto pb-2 [scrollbar-width:none] lg:grid lg:grid-cols-4 lg:snap-none lg:overflow-visible [&::-webkit-scrollbar]:hidden">
             {featuredItems.map((it) => (
               <Pressable
                 key={it.id}
                 onClick={() => openItem(it)}
-                className="w-44 shrink-0 overflow-hidden border text-left lg:w-auto"
+                className="gm-feat w-[min(82vw,330px)] shrink-0 snap-start overflow-hidden border text-left lg:w-auto"
                 style={{
                   borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)),
-                  borderRadius: `${Math.min(design.cardRadius, 18)}px`,
+                  borderRadius: `${Math.min(design.cardRadius, 17)}px`,
                   backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
-                  boxShadow: tintedShadow(design),
+                  boxShadow: `${hexToRgba(design.primaryColor, 8)} 0 8px 24px`,
                 }}
               >
-                <div className="relative h-28 w-full lg:h-40">
+                {/* Referans: 4/3 oranlı görsel; kart hover'ında .4s'de 1.04'e
+                    büyür (gm-img-zoom). Rozet SAĞ üstte. */}
+                <div className="gm-img-zoom relative aspect-[4/3] w-full overflow-hidden">
                   <ItemThumb item={it} design={design} className="h-full w-full" showCaption t={t} />
                   <span
-                    className="absolute left-1.5 top-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                    className="gm-feat-badge absolute right-3 top-3 rounded-[7px] px-2 py-1.5"
                     style={{ backgroundColor: design.primaryColor, color: design.surfaceColor }}
                   >
                     {t.chefPick}
                   </span>
                 </div>
-                <div className="p-2.5">
-                  <p className="truncate text-sm font-semibold" style={{ color: design.textColor, fontFamily: design.headingFont }}>{it.name}</p>
-                  {it.price != null && (
-                    <p className="mt-0.5 text-xs font-bold" style={{ color: design.priceColor ?? design.primaryColor }}>
-                      {formatPrice(it.price, venue.currency)}
+                <div className="p-[15px]">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="gm-feat-name min-w-0 truncate" style={{ color: design.textColor, fontFamily: design.headingFont }}>{it.name}</p>
+                    {it.price != null && (
+                      <p className="gm-feat-price shrink-0" style={{ color: design.priceColor ?? design.primaryColor }}>
+                        {formatPrice(it.price, venue.currency)}
+                      </p>
+                    )}
+                  </div>
+                  {it.description && (
+                    <p className="gm-feat-desc mt-1.5 line-clamp-2" style={{ color: design.mutedTextColor }}>
+                      {it.description}
                     </p>
                   )}
-                  <AllergenLine item={it} design={design} t={t} locale={currentLocale} />
+                  <AllergenLine item={it} design={design} t={t} locale={locale} />
                 </div>
               </Pressable>
             ))}
@@ -1416,38 +1559,39 @@ export function GuestMenu({
                     <Pressable
                       variant="dim"
                       onClick={() => openItem(it)}
-                      className={`flex w-full items-start gap-3 text-left ${design.layout === 'single' ? 'border p-3' : 'py-2'}`}
+                      className={`flex w-full items-start text-left ${
+                        design.layout === 'single' ? 'gm-card gm-card--bordered gap-3.5 border p-2.5' : 'gm-card gap-3 py-2'
+                      }`}
                       style={{
                         backgroundColor: design.layout === 'single' ? hexToRgba(design.cardColor, design.cardOpacity) : 'transparent',
-                        borderRadius: design.layout === 'single' ? `${design.cardRadius}px` : 0,
+                        // Referans ürün kartı: radius 13, ince kenarlık, çok
+                        // hafif renkli gölge (0 4px 15px, ~%2.5).
+                        borderRadius: design.layout === 'single' ? `${Math.min(design.cardRadius, 13)}px` : 0,
                         borderColor: design.layout === 'single' ? hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 45)) : 'transparent',
                         borderBottom: design.layout === 'two-column' ? `1px dashed ${hexToRgba(design.dividerColor, design.dividerOpacity)}` : undefined,
-                        boxShadow: design.layout === 'single' ? tintedShadow(design) : undefined,
+                        boxShadow: design.layout === 'single' ? `${hexToRgba(design.primaryColor, 4)} 0 4px 15px` : undefined,
                       }}
                     >
                       {design.layout === 'single' && (
-                        <div
-                          className="h-16 w-16 shrink-0 overflow-hidden"
-                          style={{ borderRadius: `${Math.min(design.cardRadius, 16)}px` }}
-                        >
+                        <div className="gm-thumb gm-img-zoom shrink-0 overflow-hidden" style={{ borderRadius: '9px' }}>
                           <ItemThumb item={it} design={design} className="h-full w-full" t={t} />
                         </div>
                       )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <h3 className="font-semibold" style={{ color: design.textColor, fontFamily: design.headingFont }}>{it.name}</h3>
+                      <div className="min-w-0 flex-1 py-0.5">
+                        <div className="flex items-baseline justify-between gap-2.5">
+                          <h3 className="gm-item-name" style={{ color: design.textColor, fontFamily: design.headingFont }}>{it.name}</h3>
                           {it.price != null && (
-                            <span className="shrink-0 font-semibold" style={{ color: design.priceColor ?? design.primaryColor }}>
+                            <span className="gm-item-price shrink-0" style={{ color: design.priceColor ?? design.primaryColor }}>
                               {formatPrice(it.price, venue.currency)}
                             </span>
                           )}
                         </div>
                         {it.description && (
-                          <p className="mt-0.5 line-clamp-2 text-sm" style={{ color: design.mutedTextColor }}>
+                          <p className="gm-item-desc mt-1.5 line-clamp-2" style={{ color: design.mutedTextColor }}>
                             {it.description}
                           </p>
                         )}
-                        <AllergenLine item={it} design={design} t={t} locale={currentLocale} />
+                        <AllergenLine item={it} design={design} t={t} locale={locale} />
                       </div>
                     </Pressable>
                   </li>
@@ -1562,7 +1706,7 @@ export function GuestMenu({
                                   {it.description}
                                 </p>
                               )}
-                              <AllergenLine item={it} design={design} t={t} locale={currentLocale} />
+                              <AllergenLine item={it} design={design} t={t} locale={locale} />
                             </div>
                           </Pressable>
                         </li>
@@ -1635,7 +1779,7 @@ export function GuestMenu({
           currency={venue.currency}
           design={design}
           t={t}
-          locale={currentLocale}
+          locale={locale}
           onClose={() => setSelected(null)}
         />
       )}
@@ -1707,36 +1851,26 @@ function CategoryStrip({
   // durur; kategoriler arası geçiş bir dergi sayfası gibi okunur.
   return (
     <div className="px-1 pb-3 pt-1">
-      {numberLabel && (
-        <span
-          className="block text-xs font-bold tracking-[0.2em]"
-          style={{ color: hexToRgba(design.primaryColor, 65), fontFamily: design.headingFont }}
-        >
-          {numberLabel}
-        </span>
-      )}
       <div className="flex items-end justify-between gap-3">
-        <h2
-          className="font-bold leading-tight"
-          style={{
-            color: design.textColor,
-            fontFamily: design.headingFont,
-            // Referanstaki kategori başlıkları gövde metninin ~2 katı; 1.15
-            // çarpanı fazla küçük kalıyordu.
-            fontSize: `${design.baseFontSize * design.headingScale * 2.05}px`,
-          }}
-        >
-          {name}
-        </h2>
+        <div className="min-w-0">
+          {numberLabel && (
+            <span className="gm-cat-number mb-1 block" style={{ color: design.accentColor }}>
+              {numberLabel}
+            </span>
+          )}
+          <h2 className="gm-cat-title" style={{ color: design.textColor, fontFamily: design.headingFont }}>
+            {name}
+          </h2>
+        </div>
         {itemCount != null && (
-          <span className="shrink-0 pb-1 text-xs" style={{ color: design.mutedTextColor }}>
+          <span className="gm-cat-count shrink-0 pb-1" style={{ color: design.mutedTextColor }}>
             {t.itemCount(itemCount)}
           </span>
         )}
       </div>
       {/* Referansta bu çizgi ince gri değil, metin rengiyle basılmış KALIN
           bir ayraç — kategoriyi bir dergi bölüm başlığı gibi ayırıyor. */}
-      <div className="mt-2.5 h-[2px] w-full" style={{ backgroundColor: hexToRgba(design.textColor, 82) }} />
+      <div className="mt-[17px] h-[2px] w-full" style={{ backgroundColor: hexToRgba(design.textColor, 88) }} />
     </div>
   );
 }
@@ -1925,11 +2059,11 @@ function ItemModal({
       <div>
         {item.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.imageUrl} alt={item.name} className="h-52 w-full object-cover" />
+          <img src={item.imageUrl} alt={item.name} className="h-[250px] w-full object-cover" />
         )}
-        <div className="p-5">
+        <div className="p-7">
           <div className="flex items-start justify-between gap-3">
-            <h2 className="text-xl font-bold" style={{ fontFamily: design.headingFont }}>
+            <h2 className="gm-modal-title" style={{ fontFamily: design.headingFont }}>
               {item.name}
             </h2>
             <Pressable
@@ -1946,7 +2080,7 @@ function ItemModal({
           </div>
 
           {item.price != null && (
-            <p className="mt-1 text-lg font-semibold" style={{ color: design.priceColor ?? design.primaryColor }}>
+            <p className="gm-modal-price mt-3.5" style={{ color: design.priceColor ?? design.primaryColor }}>
               {formatPrice(item.price, currency)}
             </p>
           )}
@@ -1960,7 +2094,7 @@ function ItemModal({
           )}
 
           {item.description && (
-            <p className="mt-3 text-sm leading-relaxed" style={{ color: design.mutedTextColor }}>
+            <p className="gm-modal-desc mt-4" style={{ color: design.mutedTextColor }}>
               {item.description}
             </p>
           )}
@@ -2207,10 +2341,7 @@ function ModalSection({
 }) {
   return (
     <div className="mt-4">
-      <h3
-        className="mb-1.5 text-xs font-bold uppercase tracking-wide"
-        style={{ color: design.mutedTextColor }}
-      >
+      <h3 className="gm-modal-label mb-1.5" style={{ color: design.mutedTextColor }}>
         {title}
       </h3>
       {children}
