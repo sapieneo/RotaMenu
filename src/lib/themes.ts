@@ -56,6 +56,10 @@ export type MenuDesignSettings = {
   mutedTextColor: string;
   headingFont: string;
   bodyFont: string;
+  /** İşletmenin yüklediği fontun herkese açık Storage adresi. */
+  customFontUrl?: string | null;
+  /** Tasarım stüdyosunda gösterilecek özgün dosya adı. */
+  customFontName?: string | null;
   baseFontSize: number;
   headingScale: number;
   /**
@@ -128,6 +132,30 @@ export const FONT_OPTIONS = [
   { id: 'ibm-plex-mono', label: 'IBM Plex Mono', value: "'IBM Plex Mono', monospace" },
   { id: 'fraunces', label: 'Fraunces', value: "'Fraunces', Georgia, serif" },
 ] as const;
+
+/**
+ * Yüklenen font her menü sayfasında yalnız bir tane olduğu için sabit ve
+ * güvenli bir CSS aile adı kullanılır. Kullanıcının dosya adı hiçbir zaman
+ * `font-family` içine yazılmaz; böylece CSS enjeksiyonu mümkün olmaz.
+ */
+export const CUSTOM_FONT_FAMILY = "'RotaMenu Custom', sans-serif";
+
+/** Yüklenen fontu güvenli bir `@font-face` kuralına dönüştürür. */
+export function customFontFaceCss(settings: Pick<MenuDesignSettings, 'customFontUrl'>): string {
+  const rawUrl = settings.customFontUrl;
+  if (!rawUrl) return '';
+  try {
+    const url = new URL(rawUrl);
+    const allowedPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/venue-fonts/`;
+    if (!url.toString().startsWith(allowedPrefix)) return '';
+    const extension = url.pathname.toLowerCase().match(/\.(woff2|woff|ttf|otf)$/)?.[1];
+    if (!extension || !['https:', 'http:'].includes(url.protocol)) return '';
+    const format = extension === 'ttf' ? 'truetype' : extension === 'otf' ? 'opentype' : extension;
+    return `@font-face{font-family:"RotaMenu Custom";src:url(${JSON.stringify(url.toString())}) format("${format}");font-style:normal;font-weight:100 900;font-display:swap}`;
+  } catch {
+    return '';
+  }
+}
 
 /**
  * `FONT_OPTIONS`'taki Google Fonts girişleriyle BİREBİR senkron tutulmalı —
@@ -387,9 +415,11 @@ export function applyPresetOverrides(
 }
 
 export function normalizeMenuDesign(value: unknown): MenuDesignSettings {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULT_MENU_DESIGN };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...DEFAULT_MENU_DESIGN, customFontUrl: null, customFontName: null };
+  }
   const source = value as Partial<MenuDesignSettings>;
-  return { ...DEFAULT_MENU_DESIGN, ...source };
+  return { ...DEFAULT_MENU_DESIGN, customFontUrl: null, customFontName: null, ...source };
 }
 
 export function hexToRgba(hex: string, opacity: number): string {
