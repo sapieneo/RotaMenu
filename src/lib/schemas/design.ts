@@ -25,6 +25,8 @@ export const menuDesignSchema = z.object({
   priceColor: color.nullable().optional(),
   headingFont: z.string().min(1).max(120),
   bodyFont: z.string().min(1).max(120),
+  customFontUrl: z.string().url().nullable().optional().default(null),
+  customFontName: z.string().trim().min(1).max(120).nullable().optional().default(null),
   baseFontSize: z.number().int().min(13).max(20),
   headingScale: z.number().min(1).max(1.6),
   cardColor: color,
@@ -58,6 +60,13 @@ export function isAllowedBackgroundImageUrl(url: string | null | undefined): boo
   return url.startsWith(allowedPrefix);
 }
 
+/** Yüklenen font yalnızca uygulamanın public `venue-fonts` kovasından gelir. */
+export function isAllowedCustomFontUrl(url: string | null | undefined): boolean {
+  if (!url) return true;
+  const allowedPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/venue-fonts/`;
+  return url.startsWith(allowedPrefix) && /\.(woff2|woff|ttf|otf)(?:\?|$)/i.test(url);
+}
+
 /**
  * Önizleme (query string) yolu için: geçersizse sessizce null döner —
  * kayıtlı tasarıma düşülür, kullanıcıya hata gösterilmez.
@@ -68,6 +77,7 @@ export function parsePreviewDesign(raw: string | undefined): unknown {
     const parsed = menuDesignSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) return null;
     if (!isAllowedBackgroundImageUrl(parsed.data.backgroundImageUrl)) return null;
+    if (!isAllowedCustomFontUrl(parsed.data.customFontUrl)) return null;
     return parsed.data;
   } catch {
     return null;

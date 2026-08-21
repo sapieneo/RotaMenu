@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/server';
 import { checkAdminPassword } from '@/lib/admin-auth';
 import { menuDesignSchema, isAllowedBackgroundImageUrl } from '@/lib/schemas/design';
-import { MENU_DESIGN_PRESETS } from '@/lib/themes';
+import { CUSTOM_FONT_FAMILY, DEFAULT_MENU_DESIGN, MENU_DESIGN_PRESETS } from '@/lib/themes';
 
 export const runtime = 'nodejs';
 
@@ -44,7 +44,20 @@ export async function POST(request: NextRequest, { params }: { params: { templat
   }
 
   const admin = createAdminClient();
-  const settings = { ...parsed.data.settings, templateId: params.templateId };
+  // İşletmeye ait özel fontu global şablona taşımıyoruz. Aksi hâlde başka
+  // işletmelerin tema kartları ilk işletmenin dosyasına bağımlı kalır.
+  const settings = {
+    ...parsed.data.settings,
+    templateId: params.templateId,
+    customFontUrl: null,
+    customFontName: null,
+    headingFont: parsed.data.settings.headingFont === CUSTOM_FONT_FAMILY
+      ? DEFAULT_MENU_DESIGN.headingFont
+      : parsed.data.settings.headingFont,
+    bodyFont: parsed.data.settings.bodyFont === CUSTOM_FONT_FAMILY
+      ? DEFAULT_MENU_DESIGN.bodyFont
+      : parsed.data.settings.bodyFont,
+  };
   const { error } = await admin
     .from('design_preset_overrides')
     .upsert({ template_id: params.templateId, settings, updated_at: new Date().toISOString() });

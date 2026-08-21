@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ALLERGENS } from '@/lib/allergens';
 import { DIETARY } from '@/lib/dietary';
 import { formatPrice } from '@/lib/currency';
-import { hexToRgba, menuBackgroundStyle, normalizeMenuDesign, type MenuDesignSettings } from '@/lib/themes';
+import { customFontFaceCss, hexToRgba, menuBackgroundStyle, normalizeMenuDesign, type MenuDesignSettings } from '@/lib/themes';
 import { Sheet } from '@/components/ui/sheet';
 import { Pressable } from '@/components/ui/pressable';
 
@@ -1038,6 +1038,7 @@ export function GuestMenu({
    */
   const hs = design.headingScale / 1.3; // curated varsayılanında 1 → referansla birebir
   const gmCss = `
+${customFontFaceCss(design)}
 .gm-root{--gm-base:${design.baseFontSize}px}
 .gm-hero-eyebrow{font-size:calc(var(--gm-base)*.66);font-weight:700;letter-spacing:.18em;text-transform:uppercase}
 .gm-hero-title{font-weight:600;line-height:.88;letter-spacing:-.05em;font-size:clamp(calc(var(--gm-base)*${(2.8 * hs).toFixed(3)}),9vw,calc(var(--gm-base)*${(5.5 * hs).toFixed(3)}))}

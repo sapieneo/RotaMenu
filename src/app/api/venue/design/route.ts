@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { menuDesignSchema, isAllowedBackgroundImageUrl } from '@/lib/schemas/design';
+import { menuDesignSchema, isAllowedBackgroundImageUrl, isAllowedCustomFontUrl } from '@/lib/schemas/design';
 import { isAdminSession } from '@/lib/admin-auth';
 import { hasPanoSession } from '@/lib/pano-auth';
 
@@ -30,6 +30,9 @@ export async function PATCH(request: NextRequest) {
 
   if (!isAllowedBackgroundImageUrl(parsed.data.settings.backgroundImageUrl)) {
     return NextResponse.json({ error: 'Geçersiz arka plan görseli.' }, { status: 400 });
+  }
+  if (!isAllowedCustomFontUrl(parsed.data.settings.customFontUrl)) {
+    return NextResponse.json({ error: 'Geçersiz özel font adresi.' }, { status: 400 });
   }
 
   // Ayrıcalıklı yolda RLS'i aşmak için service-role; normal kullanıcıda

@@ -7,8 +7,10 @@ import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
 import { applyPaletteToDesign, extractPaletteFromImage, type ExtractedPalette } from '@/lib/image-palette';
 import {
   DEFAULT_MENU_DESIGN,
+  CUSTOM_FONT_FAMILY,
   FONT_OPTIONS,
   TEXTURE_OPTIONS,
+  customFontFaceCss,
   hexToRgba,
   menuBackgroundStyle,
   stripPresetMeta,
@@ -62,9 +64,12 @@ export function DesignStudio({
   const [savedPresetFlashId, setSavedPresetFlashId] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState(venue.logoUrl);
   const [logoUploadState, setLogoUploadState] = useState<'idle' | 'uploading' | 'error'>('idle');
+  const [fontUploadState, setFontUploadState] = useState<'idle' | 'uploading' | 'error'>('idle');
+  const [fontUploadError, setFontUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const styleImageRef = useRef<HTMLInputElement | null>(null);
   const logoFileRef = useRef<HTMLInputElement | null>(null);
+  const fontFileRef = useRef<HTMLInputElement | null>(null);
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
 
   // Seçilen tarz resmi için oluşturulan yerel önizleme URL'sini (object URL)
@@ -81,16 +86,20 @@ export function DesignStudio({
     setSaveState('idle');
   }
 
-  /** Verilen tasarımı uygular — mevcut yüklü JPG dokusu varsa korunur. */
+  /** Verilen tasarımı uygular — işletmeye ait yüklemeler korunur. */
   function applySettings(next: MenuDesignSettings) {
-    setSettings((current) => current.backgroundImageUrl
-      ? {
-          ...next,
-          backgroundImageUrl: current.backgroundImageUrl,
-          backgroundImageOpacity: current.backgroundImageOpacity,
-          backgroundImageMode: current.backgroundImageMode,
-        }
-      : next);
+    setSettings((current) => ({
+      ...next,
+      ...(current.backgroundImageUrl
+        ? {
+            backgroundImageUrl: current.backgroundImageUrl,
+            backgroundImageOpacity: current.backgroundImageOpacity,
+            backgroundImageMode: current.backgroundImageMode,
+          }
+        : {}),
+      customFontUrl: current.customFontUrl ?? null,
+      customFontName: current.customFontName ?? null,
+    }));
     setSaveState('idle');
   }
 
@@ -158,9 +167,10 @@ export function DesignStudio({
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? 'Kaydedilemedi.');
       const savedTemplateId = presetSaveTarget.templateId;
+      const storedSettings = body.settings as MenuDesignSettings;
       setPresets((current) =>
         current.map((preset) =>
-          preset.templateId === savedTemplateId ? { ...preset, ...settings, templateId: savedTemplateId } : preset
+          preset.templateId === savedTemplateId ? { ...preset, ...storedSettings, templateId: savedTemplateId } : preset
         )
       );
       setPresetSaveTarget(null);
@@ -225,9 +235,13 @@ export function DesignStudio({
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? 'Tasarım kaydedilemedi.');
+      const previousFontUrl = saved.customFontUrl;
       setSaved(settingsToSave);
       setSaveState('saved');
       setSaveError(null);
+      if (previousFontUrl && previousFontUrl !== settingsToSave.customFontUrl) {
+        void deleteFontAsset(previousFontUrl);
+      }
       return true;
     } catch (err) {
       // Sunucunun gerçek mesajını sakla: eskiden her hata "bağlantını kontrol
@@ -292,6 +306,70 @@ export function DesignStudio({
     }
     update('backgroundImageUrl', null);
     setUploadState('idle');
+  }
+
+  async function deleteFontAsset(fontUrl: string) {
+    try {
+      await fetch('/api/venue/font', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId: venue.id, fontUrl }),
+      });
+    } catch {
+      // Tasarım kaydı font dosyasının temizlenmesinden bağımsızdır. Geçici bir
+      // ağ hatası menünün kaydedilmiş görünümünü geri almamalı.
+    }
+  }
+
+  async function uploadFont(file: File) {
+    if (file.size > 5 * 1024 * 1024 || !/\.(woff2|woff|ttf|otf)$/i.test(file.name)) {
+      setFontUploadState('error');
+      setFontUploadError('5 MB’den küçük WOFF2, WOFF, TTF veya OTF dosyası yükleyin.');
+      return;
+    }
+    setFontUploadState('uploading');
+    setFontUploadError(null);
+    try {
+      const form = new FormData();
+      form.set('venueId', venue.id);
+      form.set('file', file);
+      const response = await fetch('/api/venue/font', { method: 'POST', body: form });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? 'Font yüklenemedi.');
+
+      const unsavedFontUrl = settings.customFontUrl && settings.customFontUrl !== saved.customFontUrl
+        ? settings.customFontUrl
+        : null;
+      setSettings((current) => ({
+        ...current,
+        customFontUrl: body.fontUrl,
+        customFontName: body.fontName,
+        headingFont: CUSTOM_FONT_FAMILY,
+        bodyFont: CUSTOM_FONT_FAMILY,
+      }));
+      if (unsavedFontUrl) void deleteFontAsset(unsavedFontUrl);
+      setSaveState('idle');
+      setFontUploadState('idle');
+    } catch (error) {
+      setFontUploadState('error');
+      setFontUploadError(error instanceof Error ? error.message : 'Font yüklenemedi.');
+    }
+  }
+
+  function removeFont() {
+    const currentFontUrl = settings.customFontUrl;
+    if (!currentFontUrl) return;
+    if (currentFontUrl !== saved.customFontUrl) void deleteFontAsset(currentFontUrl);
+    setSettings((current) => ({
+      ...current,
+      customFontUrl: null,
+      customFontName: null,
+      headingFont: current.headingFont === CUSTOM_FONT_FAMILY ? DEFAULT_MENU_DESIGN.headingFont : current.headingFont,
+      bodyFont: current.bodyFont === CUSTOM_FONT_FAMILY ? DEFAULT_MENU_DESIGN.bodyFont : current.bodyFont,
+    }));
+    setFontUploadState('idle');
+    setFontUploadError(null);
+    setSaveState('idle');
   }
 
   /**
@@ -362,6 +440,7 @@ export function DesignStudio({
 
   return (
     <main className="min-h-screen bg-stone-100">
+      <style>{customFontFaceCss(settings)}</style>
       <header className="sticky top-0 z-40 border-b border-stone-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-3 sm:px-6">
           <a href={dashboardHref} className="rounded-lg px-2 py-1.5 text-sm font-medium text-stone-500 hover:bg-stone-100 hover:text-stone-800">← Panoya dön</a>
@@ -601,9 +680,33 @@ export function DesignStudio({
               </ControlSection>
 
               <ControlSection title="Tipografi" description="Başlık ve ürün metinlerinin karakterini ayarla.">
+                <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-stone-800">Kendi fontunu yükle</p>
+                      <p className="mt-0.5 text-xs text-stone-500">WOFF2 önerilir. WOFF, TTF ve OTF de desteklenir; en fazla 5 MB.</p>
+                      <p className="mt-1 text-xs text-amber-700">Yalnızca kullanım hakkına sahip olduğunuz fontları yükleyin.</p>
+                    </div>
+                    <button type="button" onClick={() => fontFileRef.current?.click()} disabled={fontUploadState === 'uploading'} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50">
+                      {fontUploadState === 'uploading' ? 'Yükleniyor…' : settings.customFontUrl ? 'Fontu değiştir' : 'Font yükle'}
+                    </button>
+                    <input ref={fontFileRef} type="file" accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadFont(file); event.target.value = ''; }} />
+                  </div>
+                  {fontUploadState === 'error' && <p className="mt-2 text-xs font-medium text-red-600">{fontUploadError}</p>}
+                  {settings.customFontUrl && (
+                    <div className="mt-4 flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-stone-100 text-xl font-bold text-stone-700" style={{ fontFamily: CUSTOM_FONT_FAMILY }}>Aa</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-stone-700">{settings.customFontName ?? 'Yüklenen font'}</p>
+                        <p className="mt-0.5 text-xs text-emerald-700">Font seçeneklerine eklendi</p>
+                      </div>
+                      <button type="button" onClick={removeFont} disabled={fontUploadState === 'uploading'} className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50">Kaldır</button>
+                    </div>
+                  )}
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <SelectField label="Başlık fontu" value={settings.headingFont} onChange={(value) => update('headingFont', value)} />
-                  <SelectField label="Gövde fontu" value={settings.bodyFont} onChange={(value) => update('bodyFont', value)} />
+                  <SelectField label="Başlık fontu" value={settings.headingFont} customFontName={settings.customFontUrl ? settings.customFontName : null} onChange={(value) => update('headingFont', value)} />
+                  <SelectField label="Gövde fontu" value={settings.bodyFont} customFontName={settings.customFontUrl ? settings.customFontName : null} onChange={(value) => update('bodyFont', value)} />
                 </div>
                 <RangeField label="Yazı boyutu" value={settings.baseFontSize} min={13} max={20} suffix=" px" onChange={(value) => update('baseFontSize', value)} />
                 <RangeField label="Başlık büyüklüğü" value={Math.round(settings.headingScale * 100)} min={100} max={160} suffix="%" onChange={(value) => update('headingScale', value / 100)} />
@@ -759,8 +862,8 @@ function RangeField({ label, value, min, max, suffix, onChange }: { label: strin
   return <label className="block"><span className="mb-2 flex items-center justify-between text-sm font-medium text-stone-700"><span>{label}</span><output className="rounded-lg bg-stone-100 px-2 py-1 text-xs font-bold tabular-nums text-stone-600">{value}{suffix}</output></span><input type="range" value={value} min={min} max={max} onChange={(event) => onChange(Number(event.target.value))} className="h-2 w-full cursor-pointer accent-orange-600" /></label>;
 }
 
-function SelectField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="block"><span className="mb-1.5 block text-sm font-medium text-stone-700">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-500">{FONT_OPTIONS.map((font) => <option key={font.id} value={font.value}>{font.label}</option>)}</select><span className="mt-2 block truncate text-base" style={{ fontFamily: value }}>İyi yemek, güzel anılar.</span></label>;
+function SelectField({ label, value, customFontName, onChange }: { label: string; value: string; customFontName?: string | null; onChange: (value: string) => void }) {
+  return <label className="block"><span className="mb-1.5 block text-sm font-medium text-stone-700">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-500">{FONT_OPTIONS.map((font) => <option key={font.id} value={font.value}>{font.label}</option>)}{customFontName && <option value={CUSTOM_FONT_FAMILY}>Yüklenen · {customFontName}</option>}</select><span className="mt-2 block truncate text-base" style={{ fontFamily: value }}>İyi yemek, güzel anılar.</span></label>;
 }
 
 function storagePathFromPublicUrl(url: string): string | null {
