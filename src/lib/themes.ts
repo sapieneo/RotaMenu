@@ -1,4 +1,4 @@
-// RestaurantOS — Tema sistemi
+// RotaMenu — Tema sistemi
 // 10 hazır preset: renk paleti + font eşleşmesi + köşe/kart/buton kişiliği.
 // theme-factory skill'inin renk paleti mantığından ilham alınmıştır, web
 // fontlarıyla (Google Fonts) restoran/kafe dünyasına özgü olarak uyarlanmıştır.

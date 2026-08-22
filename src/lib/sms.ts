@@ -1,5 +1,5 @@
 /**
- * RestaurantOS — SMS doğrulama sağlayıcı yapılandırma kontrolü.
+ * RotaMenu — SMS doğrulama sağlayıcı yapılandırma kontrolü.
  *
  * Faz C: telefon doğrulaması gerçek bir SMS OTP sağlayıcısına (Netgsm,
  * İleti Merkezi, Twilio vb.) henüz BAĞLANMADI. O ana kadar hesap sayfasında

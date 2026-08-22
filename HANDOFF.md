@@ -1,18 +1,18 @@
-# RestaurantOS — HANDOFF
+# RotaMenu — HANDOFF
 
 Son güncelleme: **2 Ağustos 2026**  
 Amaç: Bu dosyayı yeni bir Codex görevinde açıp projeyi kaldığımız yerden devam ettirmek.
 
 ## 1. Proje kimliği
 
-- Ürün: **RestaurantOS** — restoranların fotoğraf/PDF menülerini yapay zekâyla dijital, çok dilli ve QR kodlu menüye dönüştüren SaaS.
-- Yerel çalışma klasörü: `D:\RestaurantOS\app`
-- GitHub: https://github.com/sapieneo/RestaurantOS
+- Ürün: **RotaMenu** — restoranların fotoğraf/PDF menülerini yapay zekâyla dijital, çok dilli ve QR kodlu menüye dönüştüren SaaS.
+- Yerel çalışma klasörü: `C:\Rotamenu`
+- GitHub: https://github.com/sapieneo/RotaMenu
 - Ana dal: `main`
-- Canlı site: https://restaurantostr.netlify.app
-- Netlify site adı: `restaurantostr`
+- Canlı site: https://rotamenu.netlify.app
+- Netlify site adı: `rotamenu`
 - Netlify site ID: `7f080727-b075-4300-b3d5-114f375dd50c`
-- Netlify paneli: https://app.netlify.com/projects/restaurantostr
+- Netlify paneli: https://app.netlify.com/projects/rotamenu
 - Supabase proje ref: `vaqhdaaqdsgfajqdvzls`
 - Supabase paneli: https://supabase.com/dashboard/project/vaqhdaaqdsgfajqdvzls
 
@@ -139,7 +139,7 @@ API route'ları yalnızca güvenli tanı alanlarını logluyor; secret değerler
 
 ## 8. Yeni görevde yapılacak ilk işlem
 
-1. Canlı sitede https://restaurantostr.netlify.app/studyo aç.
+1. Canlı sitede https://rotamenu.netlify.app/studyo aç.
 2. Aynı menü fotoğrafını/PDF'ini yeniden yükle.
 3. Ekranda çıkan **yeni ve daha açık hata mesajını** kaydet.
 4. Supabase'de en yeni kaydı kontrol et:
@@ -176,7 +176,7 @@ OpenAI bağlantıları:
 
 ## 10. Codex çalışma yetkileri ve pratikler
 
-- Codex `D:\RestaurantOS\app` içinde dosya okuyup düzenleyebilir ve test çalıştırabilir.
+- Codex `C:\Rotamenu` içinde dosya okuyup düzenleyebilir ve test çalıştırabilir.
 - GitHub connector okuma için bağlıdır; yerel `.git` yazımı sandbox nedeniyle sınırlı olabilir.
 - Kullanıcı kendi PowerShell penceresinden commit/push yapabilir.
 - Netlify connector proje/deploy/env durumunu okuyabilir. Secret güncellemesi UI üzerinden daha güvenilir oldu.
@@ -186,4 +186,4 @@ OpenAI bağlantıları:
 
 ## 11. Yeni Codex görevine verilecek kısa talimat
 
-> `D:\RestaurantOS\app\HANDOFF.md` dosyasını ve repo durumunu oku. Önce `git status -sb` ile `main`/`origin/main` eşitliğini doğrula. Sonra Netlify'da `aed5503` commit'inin production'da ready olduğunu kontrol et. Canlı `/studyo` ekranında yeni bir menü yükleme testi yapalım ve yeni tanılama mesajına göre OpenAI bağlantı sorununu düzeltelim. `src/lib/themes.ts` dosyasını yanlışlıkla commit'e ekleme.
+> `C:\Rotamenu\HANDOFF.md` dosyasını ve repo durumunu oku. Önce `git status -sb` ile `main`/`origin/main` eşitliğini doğrula. Sonra Netlify'da güncel `main` commit'inin production'da ready olduğunu kontrol et. Canlı `/studyo` ekranında yeni bir menü yükleme testi yapalım ve tanılama mesajına göre OpenAI bağlantı sorununu düzeltelim.

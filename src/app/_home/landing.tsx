@@ -282,7 +282,7 @@ function RegulationTimeline() {
         </div>
 
         <p className="mt-md text-footnote text-content-muted">
-          Uymayan işletmelere idari para cezası uygulanabiliyor. Rotamenu ile hazırlık birkaç
+          Uymayan işletmelere idari para cezası uygulanabiliyor. RotaMenu ile hazırlık birkaç
           dakika sürüyor.
         </p>
       </div>
@@ -346,7 +346,7 @@ function AuditFile() {
           <SectionHead
             eyebrow="Farkımız"
             title="Sadece menü değil, denetim dosyası"
-            lead="Diğer sistemler “yapay zeka otomatik tespit eder” der. Ama yönetmelik karşısında sorumluluk işletmededir. Bu yüzden Rotamenu’de her bilgi önce önerilir, sonra sizin onayınızla yayınlanır — ve bu onay kayıt altına alınır."
+            lead="Diğer sistemler “yapay zeka otomatik tespit eder” der. Ama yönetmelik karşısında sorumluluk işletmededir. Bu yüzden RotaMenu’de her bilgi önce önerilir, sonra sizin onayınızla yayınlanır — ve bu onay kayıt altına alınır."
           />
           <ul className="mt-lg space-y-sm text-footnote text-content-secondary">
             {[
@@ -430,7 +430,7 @@ function Faq() {
   const faqs = [
     {
       q: 'Alerjen bilgisinden kim sorumlu?',
-      a: 'Yönetmelik gereği beyandan işletme sorumludur. Rotamenu yapay zekayla öneri üretir; yayınlanan bilgi yalnızca sizin onayladığınız bilgidir. Onay tarihleriniz sistemde kayıtlı tutulur ve uyum raporunda gösterilir.',
+      a: 'Yönetmelik gereği beyandan işletme sorumludur. RotaMenu yapay zekayla öneri üretir; yayınlanan bilgi yalnızca sizin onayladığınız bilgidir. Onay tarihleriniz sistemde kayıtlı tutulur ve uyum raporunda gösterilir.',
     },
     {
       q: 'Menümü sonradan değiştirebilir miyim?',

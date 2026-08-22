@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">RotaMenu</title>
+  <desc id="desc">Rota noktaları, yaprak ve R harfinden oluşan RotaMenu uygulama simgesi.</desc>
+  <rect width="512" height="512" rx="112" fill="#173934"/>
+  <circle cx="116" cy="374" r="17" fill="#D3A84D"/>
+  <path d="M128 365c54-14 68-64 94-113 22-42 53-79 113-91" fill="none" stroke="#D3A84D" stroke-width="12" stroke-linecap="round" stroke-dasharray="1 25"/>
+  <path d="M333 83c58 4 94 35 101 92-59 6-99-18-119-71 7-10 12-16 18-21Z" fill="#F6F0DF"/>
+  <path d="M319 176c19-34 47-57 91-74" fill="none" stroke="#173934" stroke-width="9" stroke-linecap="round"/>
+  <path d="M168 112h99c75 0 119 38 119 102 0 49-27 82-75 96l89 103h-75l-80-95h-22v95h-55V112Zm55 50v107h39c43 0 66-18 66-54 0-35-23-53-66-53h-39Z" fill="#FFFFFF"/>
+</svg>

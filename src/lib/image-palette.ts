@@ -1,4 +1,4 @@
-// RestaurantOS — Yüklenen bir görselden renk paleti çıkarma ve bunu tasarım
+// RotaMenu — Yüklenen bir görselden renk paleti çıkarma ve bunu tasarım
 // ayarlarına (MenuDesignSettings) uygulama.
 //
 // NEDEN İSTEMCİ TARAFI: "resmin tonlarını kopyala" isteği gerçek piksel

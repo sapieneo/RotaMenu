@@ -36,6 +36,9 @@ export function PanoPasswordGate({ venueId }: { venueId: string }) {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-4 px-6 text-center">
+      <a href="/" className="text-lg font-bold tracking-tight text-stone-900">
+        Rota<span className="text-brand-600">Menu</span>
+      </a>
       <span className="text-3xl" aria-hidden>🔒</span>
       <div>
         <h1 className="text-xl font-semibold text-stone-900">Pano şifresi gerekli</h1>

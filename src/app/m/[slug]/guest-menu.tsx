@@ -108,7 +108,7 @@ const UI_TR: UiStrings = {
   close: 'Kapat',
   notPublished: 'Önizleme — bu menü henüz yayınlanmadı. Yalnızca siz görüyorsunuz.',
   menuBeingPrepared: 'Menü henüz hazırlanıyor. Kısa süre sonra tekrar deneyin.',
-  preparedWith: 'Rotamenu ile hazırlandı',
+  preparedWith: 'RotaMenu ile hazırlandı',
   address: 'Adres',
   openingHours: 'Çalışma saatleri',
   phone: 'Telefon',
@@ -157,7 +157,7 @@ const UI_EN: UiStrings = {
   close: 'Close',
   notPublished: 'Preview — this menu is not published yet. Only you can see it.',
   menuBeingPrepared: 'The menu is still being prepared. Please try again shortly.',
-  preparedWith: 'Made with Rotamenu',
+  preparedWith: 'Made with RotaMenu',
   address: 'Address',
   openingHours: 'Opening hours',
   phone: 'Phone',
@@ -225,7 +225,7 @@ export type GuestVenue = {
   wifiSsid: string | null;
   openingHours: string | null;
   isPublished: boolean;
-  /** Ücretsiz planda "Rotamenu ile hazırlandı" rozeti gösterilir. */
+  /** Ücretsiz planda "RotaMenu ile hazırlandı" rozeti gösterilir. */
   showBadge: boolean;
   design: MenuDesignSettings;
   /** Karşılama/promosyon popup'ı (Stüdyo → Ayarlar). Başlık yoksa null. */

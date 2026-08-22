@@ -1,4 +1,4 @@
-# RestaurantOS
+# RotaMenu
 
 Menü fotoğrafından, yönetmeliğe uyumlu çok dilli QR menüye — dakikalar içinde.
 

@@ -1,5 +1,5 @@
 /**
- * RestaurantOS — Süper-admin kontrol paneli kimlik doğrulaması.
+ * RotaMenu — Süper-admin kontrol paneli kimlik doğrulaması.
  *
  * Bilinçli olarak Supabase auth'tan AYRI ve BASİT tutuldu: tek bir işletme
  * sahibi (biz) tüm kiracıları görebileceği bir ekrana giriyor, kullanıcı

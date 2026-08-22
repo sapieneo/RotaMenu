@@ -2,21 +2,21 @@ import type { Metadata } from 'next';
 import { LegalPage, Section, List } from '../_components/legal-page';
 
 export const metadata: Metadata = {
-  title: 'Kullanım Koşulları — RestaurantOS',
-  description: 'RestaurantOS hizmetinin kullanım koşulları, taraf yükümlülükleri ve sorumluluk sınırları.',
+  title: 'Kullanım Koşulları — RotaMenu',
+  description: 'RotaMenu hizmetinin kullanım koşulları, taraf yükümlülükleri ve sorumluluk sınırları.',
 };
 
 export default function KullanimKosullariPage() {
   return (
     <LegalPage title="Kullanım Koşulları" updated="5 Ağustos 2026">
       <p>
-        RestaurantOS’a kaydolarak veya hizmeti kullanarak aşağıdaki koşulları kabul etmiş
+        RotaMenu’ye kaydolarak veya hizmeti kullanarak aşağıdaki koşulları kabul etmiş
         sayılırsınız.
       </p>
 
       <Section title="1. Hizmetin kapsamı">
         <p>
-          RestaurantOS; menü içeriklerinin dijitalleştirilmesi, alerjen ve besin bilgilerinin
+          RotaMenu; menü içeriklerinin dijitalleştirilmesi, alerjen ve besin bilgilerinin
           düzenlenmesi, çok dilli QR menü yayınlanması ve uyum raporu oluşturulması hizmetlerini
           sunar. Hizmet bir hukuki danışmanlık hizmeti değildir.
         </p>
@@ -36,7 +36,7 @@ export default function KullanimKosullariPage() {
         <p>
           Yapay zeka; alerjen, içerik ve kalori bilgilerini <strong>öneri</strong> olarak üretir.
           Bu öneriler yalnızca işletme onayından sonra yayınlanır. Yayınlanan bilgilerin doğruluğu,
-          güncelliği ve ilgili mevzuata uygunluğu işletmenin sorumluluğundadır. RestaurantOS,
+          güncelliği ve ilgili mevzuata uygunluğu işletmenin sorumluluğundadır. RotaMenu,
           onaylanan bilgileri ve onay zamanını kayıt altına alır; ancak beyanın içeriğinden sorumlu
           değildir.
         </p>
@@ -64,7 +64,7 @@ export default function KullanimKosullariPage() {
       <Section title="6. Sorumluluk sınırı">
         <p>
           Hizmet “olduğu gibi” sunulur. Kesintisiz veya hatasız çalışacağı garanti edilmez.
-          RestaurantOS’un toplam sorumluluğu, ilgili talebe konu olaydan önceki 12 ayda ödenen
+          RotaMenu’nün toplam sorumluluğu, ilgili talebe konu olaydan önceki 12 ayda ödenen
           abonelik bedeli ile sınırlıdır.
         </p>
       </Section>

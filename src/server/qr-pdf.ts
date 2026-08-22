@@ -72,7 +72,7 @@ export function buildQrCardPdf(input: QrCardInput): Promise<Buffer> {
       .fontSize(6.5)
       .fillColor('#bbb')
       .text(
-        'RestaurantOS',
+        'RotaMenu',
         left,
         doc.page.height - doc.page.margins.bottom - 8,
         { width: usable, align: 'center' }

@@ -23,7 +23,9 @@ export default async function menuTranslateBackground(request: Request, _context
   if (request.method !== 'POST') return new Response(null, { status: 405 });
   const body = await request.text();
   const serviceRoleKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-  const signature = request.headers.get('x-restaurantos-signature') ?? '';
+  const signature = request.headers.get('x-rotamenu-signature')
+    ?? request.headers.get('x-restaurantos-signature')
+    ?? '';
   if (!serviceRoleKey || !(await verifySignature(body, signature, serviceRoleKey))) {
     return new Response(null, { status: 401 });
   }
@@ -184,12 +186,14 @@ async function withRetry<T>(operation: () => Promise<T>, attempts = 3): Promise<
 async function verifySignature(body: string, signature: string, secret: string) {
   if (!/^[a-f0-9]{64}$/i.test(signature)) return false;
   const { createHmac, timingSafeEqual } = await import('node:crypto');
-  const expected = Buffer.from(
-    createHmac('sha256', secret).update('restaurantos-menu-translation-v1\0').update(body).digest('hex'),
-    'hex'
-  );
   const received = Buffer.from(signature, 'hex');
-  return expected.length === received.length && timingSafeEqual(expected, received);
+  return ['rotamenu-menu-translation-v1\0', 'restaurantos-menu-translation-v1\0'].some((context) => {
+    const expected = Buffer.from(
+      createHmac('sha256', secret).update(context).update(body).digest('hex'),
+      'hex'
+    );
+    return expected.length === received.length && timingSafeEqual(expected, received);
+  });
 }
 
 function parsePayload(body: string): Payload | null {
@@ -212,12 +216,12 @@ async function enqueueFollowups(requestUrl: string, secret: string, jobIds: stri
       const body = JSON.stringify({ jobId, followupJobIds: [] });
       const { createHmac } = await import('node:crypto');
       const signature = createHmac('sha256', secret)
-        .update('restaurantos-menu-translation-v1\0')
+        .update('rotamenu-menu-translation-v1\0')
         .update(body)
         .digest('hex');
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-RestaurantOS-Signature': signature },
+        headers: { 'Content-Type': 'application/json', 'X-RotaMenu-Signature': signature },
         body,
       });
       if (response.status !== 202) throw new Error(`Follow-up enqueue failed (${response.status})`);

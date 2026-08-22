@@ -2,25 +2,25 @@ import type { Metadata } from 'next';
 import { LegalPage, Section, List } from '../_components/legal-page';
 
 export const metadata: Metadata = {
-  title: 'Gizlilik Politikası ve KVKK Aydınlatma Metni — RestaurantOS',
+  title: 'Gizlilik Politikası ve KVKK Aydınlatma Metni — RotaMenu',
   description:
-    'RestaurantOS kişisel verilerinizi nasıl işler, saklar ve korur. KVKK kapsamındaki haklarınız.',
+    'RotaMenu kişisel verilerinizi nasıl işler, saklar ve korur. KVKK kapsamındaki haklarınız.',
 };
 
 export default function GizlilikPage() {
   return (
     <LegalPage title="Gizlilik Politikası ve KVKK Aydınlatma Metni" updated="5 Ağustos 2026">
       <p>
-        Bu metin, RestaurantOS hizmetini kullanan işletmelerin ve menülerini görüntüleyen
+        Bu metin, RotaMenu hizmetini kullanan işletmelerin ve menülerini görüntüleyen
         misafirlerin kişisel verilerinin 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK)
         kapsamında nasıl işlendiğini açıklar.
       </p>
 
       <Section title="1. Veri sorumlusu">
         <p>
-          Hizmet kapsamında toplanan veriler bakımından veri sorumlusu RestaurantOS’tur. İletişim:{' '}
-          <a className="text-brand-700 underline" href="mailto:destek@restaurantos.com.tr">
-            destek@restaurantos.com.tr
+          Hizmet kapsamında toplanan veriler bakımından veri sorumlusu RotaMenu’dür. İletişim:{' '}
+          <a className="text-brand-700 underline" href="mailto:destek@rotamenu.com.tr">
+            destek@rotamenu.com.tr
           </a>
         </p>
       </Section>
@@ -90,7 +90,7 @@ export default function GizlilikPage() {
         <p>
           Alerjen, kalori ve içerik bilgileri yapay zeka tarafından önerilir ancak yalnızca
           işletmenin onayından sonra yayınlanır. Bu bilgilerin doğruluğundan ilgili mevzuat
-          uyarınca işletme sorumludur. RestaurantOS, onay kayıtlarını tutar ve talep halinde
+          uyarınca işletme sorumludur. RotaMenu, onay kayıtlarını tutar ve talep halinde
           işletmeye sunar.
         </p>
       </Section>

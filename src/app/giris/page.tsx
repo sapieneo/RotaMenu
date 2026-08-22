@@ -6,7 +6,7 @@ import { LoginForm } from './login-form';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Giriş yap — RestaurantOS',
+  title: 'Giriş yap — RotaMenu',
   description: 'E-posta adresine giriş bağlantısı gönderelim; menüne kaldığın yerden devam et.',
   robots: { index: false, follow: false },
 };
@@ -45,7 +45,7 @@ export default async function LoginPage() {
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-12">
       <div>
         <a href="/" className="text-lg font-bold tracking-tight text-stone-900">
-          Restaurant<span className="text-brand-600">OS</span>
+          Rota<span className="text-brand-600">Menu</span>
         </a>
         <h1 className="mt-6 text-2xl font-bold text-stone-900">Giriş yap</h1>
         <p className="mt-1 text-sm text-stone-500">

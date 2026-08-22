@@ -17,7 +17,7 @@ const rest = async (p, i = {}) => {
   const t = await r.text();
   return { status: r.status, body: t ? JSON.parse(t) : null };
 };
-const SITE = 'https://restaurantostr.netlify.app';
+const SITE = 'https://rotamenu.netlify.app';
 const ACTIVE = 'live1234';
 const INACTIVE = 'live5678';
 const ua = { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile', 'x-forwarded-for': '203.0.113.77' };

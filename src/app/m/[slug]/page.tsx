@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { recordEvent } from '@/lib/analytics';
-import { showRestaurantBadge, resolvePlanContext } from '@/lib/plans';
+import { showRotaMenuBadge, resolvePlanContext } from '@/lib/plans';
 import { CODE_BY_ID } from '@/lib/allergens';
 import { DIETARY_CODE_BY_ID } from '@/lib/dietary';
 import { MENU_LANGUAGE_BY_CODE, SOURCE_LANGUAGE } from '@/lib/languages';
@@ -140,7 +140,7 @@ export default async function GuestMenuPage({
   // kategori başına birkaç ürün yeterli.
   const isDesignPreview = previewDesignOverride !== null;
 
-  // Plan → misafir menüsünde "RestaurantOS" rozeti yalnız ücretsiz planda görünür.
+  // Plan → misafir menüsünde "RotaMenu" rozeti yalnız ücretsiz planda görünür.
   // DİKKAT: organizations RLS'i anonim misafire okuma vermez. Plan/deneme
   // durumu misafir ekranını belirlediği için service-role ile okunur —
   // aksi halde org satırı null döner ve YAYINDAKİ her menü kilitli sanılır.
@@ -150,7 +150,7 @@ export default async function GuestMenuPage({
     .eq('id', venue.org_id)
     .maybeSingle();
   const planCtx = resolvePlanContext(org?.plan, org?.trial_ends_at as string | null);
-  const showBadge = showRestaurantBadge(planCtx.effectivePlan);
+  const showBadge = showRotaMenuBadge(planCtx.effectivePlan);
 
   // Deneme bitmiş ve abonelik yoksa yayın kilitlenir: misafire nazik bir bilgi
   // ekranı gösterilir. Menü SİLİNMEZ — abonelik başlayınca aynen geri gelir.
@@ -160,7 +160,7 @@ export default async function GuestMenuPage({
   }
 
   // Venue'nun aktif menü(leri). Çoğu venue'de tek satır var — bu durumda
-  // guest-menu.tsx menü şeridini hiç göstermiyor (davranış RestaurantOS'la
+  // guest-menu.tsx menü şeridini hiç göstermiyor (davranış RotaMenu ile
   // birebir aynı kalır). Birden fazla aktif menü varsa (örn. "Restoran
   // Menüsü" + "Şarap Menüsü") üstte bir menü şeridi gösterilir.
   const { data: menus } = await supabase

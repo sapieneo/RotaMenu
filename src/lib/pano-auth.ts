@@ -1,5 +1,5 @@
 /**
- * RestaurantOS — İşletmeye özel "pano" (dashboard) giriş şifresi.
+ * RotaMenu — İşletmeye özel "pano" (dashboard) giriş şifresi.
  *
  * Amaç: hesabı olmayan bir işletme sahibinin kendi panosunu (istatistik,
  * yayın durumu, QR) hesap oluşturmadan, yalnızca kendisine verilen basit bir

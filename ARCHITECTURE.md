@@ -1,4 +1,4 @@
-# RestaurantOS — Mimari Doküman (M0)
+# RotaMenu — Mimari Doküman (M0)
 
 Sürüm: 0.1 · Tarih: 12 Temmuz 2026 · Durum: Tartışmaya açık taslak
 
@@ -6,7 +6,7 @@ Sürüm: 0.1 · Tarih: 12 Temmuz 2026 · Durum: Tartışmaya açık taslak
 
 ## 1. Amaç ve v1 Kapsamı
 
-RestaurantOS, işletmelerin mevcut menülerini (fotoğraf/PDF) dakikalar içinde yasal
+RotaMenu, işletmelerin mevcut menülerini (fotoğraf/PDF) dakikalar içinde yasal
 mevzuata uyumlu, çok dilli, hızlı bir dijital QR menüye dönüştüren SaaS platformudur.
 
 **v1 kapsamı (kararlaştırıldı):** Menü + AI + Uyum.
@@ -144,10 +144,10 @@ Kurallar: her adım idempotent (aynı ingestion iki kez işlenirse çift ürün 
 
 ## 8. Yayın Katmanı ve QR
 
-- Misafir menüsü: `restaurantos.app/m/{venue-slug}` — ISR ile statik üretilir,
+- Misafir menüsü: `rotamenu.netlify.app/m/{venue-slug}` — ISR ile statik üretilir,
   `yayınla` eylemi `revalidateTag(venue)` çağırır. Görseller Supabase Storage +
   Next/Image ile optimize. Hedef: LCP < 1 sn (3G), toplam JS < 100 KB.
-- QR yönlendirme: `restaurantos.app/q/{kod}` → 302 → güncel menü URL'si.
+- QR yönlendirme: `rotamenu.netlify.app/q/{kod}` → 302 → güncel menü URL'si.
   `qr_codes.code` 8 karakterlik sabit kısa kod. Yönlendirme anında `scan_events`'e
   olay düşer (bekletmeden, fire-and-forget).
 - SEO: menü sayfalarında schema.org `Menu` markup, venue bazlı OG görseli.
@@ -206,7 +206,7 @@ Her milestone tek başına çalışır durumda biter ve production'a çıkar.
 
 ## 13. Açık Sorular (sonraki tartışmalar)
 
-1. Misafir menü URL yapısı: `restaurantos.app/m/{slug}` mi, `{slug}.restaurantos.menu` mü?
+1. Misafir menü URL yapısı: `rotamenu.netlify.app/m/{slug}` mi, ileride özel alan adı mı?
    (Alt alan adı markaya daha "sahipli" hissettirir, wildcard DNS + Vercel yapılandırması ister.)
 2. Ücretsiz planın sınırları ne? (öneri: 1 venue, 1 menü, 30 ürün, rozet, aylık 500 tarama analitiği)
 3. AI görsel üretimi (FineDine/MenuForma'daki gibi yemek fotoğrafı) v1'e girer mi, maliyeti kim öder?

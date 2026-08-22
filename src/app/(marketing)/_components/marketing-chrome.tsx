@@ -39,7 +39,7 @@ export function MarketingHeader({
           href="/"
           className="ros-pressable shrink-0 text-lg font-semibold tracking-tight text-content active:scale-[0.98]"
         >
-          Rota<span className="text-brand-600">menu</span>
+          Rota<span className="text-brand-600">Menu</span>
         </Link>
         <nav className="hidden items-center gap-lg text-footnote font-medium text-content-secondary md:flex">
           {NAV_LINKS.map((link) => (
@@ -105,7 +105,7 @@ export function MarketingFooter() {
       <div className="mx-auto grid max-w-6xl gap-8 px-5 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="text-lg font-bold tracking-tight text-stone-900">
-            Rota<span className="text-brand-600">menu</span>
+            Rota<span className="text-brand-600">Menu</span>
           </p>
           <p className="mt-2 max-w-xs text-sm text-stone-500">
             Menünüzü yönetmeliğe uyumlu, çok dilli QR menüye dönüştüren yapay zeka destekli
@@ -179,8 +179,8 @@ export function MarketingFooter() {
 
       <div className="border-t border-stone-100 px-5 py-4">
         <p className="mx-auto max-w-6xl text-xs text-stone-400">
-          © {new Date().getFullYear()} Rotamenu. Tüm hakları saklıdır. Alerjen ve kalori
-          bilgilerinin doğruluğundan işletme sorumludur; Rotamenu beyanı kaydeder ve sunar.
+          © {new Date().getFullYear()} RotaMenu. Tüm hakları saklıdır. Alerjen ve kalori
+          bilgilerinin doğruluğundan işletme sorumludur; RotaMenu beyanı kaydeder ve sunar.
         </p>
       </div>
     </footer>

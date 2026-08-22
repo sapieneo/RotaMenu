@@ -3,8 +3,8 @@ import { LegalPage, Section, List } from '../_components/legal-page';
 import { PRICING } from '@/lib/plans';
 
 export const metadata: Metadata = {
-  title: 'Mesafeli Satış Sözleşmesi — RestaurantOS',
-  description: 'RestaurantOS abonelik hizmetine ilişkin mesafeli satış sözleşmesi.',
+  title: 'Mesafeli Satış Sözleşmesi — RotaMenu',
+  description: 'RotaMenu abonelik hizmetine ilişkin mesafeli satış sözleşmesi.',
 };
 
 export default function MesafeliSatisPage() {
@@ -12,9 +12,9 @@ export default function MesafeliSatisPage() {
     <LegalPage title="Mesafeli Satış Sözleşmesi" updated="5 Ağustos 2026">
       <Section title="1. Taraflar">
         <p>
-          <strong>Satıcı:</strong> RestaurantOS —{' '}
-          <a className="text-brand-700 underline" href="mailto:destek@restaurantos.com.tr">
-            destek@restaurantos.com.tr
+          <strong>Satıcı:</strong> RotaMenu —{' '}
+          <a className="text-brand-700 underline" href="mailto:destek@rotamenu.com.tr">
+            destek@rotamenu.com.tr
           </a>
           <br />
           <strong>Alıcı:</strong> Abonelik işlemini gerçekleştiren işletme / hesap sahibi.
@@ -23,7 +23,7 @@ export default function MesafeliSatisPage() {
 
       <Section title="2. Sözleşmenin konusu">
         <p>
-          İşbu sözleşme, Alıcı’nın RestaurantOS internet sitesi üzerinden elektronik ortamda
+          İşbu sözleşme, Alıcı’nın RotaMenu internet sitesi üzerinden elektronik ortamda
           sipariş verdiği dijital menü ve uyum yönetimi abonelik hizmetinin satışı ve ifasına
           ilişkin tarafların hak ve yükümlülüklerini düzenler. 6502 sayılı Tüketicinin Korunması
           Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği hükümleri uygulanır.
@@ -44,7 +44,7 @@ export default function MesafeliSatisPage() {
       <Section title="4. Ödeme">
         <p>
           Ödemeler, lisanslı ödeme kuruluşu iyzico altyapısı üzerinden kredi/banka kartı ile
-          alınır. Kart bilgileri RestaurantOS tarafından görülmez ve saklanmaz.
+          alınır. Kart bilgileri RotaMenu tarafından görülmez ve saklanmaz.
         </p>
       </Section>
 
@@ -58,7 +58,7 @@ export default function MesafeliSatisPage() {
       <Section title="6. Cayma hakkı">
         <p>
           Mesafeli Sözleşmeler Yönetmeliği m.15/1-(ğ) uyarınca, elektronik ortamda anında ifa
-          edilen hizmetlerde cayma hakkı bulunmamaktadır. Bununla birlikte RestaurantOS,
+          edilen hizmetlerde cayma hakkı bulunmamaktadır. Bununla birlikte RotaMenu,
           aboneliğinizin ilk 14 günü içinde talep etmeniz halinde koşulsuz iade uygular; ayrıntı
           için iptal ve iade sayfasına bakınız.
         </p>

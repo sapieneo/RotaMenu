@@ -197,7 +197,7 @@ async function enqueueBackgroundIngestion(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-RestaurantOS-Signature': signature,
+        'X-RotaMenu-Signature': signature,
       },
       body: payload,
     });

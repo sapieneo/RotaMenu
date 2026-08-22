@@ -1,4 +1,4 @@
-# RestaurantOS — Yol Haritası
+# RotaMenu — Yol Haritası
 
 Bu dosya, üzerinde anlaştığımız işlerin sırasını tutar. Tamamlananları işaretleyerek ilerliyoruz.
 
@@ -6,7 +6,7 @@ Bu dosya, üzerinde anlaştığımız işlerin sırasını tutar. Tamamlananlar�
 - **M0** temel: çok kiracılı şema + RLS + 16 alerjen seed.
 - **M1** AI çıkarma: fotoğraf/PDF → OpenAI vision → taslak → onayla & kaydet.
 - **M2** uyum motoru: alerjen/kalori onay akışı, denetim ekranı, PDF uyum raporu.
-- **Deploy**: Supabase projesi (`vaqhdaaqdsgfajqdvzls`) migration'ları uygulandı, anonim giriş açık, kod GitHub'da (`sapieneo/RestaurantOS`), yerelde uçtan uca çalışıyor (menü fotoğrafı okundu).
+- **Deploy**: Supabase projesi (`vaqhdaaqdsgfajqdvzls`) migration'ları uygulandı, anonim giriş açık, kod GitHub'da (`sapieneo/RotaMenu`), yerelde uçtan uca çalışıyor (menü fotoğrafı okundu).
 
 ---
 
@@ -37,17 +37,17 @@ Kabul: taslak editöründe para birimi/kalori/içindekiler/rozet düzenlenip ona
 **Faz B TAMAMLANDI** (B1 yayınlama, B2 QR, B3 analitik, B4 hesap kalıcılaştırma [magic link], B5 dashboard). Kalan: deploy (aşağıdaki kontrol listesi) + opsiyonel Google girişi.
 
 ## Faz C — Freemium + faturalama (M5)
-- **Ücretsiz plan** (üyelik + telefon şartıyla): 1 venue, **< 50 ürün**, **5 dile** çeviri, arka plan/ürün görseli **YOK**, "RestaurantOS" rozeti.
+- **Ücretsiz plan** (üyelik + telefon şartıyla): 1 venue, **< 50 ürün**, **5 dile** çeviri, arka plan/ürün görseli **YOK**, "RotaMenu" rozeti.
 - **Pro**: sınırsız/yüksek ürün, tüm diller, ürün + kategori görselleri, rozet kaldırma, öncelikli işleme.
 - Ödeme: TR **iyzico**, global **Stripe/Paddle** (karar M5'te netleşir).
 
 ### C-çekirdek · Plan zorlaması ✅ TAMAMLANDI (2026-07-20, sağlayıcıdan bağımsız)
 Migration GEREKMEDİ — `organizations.plan` (plan_tier enum) zaten mevcut; `contact_phone` 0009'da eklenmişti.
-- **`src/lib/plans.ts`** — tek kaynak: plan limitleri (`maxVenues/maxItems/maxLocales/images/removeBadge/requiresVerifiedAccount`) + yardımcılar (`planLimits`, `normalizePlan`, `showRestaurantBadge`, `loadOrgPlanUsage`, `UPGRADE_MESSAGES`). Bilinmeyen plan → güvenli `free`.
+- **`src/lib/plans.ts`** — tek kaynak: plan limitleri (`maxVenues/maxItems/maxLocales/images/removeBadge/requiresVerifiedAccount`) + yardımcılar (`planLimits`, `normalizePlan`, `showRotaMenuBadge`, `loadOrgPlanUsage`, `UPGRADE_MESSAGES`). Bilinmeyen plan → güvenli `free`.
 - **Görsel kilidi (A7/A8).** `/api/image/generate`, `/api/image/enhance`, `/api/image` (PATCH, yalnız BAĞLAMA; kaldırma=null her planda serbest) free planda **402 `upgrade_required`**. UI: `/studyo/gorseller` free planda tam yükseltme ekranı gösterir (manager render edilmez).
 - **Ürün limiti.** `/api/ingest/[id]/approve` yıkıcı işlemlerden ÖNCE toplamı hesaplar: (diğer yüklemelerin ürünleri) + (taslak ürünleri) > limit ise **402**. Yeniden onayda kendi ürünlerini çift saymaz.
 - **Yayın şartı.** `/api/venue` PATCH `isPublished=true`: free planda hesap **güvende (anonim değil + e-posta)** ve **contact_phone dolu** değilse **403 `account_required`**.
-- **Rozet.** `/m/[slug]` "RestaurantOS ile hazırlandı" artık plana bağlı (`showRestaurantBadge`); Pro/Enterprise'da gizli.
+- **Rozet.** `/m/[slug]` "RotaMenu ile hazırlandı" artık plana bağlı (`showRotaMenuBadge`); Pro/Enterprise'da gizli.
 - **Plan kartı.** `/studyo/pano` — plan rozeti, ürün kullanım çubuğu (X/50, %80'de amber, dolunca kırmızı), özellik satırları (görsel/rozet kilit durumu), free planda yayın şartları checklist'i + "Pro'ya yükselt" CTA (şimdilik `/studyo/hesap`'a).
 - Doğrulama: `tsc --noEmit` temiz. Tam `next build` deploy öncesi Windows'ta koşulacak (sandbox ağ/CPU kısıtı).
 - **✅ CANLIDA DOĞRULANDI (2026-07-20, commit `f877648`):** plan kartı, görsel kilidi, yayın şartı, rozet, ürün limiti — hepsi test edildi ve geçti.
@@ -118,7 +118,7 @@ Platform sahibi (biz) için tüm kiracıları gören ayrı, şifreli panel — n
 
 ## ⚠️ DEPLOY ANINDA YAPILACAKLAR (ertelendi — Faz B bitince tek seferde)
 Karar: uygulama şu an yalnız yerelde çalışıyor (hosting/alan adı yok). Deploy, Faz B tümüyle bitince tek seferde yapılacak. O an aşağıdakiler tamamlanmalı:
-- **Hosting: Netlify** (kullanıcı Netlify'a alışkın). `netlify.toml` repoda hazır (`npm run build`, `.next`, `@netlify/plugin-nextjs`, NODE 20, `--include=dev`). GitHub `sapieneo/RestaurantOS` → Import. Env değişkenlerini taşı: Supabase URL/anon/service_role, `ANTHROPIC_API_KEY`, `RUNWARE_API_KEY`, sonra `NEXT_PUBLIC_SITE_URL` (netlify.app adresi, build anında gömülür → ekleyince yeniden deploy).
+- **Hosting: Netlify** (kullanıcı Netlify'a alışkın). `netlify.toml` repoda hazır (`npm run build`, `.next`, `@netlify/plugin-nextjs`, NODE 20, `--include=dev`). GitHub `sapieneo/RotaMenu` → Import. Env değişkenlerini taşı: Supabase URL/anon/service_role, `ANTHROPIC_API_KEY`, `RUNWARE_API_KEY`, sonra `NEXT_PUBLIC_SITE_URL` (netlify.app adresi, build anında gömülür → ekleyince yeniden deploy).
 - **`NEXT_PUBLIC_SITE_URL`:** prod'da gerçek alan adı (ör. `https://menu.isletmem.com`, sonda `/` yok). Magic link `emailRedirectTo` ve QR gömülü adresi bundan türüyor.
 - **Supabase → Authentication → URL Configuration:** Site URL'i canlı adrese çevir; Redirect URLs'e `https://<alan-adı>/auth/callback` ekle (localhost satırını silme, ikisi birlikte dursun).
 - **Supabase → Custom SMTP:** varsayılan e-posta gönderimi sıkı rate-limitli ("email rate limit exceeded" testte görüldü). Gerçek kullanıcı almadan önce kendi SMTP'ni (SendGrid/Resend/SES) tanımla.

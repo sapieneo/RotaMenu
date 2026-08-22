@@ -1,5 +1,5 @@
 /**
- * RestaurantOS — Hareket temeli (Apple "Designing Fluid Interfaces" uyarlaması).
+ * RotaMenu — Hareket temeli (Apple "Designing Fluid Interfaces" uyarlaması).
  *
  * TEK KAYNAK: yay değerleri burada tanımlanır, bileşenlerde elle sayı yazılmaz.
  *
