@@ -684,10 +684,16 @@ function MenuSwitcher({
 }
 
 /**
- * Dil seçici dar ekranda menü seçiciyle aynı davranışı kullanır: tek bir
- * düğme ve sağa hizalı açılır liste. `select` yerine uygulamanın kendi
- * listesini kullanmak dil kodunu, yerel adı ve seçili işaretini birlikte
- * gösterebilmemizi sağlar. Geniş ekranda 4 dile kadar bölmeli anahtar korunur.
+ * Dil seçici, pencere genişliğine kör bir breakpoint ile değil üst çubukta
+ * GERÇEKTEN kalan alanı ölçerek görünüm değiştirir:
+ *
+ *  • Yan yana dil düğmeleri sığıyorsa eski bölmeli anahtar korunur.
+ *  • Logo + menü seçici + diller artık sığmıyorsa menü seçiciyle aynı özel
+ *    açılır listeye düşer.
+ *
+ * Görünmez ölçüm kopyası her zaman bütün dilleri doğal genişliğinde tutar;
+ * böylece açılır görünüme geçince genişlik küçülüp kararın ileri geri
+ * salınmasına yol açmaz.
  */
 function LanguageSwitcher({
   languages,
@@ -695,16 +701,64 @@ function LanguageSwitcher({
   onSelect,
   design,
   t,
+  reserveMenuSpace,
 }: {
   languages: { code: string; name: string }[];
   locale: string;
   onSelect: (code: string) => void;
   design: MenuDesignSettings;
   t: UiStrings;
+  reserveMenuSpace: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const probeRef = useRef<HTMLDivElement>(null);
+  const [inline, setInline] = useState(true);
   const [open, setOpen] = useState(false);
   const current = languages.find((language) => language.code === locale) ?? languages[0];
+
+  useEffect(() => {
+    const root = rootRef.current;
+    const probe = probeRef.current;
+    const bar = root?.parentElement;
+    if (!root || !probe || !bar || typeof ResizeObserver === 'undefined') return;
+
+    let disposed = false;
+    const measure = () => {
+      if (disposed) return;
+      const barStyle = window.getComputedStyle(bar);
+      const horizontalPadding =
+        (Number.parseFloat(barStyle.paddingLeft) || 0) + (Number.parseFloat(barStyle.paddingRight) || 0);
+      const gap = Number.parseFloat(barStyle.columnGap === 'normal' ? '0' : barStyle.columnGap) || 0;
+      const innerWidth = bar.clientWidth - horizontalPadding;
+      const brand = bar.querySelector<HTMLElement>('[data-gm-brand]');
+      const brandWidth = brand?.getBoundingClientRect().width ?? 0;
+
+      // Çoklu menü varsa sol seçicinin okunabilir/truncate edilebilir bir
+      // düğme olarak kalması için en az 112px ayır. MenuSwitcher kalan gerçek
+      // alanda kendi sekme/açılır görünüm kararını ayrıca ölçüyor.
+      const menuFloor = reserveMenuSpace ? 112 : 0;
+      const gaps = reserveMenuSpace ? 2 : 1;
+      const needed = brandWidth + probe.scrollWidth + menuFloor + gap * gaps + 10;
+      setInline(needed <= innerWidth);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    observer.observe(probe);
+    const brand = bar.querySelector<HTMLElement>('[data-gm-brand]');
+    if (brand) observer.observe(brand);
+    void document.fonts?.ready.then(measure);
+
+    return () => {
+      disposed = true;
+      observer.disconnect();
+    };
+  }, [languages, reserveMenuSpace]);
+
+  useEffect(() => {
+    if (inline) setOpen(false);
+  }, [inline]);
 
   useEffect(() => {
     if (!open) return;
@@ -731,31 +785,26 @@ function LanguageSwitcher({
 
   return (
     <div ref={rootRef} className="relative ml-auto shrink-0">
-      <Pressable
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left sm:hidden"
-        style={{
-          backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
-          borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)),
-          color: design.textColor,
-        }}
-      >
-        <span aria-hidden>🌐</span>
-        <span className="min-w-0 leading-tight">
-          <span className="block text-[9px] font-semibold uppercase tracking-wide" style={{ color: design.mutedTextColor }}>
-            {t.menuLanguage}
-          </span>
-          <span className="block text-xs font-bold uppercase">{current.code}</span>
-        </span>
-        <span aria-hidden className="text-[9px] opacity-60">▼</span>
-      </Pressable>
-
-      {languages.length <= 4 ? (
+      {/* Ölçüm kopyası görünmezdir ve mevcut görünümden bağımsız olarak bütün
+          dil düğmelerinin doğal genişliğini verir. */}
+      <div aria-hidden className="pointer-events-none invisible absolute right-0 top-0 h-0 w-0 overflow-hidden">
         <div
-          className="hidden overflow-hidden rounded-xl border sm:flex"
+          ref={probeRef}
+          className="flex w-max overflow-hidden rounded-xl border"
+          style={{ borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)) }}
+        >
+          {languages.map((language) => (
+            <span key={language.code} className="flex min-w-[46px] flex-col items-center px-2.5 py-1 leading-tight">
+              <span className="gm-lang-code">{language.code}</span>
+              <span className="gm-lang-name mt-0.5 opacity-80">{language.name}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {inline ? (
+        <div
+          className="flex overflow-hidden rounded-xl border"
           style={{ borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)) }}
           role="group"
           aria-label={t.menuLanguage}
@@ -780,30 +829,34 @@ function LanguageSwitcher({
           })}
         </div>
       ) : (
-        <label
-          className="hidden items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium sm:flex"
-          style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), color: design.textColor }}
+        <Pressable
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className="flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left"
+          style={{
+            backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+            borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)),
+            color: design.textColor,
+          }}
         >
           <span aria-hidden>🌐</span>
-          <span className="sr-only">{t.menuLanguage}</span>
-          <select
-            value={locale}
-            onChange={(event) => choose(event.target.value)}
-            className="bg-transparent pr-0.5 font-medium outline-none"
-            aria-label={t.menuLanguage}
-          >
-            {languages.map((language) => (
-              <option key={language.code} value={language.code}>{language.name}</option>
-            ))}
-          </select>
-        </label>
+          <span className="min-w-0 leading-tight">
+            <span className="block text-[9px] font-semibold uppercase tracking-wide" style={{ color: design.mutedTextColor }}>
+              {t.menuLanguage}
+            </span>
+            <span className="block text-xs font-bold uppercase">{current.code}</span>
+          </span>
+          <span aria-hidden className="text-[9px] opacity-60">▼</span>
+        </Pressable>
       )}
 
-      {open && (
+      {!inline && open && (
         <div
           role="menu"
           aria-label={t.menuLanguage}
-          className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border shadow-xl sm:hidden"
+          className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border shadow-xl"
           style={{
             backgroundColor: design.surfaceColor,
             borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 45)),
@@ -1304,7 +1357,7 @@ ${customFontFaceCss(design)}
         className="sticky top-0 z-40 flex items-center gap-3 border-b px-4 py-2 backdrop-blur sm:rounded-t-2xl"
         style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), backgroundColor: hexToRgba(design.surfaceColor, 95) }}
       >
-        <div className="flex shrink-0 items-center gap-2">
+        <div data-gm-brand className="flex shrink-0 items-center gap-2">
           {venue.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -1337,6 +1390,7 @@ ${customFontFaceCss(design)}
           onSelect={switchLocale}
           design={design}
           t={t}
+          reserveMenuSpace={showMenuSwitcher}
         />
       </div>
 
