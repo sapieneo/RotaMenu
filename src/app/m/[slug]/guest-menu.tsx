@@ -683,6 +683,171 @@ function MenuSwitcher({
   );
 }
 
+/**
+ * Dil seçici dar ekranda menü seçiciyle aynı davranışı kullanır: tek bir
+ * düğme ve sağa hizalı açılır liste. `select` yerine uygulamanın kendi
+ * listesini kullanmak dil kodunu, yerel adı ve seçili işaretini birlikte
+ * gösterebilmemizi sağlar. Geniş ekranda 4 dile kadar bölmeli anahtar korunur.
+ */
+function LanguageSwitcher({
+  languages,
+  locale,
+  onSelect,
+  design,
+  t,
+}: {
+  languages: { code: string; name: string }[];
+  locale: string;
+  onSelect: (code: string) => void;
+  design: MenuDesignSettings;
+  t: UiStrings;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const current = languages.find((language) => language.code === locale) ?? languages[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  if (languages.length <= 1 || !current) return null;
+
+  const choose = (code: string) => {
+    onSelect(code);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={rootRef} className="relative ml-auto shrink-0">
+      <Pressable
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left sm:hidden"
+        style={{
+          backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+          borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)),
+          color: design.textColor,
+        }}
+      >
+        <span aria-hidden>🌐</span>
+        <span className="min-w-0 leading-tight">
+          <span className="block text-[9px] font-semibold uppercase tracking-wide" style={{ color: design.mutedTextColor }}>
+            {t.menuLanguage}
+          </span>
+          <span className="block text-xs font-bold uppercase">{current.code}</span>
+        </span>
+        <span aria-hidden className="text-[9px] opacity-60">▼</span>
+      </Pressable>
+
+      {languages.length <= 4 ? (
+        <div
+          className="hidden overflow-hidden rounded-xl border sm:flex"
+          style={{ borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)) }}
+          role="group"
+          aria-label={t.menuLanguage}
+        >
+          {languages.map((language) => {
+            const isCurrent = language.code === locale;
+            return (
+              <button
+                key={language.code}
+                type="button"
+                onClick={() => choose(language.code)}
+                aria-current={isCurrent ? 'true' : undefined}
+                className="flex min-w-[46px] flex-col items-center px-2.5 py-1 leading-tight transition"
+                style={isCurrent
+                  ? { backgroundColor: design.primaryColor, color: design.surfaceColor }
+                  : { color: design.mutedTextColor }}
+              >
+                <span className="gm-lang-code">{language.code}</span>
+                <span className="gm-lang-name mt-0.5 opacity-80">{language.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <label
+          className="hidden items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium sm:flex"
+          style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), color: design.textColor }}
+        >
+          <span aria-hidden>🌐</span>
+          <span className="sr-only">{t.menuLanguage}</span>
+          <select
+            value={locale}
+            onChange={(event) => choose(event.target.value)}
+            className="bg-transparent pr-0.5 font-medium outline-none"
+            aria-label={t.menuLanguage}
+          >
+            {languages.map((language) => (
+              <option key={language.code} value={language.code}>{language.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {open && (
+        <div
+          role="menu"
+          aria-label={t.menuLanguage}
+          className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border shadow-xl sm:hidden"
+          style={{
+            backgroundColor: design.surfaceColor,
+            borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 45)),
+          }}
+        >
+          <p
+            className="border-b px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide"
+            style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), color: design.mutedTextColor }}
+          >
+            {t.menuLanguage}
+          </p>
+          <div className="max-h-[60vh] overflow-y-auto py-1">
+            {languages.map((language) => {
+              const isCurrent = language.code === locale;
+              return (
+                <Pressable
+                  key={language.code}
+                  variant="dim"
+                  role="menuitemradio"
+                  aria-checked={isCurrent}
+                  onClick={() => choose(language.code)}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left"
+                  style={isCurrent ? { backgroundColor: hexToRgba(design.primaryColor, 10) } : undefined}
+                >
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold uppercase"
+                    style={{ backgroundColor: hexToRgba(design.primaryColor, 12), color: design.primaryColor }}
+                  >
+                    {language.code}
+                  </span>
+                  <span className="min-w-0 flex-1 text-sm font-semibold" style={{ color: design.textColor }}>
+                    {language.name}
+                  </span>
+                  {isCurrent && <span aria-hidden style={{ color: design.primaryColor }}>✓</span>}
+                </Pressable>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GuestMenu({
   venue: initialVenue,
   categories: initialCategories,
@@ -909,16 +1074,21 @@ export function GuestMenu({
    * İkisi TEK bir "giriş" olarak sayılır ve oturum başına bir kez gösterilir;
    * misafir menüde gezinip geri dönünce tekrar karşılaşmaz.
    */
-  const [splash, setSplash] = useState<'hidden' | 'visible' | 'fading'>('hidden');
+  // İlk HTML karesinde de splash görünür olmalı. `hidden` ile başlatılırsa
+  // useEffect tarayıcıda çalışana kadar menü bir an görünür, ardından splash
+  // üstüne gelirdi. Bu ters sıralama özellikle yavaş telefonlarda belirgindi.
+  const [splash, setSplash] = useState<'hidden' | 'visible' | 'fading'>('visible');
   useEffect(() => {
     const key = `ros:intro-seen:${venue.name}`;
     try {
-      if (window.sessionStorage.getItem(key)) return;
+      if (window.sessionStorage.getItem(key)) {
+        setSplash('hidden');
+        return;
+      }
       window.sessionStorage.setItem(key, '1');
     } catch {
       /* gizlilik modunda sessionStorage kapalıysa yine göster, sorun değil */
     }
-    setSplash('visible');
     const fade = window.setTimeout(() => setSplash('fading'), 3200);
     const done = window.setTimeout(() => {
       setSplash('hidden');
@@ -1161,56 +1331,13 @@ ${customFontFaceCss(design)}
             t={t}
           />
         )}
-        {/* Dil seçici. Referansta açılır kutu değil, iki bölmeli bir anahtar
-            var: üstte kod (TR / EN), altında dilin adı. 4'e kadar dilde bu
-            anahtarı kullanıyoruz; daha fazlasında çubuğa sığmayacağı için
-            klasik açılır kutuya düşüyoruz. */}
-        {availableLocales.length > 1 && availableLocales.length <= 4 && (
-          <div
-            className="ml-auto flex shrink-0 overflow-hidden rounded-xl border"
-            style={{ borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 55)) }}
-            role="group"
-            aria-label={t.menuLanguage}
-          >
-            {availableLocales.map((language) => {
-              const isCurrent = language.code === locale;
-              return (
-                <button
-                  key={language.code}
-                  type="button"
-                  onClick={() => switchLocale(language.code)}
-                  aria-current={isCurrent ? 'true' : undefined}
-                  className="flex min-w-[46px] flex-col items-center px-2.5 py-1 leading-tight transition"
-                  style={isCurrent
-                    ? { backgroundColor: design.primaryColor, color: design.surfaceColor }
-                    : { color: design.mutedTextColor }}
-                >
-                  <span className="gm-lang-code">{language.code}</span>
-                  <span className="gm-lang-name mt-0.5 opacity-80">{language.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {availableLocales.length > 4 && (
-          <label
-            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium"
-            style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity), color: design.textColor }}
-          >
-            <span aria-hidden>🌐</span>
-            <span className="sr-only">{t.menuLanguage}</span>
-            <select
-              value={locale}
-              onChange={(event) => switchLocale(event.target.value)}
-              className="bg-transparent pr-0.5 font-medium outline-none"
-              aria-label={t.menuLanguage}
-            >
-              {availableLocales.map((language) => (
-                <option key={language.code} value={language.code}>{language.name}</option>
-              ))}
-            </select>
-          </label>
-        )}
+        <LanguageSwitcher
+          languages={availableLocales}
+          locale={locale}
+          onSelect={switchLocale}
+          design={design}
+          t={t}
+        />
       </div>
 
       {!venue.isPublished && (

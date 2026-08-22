@@ -53,6 +53,7 @@ export function LanguageManager({
     return initial;
   });
   const [submitting, setSubmitting] = useState(false);
+  const [queuedLocales, setQueuedLocales] = useState<string[]>([]);
   const [generatingDescriptions, setGeneratingDescriptions] = useState(false);
   /**
    * AÇIKLAMA ÜRETİMİ ve ÇEVİRİ artık birbirinden tamamen bağımsız iki iştir.
@@ -62,13 +63,41 @@ export function LanguageManager({
    * başına çalışır; çeviri, açıklaması olmayan ürünleri de olduğu gibi çevirir.
    */
   const [message, setMessage] = useState<string | null>(null);
-  const active = jobs.some((job) => job.status === 'pending' || job.status === 'processing');
+  const activeTranslationJobs = useMemo(
+    () => jobs.filter((job) => job.job_type === 'translation' && (job.status === 'pending' || job.status === 'processing')),
+    [jobs]
+  );
+  const active = jobs.some((job) => job.status === 'pending' || job.status === 'processing') || queuedLocales.length > 0;
+
+  const translatingLanguages = useMemo(() => {
+    const localeCodes = new Set([
+      ...queuedLocales,
+      ...activeTranslationJobs.map((job) => job.locale),
+    ]);
+
+    return languages
+      .filter((language) => {
+        if (!localeCodes.has(language.code)) return false;
+        const status = latestJobs.get(language.code)?.status;
+        return status !== 'completed' && status !== 'failed';
+      })
+      .map((language) => ({ language, job: latestJobs.get(language.code) }));
+  }, [activeTranslationJobs, languages, latestJobs, queuedLocales]);
 
   useEffect(() => {
     if (!active) return;
     const timer = window.setInterval(() => router.refresh(), 4000);
     return () => window.clearInterval(timer);
   }, [active, router]);
+
+  useEffect(() => {
+    if (!queuedLocales.length) return;
+    const allFinished = queuedLocales.every((locale) => {
+      const status = latestJobs.get(locale)?.status;
+      return status === 'completed' || status === 'failed';
+    });
+    if (allFinished) setQueuedLocales([]);
+  }, [latestJobs, queuedLocales]);
 
   function toggle(code: string) {
     setMessage(null);
@@ -92,9 +121,19 @@ export function LanguageManager({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ venueId, locales: selected }),
       });
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        jobs?: number;
+        alreadyCompleted?: boolean;
+      };
       if (!response.ok) throw new Error(payload.error ?? 'Çeviri başlatılamadı.');
-      setMessage('İşlem başladı. Bu sayfadan ayrılsanız da çeviriler arka planda devam eder.');
+      const localesToRun = selected.filter((locale) => latestJobs.get(locale)?.status !== 'completed');
+      setQueuedLocales(payload.alreadyCompleted || payload.jobs === 0 ? [] : localesToRun);
+      setMessage(
+        payload.alreadyCompleted || payload.jobs === 0
+          ? 'Seçili dillerin çevirileri zaten hazır.'
+          : 'İşlem başladı. Bu sayfadan ayrılsanız da çeviriler arka planda devam eder.'
+      );
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Çeviri başlatılamadı.');
@@ -174,6 +213,10 @@ export function LanguageManager({
         <JobBanner label="Ürün açıklamaları" job={descriptionJob} />
       )}
 
+      {translatingLanguages.length > 0 && (
+        <TranslationActivity items={translatingLanguages} />
+      )}
+
       <LanguageSection title="Türkiye ve komşu coğrafya için önemli diller" languages={neighborLanguages} selected={selected} jobs={latestJobs} onToggle={toggle} disabled={translationsDisabled} />
       <LanguageSection title="Dünyada yaygın diller" languages={popularLanguages} selected={selected} jobs={latestJobs} onToggle={toggle} disabled={translationsDisabled} />
 
@@ -235,6 +278,74 @@ function JobStatus({ job }: { job: TranslationJobView }) {
 
 function JobBanner({ label, job }: { label: string; job: TranslationJobView }) {
   return <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"><span className="font-semibold">{label}:</span> {job.status === 'failed' ? job.error_message : job.status === 'processing' ? `%${job.progress} tamamlandı` : 'sırada'}</div>;
+}
+
+function TranslationActivity({
+  items,
+}: {
+  items: { language: MenuLanguage; job: TranslationJobView | undefined }[];
+}) {
+  const title = items.length === 1
+    ? `${items[0].language.name} çeviriliyor`
+    : `${items.length} dil çevriliyor`;
+
+  return (
+    <section
+      className="mt-6 overflow-hidden rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50 via-white to-amber-50 p-5 shadow-sm"
+      role="status"
+      aria-live="polite"
+      aria-label={title}
+    >
+      <div className="flex items-center gap-4">
+        <div className="relative flex h-20 w-20 shrink-0 items-center justify-center" aria-hidden>
+          <span className="absolute inset-0 animate-spin rounded-full border-4 border-brand-100 border-t-brand-600 motion-reduce:animate-none" />
+          <span className="absolute inset-2 animate-pulse rounded-full bg-white shadow-inner motion-reduce:animate-none" />
+          <span className="relative text-3xl">🌍</span>
+          <span className="absolute right-0 top-0 animate-bounce text-lg motion-reduce:animate-none">✨</span>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold uppercase tracking-widest text-brand-700">Çeviri devam ediyor</p>
+          <h2 className="mt-1 text-xl font-bold text-stone-900">{title}</h2>
+          <p className="mt-1 text-sm text-stone-600">Menünüz arka planda hazırlanıyor; bu sayfadan ayrılabilirsiniz.</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {items.map(({ language, job }) => {
+          const processing = job?.status === 'processing';
+          const progress = processing ? Math.max(0, Math.min(100, job.progress)) : 0;
+          return (
+            <div key={language.code} className="rounded-xl border border-white bg-white/85 px-3 py-3 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-stone-900">
+                    {language.name} <span className="font-normal text-stone-500">· {language.nativeName}</span>
+                  </p>
+                  <p className="mt-0.5 text-xs font-medium text-brand-700">
+                    {processing ? `%${progress} çevrildi` : 'Sıraya alındı'}
+                  </p>
+                </div>
+                <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-brand-700">
+                  {language.code}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-brand-100">
+                {processing ? (
+                  <div
+                    className="h-full rounded-full bg-brand-600 transition-[width] duration-500"
+                    style={{ width: `${Math.max(progress, 4)}%` }}
+                  />
+                ) : (
+                  <div className="h-full w-1/3 animate-pulse rounded-full bg-brand-500 motion-reduce:animate-none" />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 function InfoCard({ label, value, tone }: { label: string; value: string; tone?: 'amber' | 'green' }) {
