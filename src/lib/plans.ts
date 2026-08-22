@@ -1,5 +1,5 @@
 /**
- * RestaurantOS — Plan modeli (Faz C · Freemium).
+ * RotaMenu — Plan modeli (Faz C · Freemium).
  *
  * Tek kaynak: plan limitleri + zorlama yardımcıları. Rotalar ve UI buradan okur;
  * limit sayıları hiçbir yerde elle tekrar edilmez.
@@ -7,7 +7,7 @@
  * Ücretsiz plan ilkesi (ROADMAP Faz C):
  *   - Üyelik (e-posta ile güvene alınmış hesap) + iletişim telefonu ŞARTI.
  *   - 1 venue, < 50 ürün, 5 dile çeviri, arka plan/ürün görseli YOK,
- *     misafir menüsünde "RestaurantOS" rozeti.
+ *     misafir menüsünde "RotaMenu" rozeti.
  * Pro: yüksek/limitsiz ürün, tüm diller, görseller, rozet kaldırma.
  */
 
@@ -24,7 +24,7 @@ export type PlanLimits = {
   maxLocales: number;
   /** AI görsel üretimi + elle görsel yükleme açık mı? */
   images: boolean;
-  /** Misafir menüsündeki "RestaurantOS" rozetini kaldırabilir mi? */
+  /** Misafir menüsündeki "RotaMenu" rozetini kaldırabilir mi? */
   removeBadge: boolean;
   /** Yayın için hesabın güvene alınmış (e-posta) + telefonlu olması şart mı? */
   requiresVerifiedAccount: boolean;
@@ -152,8 +152,8 @@ export function resolvePlanContext(
   };
 }
 
-/** Misafir menüsünde "RestaurantOS" rozeti gösterilsin mi? */
-export function showRestaurantBadge(plan: string | null | undefined): boolean {
+/** Misafir menüsünde "RotaMenu" rozeti gösterilsin mi? */
+export function showRotaMenuBadge(plan: string | null | undefined): boolean {
   return !planLimits(plan).removeBadge;
 }
 

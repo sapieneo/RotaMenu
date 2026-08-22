@@ -220,7 +220,7 @@ async function enqueue(origin: string, jobId: string, followupJobIds: string[] =
   try {
     const response = await fetch(`${origin}/.netlify/functions/menu-translate-background`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-RestaurantOS-Signature': signature },
+      headers: { 'Content-Type': 'application/json', 'X-RotaMenu-Signature': signature },
       body: payload,
     });
     return response.status === 202;

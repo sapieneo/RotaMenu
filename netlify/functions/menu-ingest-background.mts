@@ -18,7 +18,9 @@ export default async function menuIngestBackground(request: Request, _context: C
 
   const body = await request.text();
   const serviceRoleKey = Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-  const signature = request.headers.get('x-restaurantos-signature') ?? '';
+  const signature = request.headers.get('x-rotamenu-signature')
+    ?? request.headers.get('x-restaurantos-signature')
+    ?? '';
   if (!serviceRoleKey || !(await verifySignature(body, signature, serviceRoleKey))) {
     return new Response(null, { status: 401 });
   }
@@ -69,15 +71,16 @@ export default async function menuIngestBackground(request: Request, _context: C
 async function verifySignature(body: string, signature: string, secret: string): Promise<boolean> {
   if (!/^[a-f0-9]{64}$/i.test(signature)) return false;
   const { createHmac, timingSafeEqual } = await import('node:crypto');
-  const expected = Buffer.from(
-    createHmac('sha256', secret)
-      .update('restaurantos-menu-ingestion-v1\0')
-      .update(body)
-      .digest('hex'),
-    'hex'
-  );
   const received = Buffer.from(signature, 'hex');
-  return expected.length === received.length && timingSafeEqual(expected, received);
+  // Eski sürüm deploy edilirken kuyruğa giren istekleri kesmemek için önceki
+  // teknik imza bağlamını geçici bir uyumluluk yolu olarak kabul ediyoruz.
+  return ['rotamenu-menu-ingestion-v1\0', 'restaurantos-menu-ingestion-v1\0'].some((context) => {
+    const expected = Buffer.from(
+      createHmac('sha256', secret).update(context).update(body).digest('hex'),
+      'hex'
+    );
+    return expected.length === received.length && timingSafeEqual(expected, received);
+  });
 }
 
 function parsePayload(body: string): Payload | null {

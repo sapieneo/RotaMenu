@@ -171,7 +171,7 @@ export function buildCompliancePdf(data: ReportData): Promise<Buffer> {
       .fillColor('#888')
       .text(
         'İlke: Yapay zeka önerir, işletme onaylar. Bu rapor yalnızca işletmenin onayladığı beyanları içerir. ' +
-          'Alerjen bilgisi işletme sorumluluğundadır; RestaurantOS içerik doğruluğunu garanti etmez.',
+          'Alerjen bilgisi işletme sorumluluğundadır; RotaMenu içerik doğruluğunu garanti etmez.',
         left,
         doc.page.height - doc.page.margins.bottom - 20,
         { width: usable }

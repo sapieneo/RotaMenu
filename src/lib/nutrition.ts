@@ -1,5 +1,5 @@
 // ============================================================================
-// RestaurantOS — Yerleşik besin tablosu (offline kalori hesabı)
+// RotaMenu — Yerleşik besin tablosu (offline kalori hesabı)
 // Yaygın Türk mutfağı malzemeleri için kcal / 100 g.
 // Kaynak: genel besin değeri ortalamaları (yaklaşık). Amaç: menüde kalori
 // beyanı için hızlı, internet gerektirmeyen tahmin.

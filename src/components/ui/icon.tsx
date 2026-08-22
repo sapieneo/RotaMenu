@@ -1,5 +1,5 @@
 /**
- * RestaurantOS — ikon seti.
+ * RotaMenu — ikon seti.
  *
  * NEDEN VAR: sayfalarda emoji (📸 🌍 🛡) kullanılıyordu. Emoji her işletim
  * sisteminde farklı çizilir, boyutu ve optik ağırlığı kontrol edilemez,

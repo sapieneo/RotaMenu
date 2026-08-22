@@ -17,7 +17,7 @@ const rest = async (p, i = {}) => {
   const t = await r.text();
   return { status: r.status, body: t ? JSON.parse(t) : null };
 };
-const SITE = 'https://restaurantostr.netlify.app';
+const SITE = 'https://rotamenu.netlify.app';
 const CODE = 'live1234'; // tam 8 karakter (şema kısıtı ^[a-z0-9]{8}$)
 
 const { body: venues } = await rest('venues?select=id,org_id,slug&limit=1');

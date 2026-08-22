@@ -1,5 +1,5 @@
 /**
- * RestaurantOS — AI maliyet koruması.
+ * RotaMenu — AI maliyet koruması.
  *
  * PROBLEM: `/studyo`'ya giren herkes otomatik anonim oturum alır ve
  * `organizations.trial_ends_at` varsayılanı (now + 14 gün) yüzünden

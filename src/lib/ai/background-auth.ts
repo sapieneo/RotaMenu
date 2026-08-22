@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-const SIGNING_CONTEXT = 'restaurantos-menu-ingestion-v1\0';
-const TRANSLATION_SIGNING_CONTEXT = 'restaurantos-menu-translation-v1\0';
+const SIGNING_CONTEXT = 'rotamenu-menu-ingestion-v1\0';
+const TRANSLATION_SIGNING_CONTEXT = 'rotamenu-menu-translation-v1\0';
 
 export function signBackgroundPayload(payload: string, secret: string): string {
   return createHmac('sha256', secret).update(SIGNING_CONTEXT).update(payload).digest('hex');

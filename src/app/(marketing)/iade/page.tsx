@@ -3,8 +3,8 @@ import { LegalPage, Section, List } from '../_components/legal-page';
 import { PRICING } from '@/lib/plans';
 
 export const metadata: Metadata = {
-  title: 'İptal ve İade Koşulları — RestaurantOS',
-  description: 'RestaurantOS aboneliğini iptal etme ve iade alma koşulları.',
+  title: 'İptal ve İade Koşulları — RotaMenu',
+  description: 'RotaMenu aboneliğini iptal etme ve iade alma koşulları.',
 };
 
 export default function IadePage() {
@@ -34,8 +34,8 @@ export default function IadePage() {
           Dijital hizmetlerde yasal cayma hakkı bulunmamakla birlikte, hizmetten memnun
           kalmadıysanız <strong>ilk ödemenizden itibaren 14 gün içinde</strong> talep etmeniz
           halinde ücretin tamamını iade ediyoruz. Talebinizi{' '}
-          <a className="text-brand-700 underline" href="mailto:destek@restaurantos.com.tr">
-            destek@restaurantos.com.tr
+          <a className="text-brand-700 underline" href="mailto:destek@rotamenu.com.tr">
+            destek@rotamenu.com.tr
           </a>{' '}
           adresine iletmeniz yeterlidir.
         </p>

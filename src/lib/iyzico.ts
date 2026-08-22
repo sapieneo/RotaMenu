@@ -1,5 +1,5 @@
 /**
- * RestaurantOS — iyzico entegrasyon sarmalayıcısı (Faz C · Faturalama).
+ * RotaMenu — iyzico entegrasyon sarmalayıcısı (Faz C · Faturalama).
  *
  * Yalnız sunucu tarafında. Resmi `iyzipay` SDK'sını promise'lere sarar,
  * yapılandırmayı env'den okur ve SDK'da eksik olan abonelik-checkout `retrieve`

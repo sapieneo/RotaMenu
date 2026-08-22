@@ -164,7 +164,7 @@ export default async function AdminPanelPage() {
     <main className="mx-auto max-w-6xl px-md py-xl">
       <header className="mb-lg flex flex-wrap items-start justify-between gap-md">
         <div>
-          <p className="text-footnote font-semibold text-brand-600">RestaurantOS yönetim</p>
+          <p className="text-footnote font-semibold text-brand-600">RotaMenu yönetim</p>
           <h1 className="mt-xs text-title font-semibold text-content">İşletmeler</h1>
           <p className="mt-xs text-footnote text-content-secondary">
             Bütün kiracıları tek ekrandan yönetin. Bir işletmeyi bulup panosuna geçin.
