@@ -11,7 +11,7 @@ Amaç: Bu dosyayı yeni bir Codex görevinde açıp projeyi kaldığımız yerde
 - Ana dal: `main`
 - Canlı site: https://rotamenu.netlify.app
 - Netlify site adı: `rotamenu`
-- Netlify site ID: `7f080727-b075-4300-b3d5-114f375dd50c`
+- Netlify site ID: `d2bd75eb-0f7e-458c-b924-04eb8266d048`
 - Netlify paneli: https://app.netlify.com/projects/rotamenu
 - Supabase proje ref: `vaqhdaaqdsgfajqdvzls`
 - Supabase paneli: https://supabase.com/dashboard/project/vaqhdaaqdsgfajqdvzls
