@@ -54,6 +54,7 @@ export function LanguageManager({
   });
   const [submitting, setSubmitting] = useState(false);
   const [queuedLocales, setQueuedLocales] = useState<string[]>([]);
+  const [queuedAt, setQueuedAt] = useState(0);
   const [generatingDescriptions, setGeneratingDescriptions] = useState(false);
   /**
    * AÇIKLAMA ÜRETİMİ ve ÇEVİRİ artık birbirinden tamamen bağımsız iki iştir.
@@ -78,6 +79,7 @@ export function LanguageManager({
     return languages
       .filter((language) => {
         if (!localeCodes.has(language.code)) return false;
+        if (queuedLocales.includes(language.code)) return true;
         const status = latestJobs.get(language.code)?.status;
         return status !== 'completed' && status !== 'failed';
       })
@@ -92,12 +94,16 @@ export function LanguageManager({
 
   useEffect(() => {
     if (!queuedLocales.length) return;
+    // Başarısız bir işi yeniden başlatırken ilk render hâlâ eski `failed`
+    // kaydını taşıyabilir. İlk yenileme turuna kadar bu eski terminal durumu
+    // dikkate alma; yeni pending/processing kaydı geldikten sonra karar ver.
+    if (Date.now() - queuedAt < 3500) return;
     const allFinished = queuedLocales.every((locale) => {
       const status = latestJobs.get(locale)?.status;
       return status === 'completed' || status === 'failed';
     });
     if (allFinished) setQueuedLocales([]);
-  }, [latestJobs, queuedLocales]);
+  }, [latestJobs, queuedAt, queuedLocales]);
 
   function toggle(code: string) {
     setMessage(null);
@@ -129,6 +135,7 @@ export function LanguageManager({
       if (!response.ok) throw new Error(payload.error ?? 'Çeviri başlatılamadı.');
       const localesToRun = selected.filter((locale) => latestJobs.get(locale)?.status !== 'completed');
       setQueuedLocales(payload.alreadyCompleted || payload.jobs === 0 ? [] : localesToRun);
+      setQueuedAt(Date.now());
       setMessage(
         payload.alreadyCompleted || payload.jobs === 0
           ? 'Seçili dillerin çevirileri zaten hazır.'
