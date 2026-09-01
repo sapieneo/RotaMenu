@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
-import { VenuePhotosManager, type VenuePhoto } from './venue-photos-manager';
 
 export type ImgItem = { id: string; name: string; imageUrl: string | null };
 export type BackgroundStyle = 'strip' | 'hero';
@@ -26,13 +25,10 @@ export function ImageManager({
   venueId,
   slug,
   categories,
-  venuePhotos,
 }: {
   venueId: string;
   slug: string;
   categories: ImgCategory[];
-  /** Mekan fotoğrafları (B7) — ürün görsellerinden ayrı tablo, ayrı bölüm. */
-  venuePhotos: VenuePhoto[];
 }) {
   const [cats, setCats] = useState<ImgCategory[]>(categories);
   const [busy, setBusy] = useState<Record<string, Busy>>({});
@@ -231,11 +227,6 @@ export function ImageManager({
             ← Panoya dön
           </a>
         </div>
-        {/* Ürün yokken bile mekan fotoğrafı eklenebilmeli — menü hazırlanırken
-            mekan tanıtımı ayrı ilerliyor. */}
-        <div className="mt-8">
-          <VenuePhotosManager orgId={orgId} venueId={venueId} initial={venuePhotos} />
-        </div>
       </main>
     );
   }
@@ -271,7 +262,6 @@ export function ImageManager({
 
       <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_320px] xl:justify-between">
       <div className="min-w-0 max-w-2xl space-y-6">
-        <VenuePhotosManager orgId={orgId} venueId={venueId} initial={venuePhotos} />
         {cats.map((c) => (
           <section key={c.id} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
             {/* Kategori görseli — GERİ GELDİ.

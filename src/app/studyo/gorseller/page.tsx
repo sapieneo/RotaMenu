@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { resolvePlanContext } from '@/lib/plans';
 import { ImageManager, type ImgCategory } from './image-manager';
-import { type VenuePhoto } from './venue-photos-manager';
+import { VenuePhotosManager, type VenuePhoto } from './venue-photos-manager';
 import { resolveManagedVenue, withVenue } from '@/lib/managed-venue';
 
 export const dynamic = 'force-dynamic';
@@ -129,12 +129,19 @@ export default async function ImagesPage({ searchParams }: { searchParams?: { ve
     sortOrder: (p.sort_order as number) ?? 0,
   }));
 
+  // Mekan galerisi ImageManager'ın DIŞINDA duruyor: o bileşen yüklemeyi
+  // sunucuya taşıdığı için artık `orgId` almıyor, galeri ise depolama yolunu
+  // `{orgId}/venue/...` biçiminde kuruyor. Ayrı tutmak ImageManager'ı
+  // değiştirmeden ilerlememizi sağlıyor; ayrıca menüde hiç ürün yokken de
+  // (ImageManager erken dönüş yapıyor) mekan fotoğrafı eklenebiliyor.
   return (
-    <ImageManager
-      venueId={venue.id}
-      slug={venue.slug}
-      categories={imgCategories}
-      venuePhotos={photos}
-    />
+    <>
+      <div className="mx-auto max-w-[1440px] px-4 pt-8 sm:px-6">
+        <div className="max-w-2xl">
+          <VenuePhotosManager orgId={venue.org_id} venueId={venue.id} initial={photos} />
+        </div>
+      </div>
+      <ImageManager venueId={venue.id} slug={venue.slug} categories={imgCategories} />
+    </>
   );
 }
