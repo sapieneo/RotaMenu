@@ -3108,6 +3108,14 @@ function ContactFooter({ venue, t }: { venue: GuestVenue; t: UiStrings }) {
     ? venue.instagram.replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '')
     : null;
 
+  /** Yapısal saat varsa bugünün aralığı, yoksa eski serbest metin. */
+  const today = venue.hours?.today ?? null;
+  const footerHours = today
+    ? today.closed
+      ? t.closedToday
+      : today.range
+    : venue.openingHours;
+
   const rows = useMemo(
     () =>
       [
@@ -3116,13 +3124,17 @@ function ContactFooter({ venue, t }: { venue: GuestVenue; t: UiStrings }) {
           value: venue.address,
           href: venue.googleMapsUrl ?? undefined,
         },
-        venue.openingHours && { label: t.openingHours, value: venue.openingHours },
+        // Saat iki yerde yazıyor (mekan kartı + bu alt bilgi). Yapısal saat
+        // girildiyse ONA öncelik ver: aksi halde kart "Bugün 09:00 – 23:00",
+        // alt bilgi eski serbest metni ("Her gün 11:00 – 23:00") gösteriyor ve
+        // aynı sayfada iki farklı saat çıkıyordu.
+        footerHours && { label: t.openingHours, value: footerHours },
         venue.phone && { label: t.phone, value: venue.phone, href: `tel:${venue.phone.replace(/\s/g, '')}` },
         waDigits && { label: 'WhatsApp', value: venue.whatsapp!, href: `https://wa.me/${waDigits}` },
         igHandle && { label: 'Instagram', value: `@${igHandle}`, href: `https://instagram.com/${igHandle}` },
         venue.wifiSsid && { label: t.wifi, value: venue.wifiSsid },
       ].filter(Boolean) as { label: string; value: string; href?: string }[],
-    [venue, waDigits, igHandle, t]
+    [venue, waDigits, igHandle, footerHours, t]
   );
 
   return (
