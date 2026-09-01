@@ -58,6 +58,8 @@ const bodySchema = z.object({
    * "bugün"ün saati, ayrı bir panelde tüm hafta. Boş dizi = temizle.
    */
   openingHoursWeekly: weeklyHoursSchema.nullish(),
+  /** AI görsel üretimi/iyileştirmesi bu işletmede açık mı (müşteri talebi B3). */
+  aiImagesEnabled: z.boolean().optional(),
   currencyCode: z.string().length(3).optional(),
   slug: z
     .string()
@@ -138,6 +140,7 @@ export async function PATCH(request: NextRequest) {
     const weekly = b.openingHoursWeekly ?? [];
     patch.opening_hours_json = weekly.length > 0 ? weekly : null;
   }
+  if (b.aiImagesEnabled !== undefined) patch.ai_images_enabled = b.aiImagesEnabled;
   if (b.currencyCode) patch.currency_code = b.currencyCode;
   if (b.slug !== undefined) patch.slug = b.slug;
   if (b.logoUrl !== undefined) patch.logo_url = b.logoUrl;

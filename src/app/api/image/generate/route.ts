@@ -54,30 +54,24 @@ export async function POST(request: NextRequest) {
   const { target, user } = access;
   const admin = createAdminClient();
 
-  // Hedefi çöz: ürün mü kategori mi
   const { orgId, table, column, subdir, id: targetId } = target;
-  let prompt: string;
-  let dims: { width: number; height: number } | undefined;
 
-  if (itemId) {
-    const { data: item } = await admin
-      .from('items')
-      .select('id, name, description, ingredients, org_id')
-      .eq('id', itemId)
-      .maybeSingle();
-    if (!item) return NextResponse.json({ error: 'Ürün bulunamadı.' }, { status: 404 });
-    const subject = await describeDishInEnglish(item.name, item.description, item.ingredients);
-    prompt = customPrompt ?? buildFoodPrompt(subject);
-  } else {
-    const { data: cat } = await admin
-      .from('categories')
-      .select('id, name, org_id')
-      .eq('id', categoryId!)
-      .maybeSingle();
-    if (!cat) return NextResponse.json({ error: 'Kategori bulunamadı.' }, { status: 404 });
-    const subject = await describeCategoryBackground(cat.name);
-    prompt = customPrompt ?? buildBackgroundPrompt(subject);
-    dims = { width: 1024, height: 512 };
+  // ── İşletme bazlı AI görsel anahtarı (müşteri talebi B3) ─────────────────
+  // Yeni işletmelerde KAPALI. Elle görsel yükleme bundan etkilenmez; yalnız
+  // ücretli AI üretimi kapanır.
+  const { data: venueRow } = await admin
+    .from('venues')
+    .select('ai_images_enabled')
+    .eq('id', target.venueId)
+    .maybeSingle();
+  if (!venueRow?.ai_images_enabled) {
+    return NextResponse.json(
+      {
+        error: 'Bu işletmede AI görsel üretimi kapalı. Ayarlar’dan açabilirsin.',
+        code: 'ai_images_disabled',
+      },
+      { status: 403 }
+    );
   }
 
   // Plan kapısı: görsel üretimi yalnız görsele izin veren planlarda (Pro+).
@@ -107,6 +101,50 @@ export async function POST(request: NextRequest) {
       { error: imgQuota.message, code: imgQuota.reason === 'identity' ? 'account_required' : 'quota_exceeded' },
       { status: quotaStatus(imgQuota) }
     );
+  }
+
+  // ── Prompt üretimi ARTIK BURADA ──────────────────────────────────────────
+  // Eskiden yetki/plan/kota kontrollerinden ÖNCE çalışıyordu: describeDish...
+  // gerçek bir OpenAI çağrısı, yani 403 dönmeden önce fatura üretiliyordu ve
+  // kota da tüketilmediği için sınırsız tekrarlanabiliyordu (güvenlik raporu
+  // §1.8). Artık tüm kapılar geçildikten sonra çağrılıyor.
+  let prompt: string;
+  let dims: { width: number; height: number } | undefined;
+
+  try {
+    if (itemId) {
+      const { data: item } = await admin
+        .from('items')
+        .select('id, name, description, ingredients, org_id')
+        .eq('id', itemId)
+        .maybeSingle();
+      if (!item) {
+        await refundAiQuota(orgId, 'image', 1);
+        return NextResponse.json({ error: 'Ürün bulunamadı.' }, { status: 404 });
+      }
+      const subject = await describeDishInEnglish(item.name, item.description, item.ingredients);
+      prompt = customPrompt ?? buildFoodPrompt(subject);
+    } else {
+      const { data: cat } = await admin
+        .from('categories')
+        .select('id, name, org_id')
+        .eq('id', categoryId!)
+        .maybeSingle();
+      if (!cat) {
+        await refundAiQuota(orgId, 'image', 1);
+        return NextResponse.json({ error: 'Kategori bulunamadı.' }, { status: 404 });
+      }
+      const subject = await describeCategoryBackground(cat.name);
+      prompt = customPrompt ?? buildBackgroundPrompt(subject);
+      dims = { width: 1024, height: 512 };
+    }
+  } catch (err) {
+    await refundAiQuota(orgId, 'image', 1);
+    console.error('[api/image/generate] prompt failed', {
+      targetId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return NextResponse.json({ error: 'Görsel açıklaması üretilemedi.' }, { status: 502 });
   }
 
   try {

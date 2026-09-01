@@ -24,6 +24,8 @@ export type VenueSettings = {
   openingHours: string;
   /** Yapısal haftalık saatler — misafir ekranında "bugün" hesabı buradan çıkar. */
   openingHoursWeekly: WeeklyHours;
+  /** AI görsel üretimi açık mı — yeni işletmelerde kapalı gelir. */
+  aiImagesEnabled: boolean;
   currencyCode: string;
   announcementTitle: string;
   announcementBody: string;
@@ -93,6 +95,7 @@ export function VenueSettingsForm({
           openingHours: v.openingHours,
           // Hiçbir günde saat girilmemişse boş dizi gönderiyoruz: sunucu bunu
           // "yapısal saat yok" sayıp serbest metne düşüyor.
+          aiImagesEnabled: v.aiImagesEnabled,
           openingHoursWeekly: v.openingHoursWeekly.some((d) => d.closed || (d.open && d.close))
             ? v.openingHoursWeekly
             : [],
@@ -292,6 +295,25 @@ export function VenueSettingsForm({
               className={inputCls}
             />
           </Field>
+        </Section>
+
+        <Section title="Yapay zeka">
+          <label className="flex items-start gap-3 rounded-xl border border-stone-200 p-3">
+            <input
+              type="checkbox"
+              checked={v.aiImagesEnabled}
+              onChange={(e) => set('aiImagesEnabled', e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block text-sm font-medium text-stone-800">AI görsel üretimi</span>
+              <span className="mt-0.5 block text-xs text-stone-500">
+                Kapalıyken Görseller ekranındaki “AI ile üret” ve “İyileştir” düğmeleri çalışmaz;
+                kendi fotoğraflarını yüklemeye devam edebilirsin. Yeni işletmelerde kapalı gelir —
+                AI görsel ücretli bir servis ve her mekan istemiyor.
+              </span>
+            </span>
+          </label>
         </Section>
 
         <Section title="Marka hikayesi">

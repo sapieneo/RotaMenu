@@ -59,6 +59,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Geçersiz görsel adresi.' }, { status: 400 });
   }
 
+  // İşletme bazlı AI görsel anahtarı (müşteri talebi B3) — üretimle aynı kural.
+  const { data: venueRow } = await admin
+    .from('venues')
+    .select('ai_images_enabled')
+    .eq('id', target.venueId)
+    .maybeSingle();
+  if (!venueRow?.ai_images_enabled) {
+    return NextResponse.json(
+      {
+        error: 'Bu işletmede AI görsel iyileştirme kapalı. Ayarlar’dan açabilirsin.',
+        code: 'ai_images_disabled',
+      },
+      { status: 403 }
+    );
+  }
+
   // Plan kapısı: görsel iyileştirme yalnız Pro+ planlarda.
   const { data: orgRow } = await admin
     .from('organizations')

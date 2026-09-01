@@ -101,6 +101,7 @@ export default async function VenueSettingsPage({ searchParams }: { searchParams
     openingHours: venue.opening_hours ?? '',
     // Yapısal saat yoksa boş bir hafta ile başla — editör 7 satırı gösterir.
     openingHoursWeekly: parseWeeklyHours(venue.opening_hours_json) ?? emptyWeek(),
+    aiImagesEnabled: Boolean(venue.ai_images_enabled),
     currencyCode: venue.currency_code ?? 'TRY',
     announcementTitle: venue.announcement_title ?? '',
     announcementBody: venue.announcement_body ?? '',
