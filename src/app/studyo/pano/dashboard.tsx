@@ -156,6 +156,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
             panosundan sayfa eklemeye çalışan kullanıcı başka bir işletmenin
             stüdyosunda buluyordu kendini. */}
         <QuickLink href={venueHref('/studyo')} icon="📸" label="Menüye sayfa ekle" />
+        <QuickLink href={venueHref('/studyo/menu')} icon="📝" label="Ürünleri düzenle" />
         <QuickLink href={venueHref('/studyo/uyum')} icon="✅" label="Alerjen / uyum" />
         <QuickLink href={venueHref('/studyo/tasarim')} icon="✦" label="Tasarım" />
         <QuickLink href={venueHref('/studyo/gorseller')} icon="🎨" label="Görseller" />
