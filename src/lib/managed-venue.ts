@@ -4,7 +4,7 @@ import { isAdminSession } from '@/lib/admin-auth';
 type ServerClient = ReturnType<typeof createClient>;
 
 const VENUE_COLUMNS =
-  'id, org_id, slug, name, description, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, currency_code, is_published, published_at, announcement_title, announcement_body, announcement_image_url, announcement_button_text, story';
+  'id, org_id, slug, name, description, address, phone, whatsapp, instagram, google_maps_url, google_review_url, wifi_ssid, opening_hours, opening_hours_json, currency_code, is_published, published_at, announcement_title, announcement_body, announcement_image_url, announcement_button_text, story';
 
 export type ManagedVenue = {
   id: string;
@@ -17,8 +17,12 @@ export type ManagedVenue = {
   whatsapp: string | null;
   instagram: string | null;
   google_maps_url: string | null;
+  /** "Bizi Google'da değerlendirin" bağlantısı. */
+  google_review_url: string | null;
   wifi_ssid: string | null;
   opening_hours: string | null;
+  /** Yapısal haftalık saatler — bkz. lib/opening-hours.ts. Boşsa opening_hours kullanılır. */
+  opening_hours_json: unknown;
   currency_code: string | null;
   is_published: boolean;
   published_at: string | null;

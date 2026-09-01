@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { PhoneFrame, PhoneScaledContent } from '@/components/phone-frame';
+import { VenuePhotosManager, type VenuePhoto } from './venue-photos-manager';
 
 export type ImgItem = { id: string; name: string; imageUrl: string | null };
 export type BackgroundStyle = 'strip' | 'hero';
@@ -25,10 +26,13 @@ export function ImageManager({
   venueId,
   slug,
   categories,
+  venuePhotos,
 }: {
   venueId: string;
   slug: string;
   categories: ImgCategory[];
+  /** Mekan fotoğrafları (B7) — ürün görsellerinden ayrı tablo, ayrı bölüm. */
+  venuePhotos: VenuePhoto[];
 }) {
   const [cats, setCats] = useState<ImgCategory[]>(categories);
   const [busy, setBusy] = useState<Record<string, Busy>>({});
@@ -216,15 +220,22 @@ export function ImageManager({
 
   if (totalItems === 0) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-8 text-center">
-        <h1 className="text-2xl font-bold">Görseller</h1>
-        <p className="mt-2 text-stone-500">Menünde görsel eklenecek ürün yok.</p>
-        <a
-          href={`/studyo/pano?venue=${encodeURIComponent(venueId)}`}
-          className="mt-4 inline-block rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
-        >
-          ← Panoya dön
-        </a>
+      <main className="mx-auto max-w-2xl px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">Görseller</h1>
+          <p className="mt-2 text-stone-500">Menünde görsel eklenecek ürün yok.</p>
+          <a
+            href={`/studyo/pano?venue=${encodeURIComponent(venueId)}`}
+            className="mt-4 inline-block rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+          >
+            ← Panoya dön
+          </a>
+        </div>
+        {/* Ürün yokken bile mekan fotoğrafı eklenebilmeli — menü hazırlanırken
+            mekan tanıtımı ayrı ilerliyor. */}
+        <div className="mt-8">
+          <VenuePhotosManager orgId={orgId} venueId={venueId} initial={venuePhotos} />
+        </div>
       </main>
     );
   }
@@ -260,18 +271,55 @@ export function ImageManager({
 
       <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_320px] xl:justify-between">
       <div className="min-w-0 max-w-2xl space-y-6">
+        <VenuePhotosManager orgId={orgId} venueId={venueId} initial={venuePhotos} />
         {cats.map((c) => (
           <section key={c.id} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-            {/* Kategori başlığı. Arka plan görseli yükleme bölümü KALDIRILDI:
-                misafir menüsü artık kategorileri düz editoryal başlıklarla
-                ayırıyor (bkz. guest-menu.tsx → isHeroCategory), dolayısıyla
-                yüklenen bir kategori görseli hiçbir yerde görünmüyordu ve
-                kullanıcıyı boşa uğraştırıyordu. Ürün görselleri aynen duruyor. */}
+            {/* Kategori görseli — GERİ GELDİ.
+                Daha önce kaldırılmıştı çünkü misafir menüsü kategorileri düz
+                editoryal başlıklarla ayırıyordu ve yüklenen görsel hiçbir yerde
+                görünmüyordu. Artık misafir menüsünde "görselli kategori
+                butonları" ızgarası var (guest-menu.tsx → CategoryGrid), yani
+                bu görsel doğrudan ana sayfada kullanılıyor. */}
             <div className="mb-4 border-b border-stone-100 pb-3">
-              <h2 className="text-lg font-bold text-stone-800">{c.name}</h2>
-              <p className="mt-0.5 text-xs text-stone-500">
-                {c.items.length} ürün · aşağıdan her ürüne görsel ekleyebilirsin
-              </p>
+              <div className="flex items-start gap-3">
+                <div
+                  role={c.backgroundUrl ? 'button' : undefined}
+                  tabIndex={c.backgroundUrl ? 0 : undefined}
+                  aria-label={c.backgroundUrl ? `${c.name} görselini büyüt` : undefined}
+                  onClick={() => c.backgroundUrl && setLightbox({ url: c.backgroundUrl, alt: c.name })}
+                  onKeyDown={(e) => {
+                    if (!c.backgroundUrl) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setLightbox({ url: c.backgroundUrl, alt: c.name });
+                    }
+                  }}
+                  className="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-stone-200 bg-stone-50"
+                >
+                  {c.backgroundUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={c.backgroundUrl}
+                      alt={c.name}
+                      className="h-full w-full object-cover"
+                      style={{ objectPosition: `center ${c.backgroundPositionY}%` }}
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-[10px] text-stone-400">
+                      görsel yok
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-bold text-stone-800">{c.name}</h2>
+                  <p className="mt-0.5 text-xs text-stone-500">
+                    {c.items.length} ürün · kategori görseli misafir menüsünün ana sayfasında buton olarak görünür
+                  </p>
+                  <div className="mt-2">
+                    <Controls kind="category" id={c.id} hasImage={Boolean(c.backgroundUrl)} />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Ürünler */}

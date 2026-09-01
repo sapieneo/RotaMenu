@@ -13,8 +13,10 @@ import {
   type GuestVenue,
   type GuestMenuSummary,
   type GuestTranslations,
+  type GuestHours,
 } from './guest-menu';
 import { normalizeMenuDesign } from '@/lib/themes';
+import { parseWeeklyHours, todayStatus, weekRows } from '@/lib/opening-hours';
 import { parsePreviewDesign } from '@/lib/schemas/design';
 
 export const dynamic = 'force-dynamic';
@@ -82,7 +84,7 @@ export default async function GuestMenuPage({
 
   const { data: venue } = await supabase
     .from('venues')
-    .select('id, org_id, name, description, logo_url, cover_url, currency_code, is_published, address, phone, whatsapp, instagram, google_maps_url, wifi_ssid, opening_hours, design_settings, is_suspended, announcement_title, announcement_body, announcement_image_url, announcement_button_text, story')
+    .select('id, org_id, name, description, logo_url, cover_url, currency_code, is_published, address, phone, whatsapp, instagram, google_maps_url, google_review_url, wifi_ssid, opening_hours, opening_hours_json, design_settings, is_suspended, announcement_title, announcement_body, announcement_image_url, announcement_button_text, story')
     .eq('slug', params.slug)
     .maybeSingle();
 
@@ -333,6 +335,29 @@ export default async function GuestMenuPage({
     .filter((m) => menuIdsWithContent.has(m.id))
     .map((m) => ({ id: m.id, name: m.name, icon: m.icon ?? null }));
 
+  // ── Mekan kartı verisi (müşteri talebi A3/A4/B7) ────────────────────────────
+  // Çalışma saatleri SUNUCUDA hesaplanır: "bugün" mekanın saat dilimine göre
+  // belirlenir, misafirin cihaz saatine güvenilmez. Yapısal saat yoksa eski
+  // serbest metin alanına düşülür.
+  const weekly = parseWeeklyHours(venue.opening_hours_json);
+  const status = todayStatus(weekly, new Date());
+  const guestHours: GuestHours | null =
+    weekly || venue.opening_hours
+      ? {
+          today: status ? { range: status.range, closed: status.closed, openNow: status.openNow } : null,
+          week: weekRows(weekly, currentLocale === 'tr' ? 'tr' : 'en'),
+          fallback: venue.opening_hours ?? null,
+        }
+      : null;
+
+  // Mekan görselleri. RLS misafire yalnız yayındaki mekanın fotoğraflarını
+  // veriyor; sahibi önizlemede kendi fotoğraflarını da görür.
+  const { data: photoRows } = await supabase
+    .from('venue_photos')
+    .select('url, caption')
+    .eq('venue_id', venue.id)
+    .order('sort_order');
+
   const guestVenue: GuestVenue = {
     name: venue.name,
     description: venue.description ?? null,
@@ -350,6 +375,9 @@ export default async function GuestMenuPage({
     showBadge,
     design: normalizeMenuDesign(previewDesignOverride ?? venue.design_settings),
     story: venue.story ?? null,
+    googleReviewUrl: venue.google_review_url ?? null,
+    hours: guestHours,
+    photos: (photoRows ?? []).map((p) => ({ url: p.url as string, caption: (p.caption as string | null) ?? null })),
     announcement:
       venue.announcement_title
         ? {

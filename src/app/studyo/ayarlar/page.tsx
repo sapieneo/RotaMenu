@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { resolveManagedVenue } from '@/lib/managed-venue';
 import { resolvePlanContext } from '@/lib/plans';
 import { VenueSettingsForm, type VenueSettings } from './venue-settings-form';
+import { emptyWeek, parseWeeklyHours } from '@/lib/opening-hours';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,8 +96,11 @@ export default async function VenueSettingsPage({ searchParams }: { searchParams
     whatsapp: venue.whatsapp ?? '',
     instagram: venue.instagram ?? '',
     googleMapsUrl: venue.google_maps_url ?? '',
+    googleReviewUrl: venue.google_review_url ?? '',
     wifiSsid: venue.wifi_ssid ?? '',
     openingHours: venue.opening_hours ?? '',
+    // Yapısal saat yoksa boş bir hafta ile başla — editör 7 satırı gösterir.
+    openingHoursWeekly: parseWeeklyHours(venue.opening_hours_json) ?? emptyWeek(),
     currencyCode: venue.currency_code ?? 'TRY',
     announcementTitle: venue.announcement_title ?? '',
     announcementBody: venue.announcement_body ?? '',

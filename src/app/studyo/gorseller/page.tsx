@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { resolvePlanContext } from '@/lib/plans';
 import { ImageManager, type ImgCategory } from './image-manager';
+import { type VenuePhoto } from './venue-photos-manager';
 import { resolveManagedVenue, withVenue } from '@/lib/managed-venue';
 
 export const dynamic = 'force-dynamic';
@@ -114,11 +115,26 @@ export default async function ImagesPage({ searchParams }: { searchParams?: { ve
     }))
     .filter((c) => c.items.length > 0);
 
+  // Mekan görselleri (B7) — ürün görsellerinden ayrı bir tabloda tutulur.
+  const { data: photoRows } = await supabase
+    .from('venue_photos')
+    .select('id, url, caption, sort_order')
+    .eq('venue_id', venue.id)
+    .order('sort_order');
+
+  const photos: VenuePhoto[] = (photoRows ?? []).map((p) => ({
+    id: p.id as string,
+    url: p.url as string,
+    caption: (p.caption as string | null) ?? null,
+    sortOrder: (p.sort_order as number) ?? 0,
+  }));
+
   return (
     <ImageManager
       venueId={venue.id}
       slug={venue.slug}
       categories={imgCategories}
+      venuePhotos={photos}
     />
   );
 }

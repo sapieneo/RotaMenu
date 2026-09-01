@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { CURRENCIES } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
+import { DAY_NAMES_TR, emptyWeek, type WeeklyHours } from '@/lib/opening-hours';
 
 export type VenueSettings = {
   id: string;
@@ -16,8 +17,13 @@ export type VenueSettings = {
   whatsapp: string;
   instagram: string;
   googleMapsUrl: string;
+  /** "Bizi Google'da değerlendirin" bağlantısı — misafir menüsünde ikon olur. */
+  googleReviewUrl: string;
   wifiSsid: string;
+  /** Eski serbest metin. Haftalık saatler girildiyse misafire O gösterilir. */
   openingHours: string;
+  /** Yapısal haftalık saatler — misafir ekranında "bugün" hesabı buradan çıkar. */
+  openingHoursWeekly: WeeklyHours;
   currencyCode: string;
   announcementTitle: string;
   announcementBody: string;
@@ -82,8 +88,14 @@ export function VenueSettingsForm({
           whatsapp: v.whatsapp,
           instagram: v.instagram,
           googleMapsUrl: v.googleMapsUrl,
+          googleReviewUrl: v.googleReviewUrl,
           wifiSsid: v.wifiSsid,
           openingHours: v.openingHours,
+          // Hiçbir günde saat girilmemişse boş dizi gönderiyoruz: sunucu bunu
+          // "yapısal saat yok" sayıp serbest metne düşüyor.
+          openingHoursWeekly: v.openingHoursWeekly.some((d) => d.closed || (d.open && d.close))
+            ? v.openingHoursWeekly
+            : [],
           currencyCode: v.currencyCode,
           slug: v.slug.trim().toLowerCase(),
           announcementTitle: v.announcementTitle,
@@ -210,14 +222,24 @@ export function VenueSettingsForm({
               className={`${inputCls} resize-none`}
             />
           </Field>
-          <Field label="Google Haritalar bağlantısı">
-            <input
-              value={v.googleMapsUrl}
-              onChange={(e) => set('googleMapsUrl', e.target.value)}
-              placeholder="https://maps.google.com/…"
-              className={inputCls}
-            />
-          </Field>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Google Haritalar bağlantısı">
+              <input
+                value={v.googleMapsUrl}
+                onChange={(e) => set('googleMapsUrl', e.target.value)}
+                placeholder="https://maps.google.com/…"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Google’da değerlendirme bağlantısı">
+              <input
+                value={v.googleReviewUrl}
+                onChange={(e) => set('googleReviewUrl', e.target.value)}
+                placeholder="https://g.page/r/…/review"
+                className={inputCls}
+              />
+            </Field>
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Telefon">
               <input
@@ -247,13 +269,20 @@ export function VenueSettingsForm({
         </Section>
 
         <Section title="Misafir bilgisi">
-          <Field label="Çalışma saatleri">
+          <WeeklyHoursEditor
+            value={v.openingHoursWeekly}
+            onChange={(next) => set('openingHoursWeekly', next)}
+          />
+          <Field label="Çalışma saatleri (serbest metin)">
             <input
               value={v.openingHours}
               onChange={(e) => set('openingHours', e.target.value)}
               placeholder="Örn. Her gün 12:00 – 24:00"
               className={inputCls}
             />
+            <p className="mt-1 text-xs text-stone-500">
+              Yukarıda gün gün saat girdiysen misafire o gösterilir; bu alan yalnız yedek olarak kalır.
+            </p>
           </Field>
           <Field label="Wi-Fi ağ adı">
             <input
@@ -513,6 +542,85 @@ function PublishCard({
  * her işletmenin panosuna girebilir — bu şifre onun YERİNE değil, ONUNLA
  * BİRLİKTE çalışan ikinci bir yol.
  */
+/**
+ * Haftalık çalışma saati editörü (müşteri talebi A3).
+ *
+ * Misafir menüsünde "bugün 09:00 – 23:00 · şu an açık" yazabilmek için gün gün
+ * veri gerekiyor. Gece yarısını aşan saatler destekleniyor (18:00 – 02:00 gibi):
+ * kapanış açılıştan küçükse ertesi güne taşar, misafir tarafı bunu biliyor.
+ *
+ * "Pazartesiyi tüm haftaya uygula" düğmesi bilinçli: çoğu mekan aynı saatlerle
+ * çalışıyor, 7 satırı tek tek doldurtmak gereksiz.
+ */
+function WeeklyHoursEditor({
+  value,
+  onChange,
+}: {
+  value: WeeklyHours;
+  onChange: (next: WeeklyHours) => void;
+}) {
+  const week = value.length === 7 ? value : emptyWeek();
+
+  const patch = (day: number, next: Partial<WeeklyHours[number]>) =>
+    onChange(week.map((d) => (d.day === day ? { ...d, ...next } : d)));
+
+  const applyMondayToAll = () => {
+    const mon = week.find((d) => d.day === 1);
+    if (!mon) return;
+    onChange(week.map((d) => (d.day === 1 ? d : { ...d, closed: mon.closed, open: mon.open, close: mon.close })));
+  };
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-medium text-stone-700">Çalışma saatleri</span>
+        <button
+          type="button"
+          onClick={applyMondayToAll}
+          className="text-xs font-medium text-brand-600 hover:text-brand-700"
+        >
+          Pazartesiyi tüm haftaya uygula
+        </button>
+      </div>
+      <div className="rounded-xl border border-stone-200 divide-y divide-stone-100">
+        {week.map((d) => (
+          <div key={d.day} className="flex flex-wrap items-center gap-2 px-3 py-2">
+            <span className="w-24 shrink-0 text-sm text-stone-700">{DAY_NAMES_TR[d.day]}</span>
+            <label className="flex items-center gap-1.5 text-xs text-stone-500">
+              <input
+                type="checkbox"
+                checked={d.closed}
+                onChange={(e) => patch(d.day, { closed: e.target.checked })}
+              />
+              Kapalı
+            </label>
+            <input
+              type="time"
+              value={d.open ?? ''}
+              disabled={d.closed}
+              onChange={(e) => patch(d.day, { open: e.target.value || null })}
+              aria-label={`${DAY_NAMES_TR[d.day]} açılış`}
+              className="rounded-lg border border-stone-300 px-2 py-1 text-sm outline-none focus:border-brand-500 disabled:bg-stone-50 disabled:text-stone-400"
+            />
+            <span className="text-stone-400">–</span>
+            <input
+              type="time"
+              value={d.close ?? ''}
+              disabled={d.closed}
+              onChange={(e) => patch(d.day, { close: e.target.value || null })}
+              aria-label={`${DAY_NAMES_TR[d.day]} kapanış`}
+              className="rounded-lg border border-stone-300 px-2 py-1 text-sm outline-none focus:border-brand-500 disabled:bg-stone-50 disabled:text-stone-400"
+            />
+          </div>
+        ))}
+      </div>
+      <p className="mt-1 text-xs text-stone-500">
+        Gece yarısını aşan saatleri olduğu gibi yazabilirsin (örn. 18:00 – 02:00).
+      </p>
+    </div>
+  );
+}
+
 function PanoPasswordCard({ venueId, initialHasPassword }: { venueId: string; initialHasPassword: boolean }) {
   const [hasPassword, setHasPassword] = useState(initialHasPassword);
   const [newPassword, setNewPassword] = useState('');

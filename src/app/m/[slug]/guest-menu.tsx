@@ -64,6 +64,17 @@ type UiStrings = {
   openingHours: string;
   phone: string;
   wifi: string;
+  /* ── Mekan kartı (müşteri talebi A2–A6) ── */
+  today: string;
+  openNow: string;
+  closedNow: string;
+  closedToday: string;
+  weekHours: string;
+  rateOnGoogle: string;
+  callVenue: string;
+  getDirections: string;
+  venuePhotos: string;
+  browseCategories: string;
 };
 
 const UI_TR: UiStrings = {
@@ -113,6 +124,16 @@ const UI_TR: UiStrings = {
   openingHours: 'Çalışma saatleri',
   phone: 'Telefon',
   wifi: 'Wi-Fi',
+  today: 'Bugün',
+  openNow: 'Şu an açık',
+  closedNow: 'Şu an kapalı',
+  closedToday: 'Bugün kapalı',
+  weekHours: 'Tüm hafta',
+  rateOnGoogle: 'Google’da değerlendir',
+  callVenue: 'Ara',
+  getDirections: 'Yol tarifi',
+  venuePhotos: 'Mekandan kareler',
+  browseCategories: 'Kategoriler',
 };
 
 const UI_EN: UiStrings = {
@@ -162,6 +183,16 @@ const UI_EN: UiStrings = {
   openingHours: 'Opening hours',
   phone: 'Phone',
   wifi: 'Wi-Fi',
+  today: 'Today',
+  openNow: 'Open now',
+  closedNow: 'Closed now',
+  closedToday: 'Closed today',
+  weekHours: 'Full week',
+  rateOnGoogle: 'Rate us on Google',
+  callVenue: 'Call',
+  getDirections: 'Directions',
+  venuePhotos: 'Photos',
+  browseCategories: 'Categories',
 };
 
 /** Türkçe dışındaki her dil İngilizce arayüze düşer. */
@@ -211,6 +242,21 @@ export type GuestCategory = {
   items: GuestItem[];
 };
 
+/**
+ * Çalışma saatleri misafire HAZIR gelir: "bugün" hesabı mekanın saat dilimine
+ * göre SUNUCUDA yapılır (bkz. lib/opening-hours.ts). Böylece misafirin cihaz
+ * saati yanlışsa ya da başka ülkedeyse bile doğru günü görürüz ve Intl mantığı
+ * istemci paketine girmez.
+ */
+export type GuestHours = {
+  today: { range: string | null; closed: boolean; openNow: boolean | null } | null;
+  week: { name: string; text: string; closed: boolean }[];
+  /** Yapısal saat girilmemişse eski serbest metin ("Her gün 12:00–24:00"). */
+  fallback: string | null;
+};
+
+export type GuestPhoto = { url: string; caption: string | null };
+
 export type GuestVenue = {
   name: string;
   description: string | null;
@@ -232,6 +278,12 @@ export type GuestVenue = {
   announcement: GuestAnnouncement | null;
   /** Alt bilgi / marka hikayesi bloğu — footer'dan önce gösterilir. Boşsa null. */
   story: string | null;
+  /** "Bizi Google'da değerlendirin" bağlantısı (A4). */
+  googleReviewUrl: string | null;
+  /** Çalışma saatleri — sunucuda hesaplanmış (A3). */
+  hours: GuestHours | null;
+  /** Mekan fotoğrafları galerisi (B7). Boşsa galeri düğmesi çıkmaz. */
+  photos: GuestPhoto[];
 };
 
 export type GuestAnnouncement = {
@@ -1121,6 +1173,11 @@ export function GuestMenu({
   // görünmesin diye burada değil — venue.announcement zaten owner önizlemesinde
   // de gelir; bu kabul edilebilir çünkü sahibi de gerçek görünümü görmek ister.
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  /** Mekan kartından açılan paneller: tüm hafta saatleri ve mekan galerisi. */
+  const [showWeekHours, setShowWeekHours] = useState(false);
+  const [showPhotos, setShowPhotos] = useState(false);
+  /** "Tümü" çipi artık ilk kategoriye değil, görselli kategori ızgarasına götürür. */
+  const categoryGridRef = useRef<HTMLElement>(null);
   /**
    * Açılış (splash) ekranı — referanstaki gibi menü yüklenirken tam ekran
    * marka kartı. Sıra şudur: splash (~2,2 sn) → kapanır → karşılama popup'ı.
@@ -1450,11 +1507,15 @@ ${customFontFaceCss(design)}
               kapak şeridinde ikinci kez göstermek başlıkla çakışıyordu. */}
         </div>
 
-        <div className="px-5 pt-3 pb-4">
-          {venue.description && (
-            <p className="text-sm" style={{ color: design.mutedTextColor }}>{venue.description}</p>
-          )}
-        </div>
+        {/* Mekan kartı: tanıtım + iletişim/sosyal ikonları + bugünün saati.
+            Müşteri talebi A2–A6 — hepsi ilk açılış ekranında görünür. */}
+        <VenueInfoCard
+          venue={venue}
+          design={design}
+          t={t}
+          onOpenWeek={() => setShowWeekHours(true)}
+          onOpenPhotos={() => setShowPhotos(true)}
+        />
       </header>
 
       {/* Kalıcı duyuru şeridi — karşılama popup'ı yalnız oturumda bir kez
@@ -1543,6 +1604,13 @@ ${customFontFaceCss(design)}
               görünüyordu. Vurgu artık yalnız gerçek kategori çiplerinde. */}
           <Pressable
             onClick={() => {
+              // Müşteri talebi A1: "Tümü"ye basınca görselli kategori ızgarası
+              // görünsün. Izgara sayfada duruyor; buraya kaydırmak hem talebi
+              // karşılıyor hem de ilk kategoriye atlamaktan daha anlaşılır.
+              if (categoryGridRef.current) {
+                categoryGridRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+              }
               const first = renderedCategories[0]?.id;
               if (first) goTo(first);
             }}
@@ -1616,6 +1684,14 @@ ${customFontFaceCss(design)}
           }}
           onClose={() => setCategoryListOpen(false)}
         />
+      )}
+
+      {showWeekHours && venue.hours && (venue.hours.week.length > 0) && (
+        <WeekHoursSheet hours={venue.hours} design={design} t={t} onClose={() => setShowWeekHours(false)} />
+      )}
+
+      {showPhotos && venue.photos.length > 0 && (
+        <PhotoGallerySheet photos={venue.photos} design={design} t={t} onClose={() => setShowPhotos(false)} />
       )}
 
       {availableAllergenCodes.length > 0 && (
@@ -1753,6 +1829,20 @@ ${customFontFaceCss(design)}
             ))}
           </div>
         </div>
+      )}
+
+      {/* Görselli kategori butonları (A1/A7): Şefin Seçtikleri'nden HEMEN
+          sonra, yan yana ikili ızgara. Yalnız "Tümü" seçiliyken ve arama/
+          filtre yokken gösterilir — tek bir kategoriye süzülmüşken kategori
+          ızgarası göstermek anlamsız olur. */}
+      {!needle && (
+        <CategoryGrid
+          sectionRef={categoryGridRef}
+          categories={renderedCategories}
+          design={design}
+          t={t}
+          onPick={goTo}
+        />
       )}
 
       {/* Kategoriler + ürünler */}
@@ -2138,6 +2228,420 @@ function CategoryFrame({
  * Uzun menüler için kategori listesi. Yatay şerit 20+ kategoride kullanışsız
  * kalıyor; burada hepsi tek ekranda, aranabilir şekilde listelenir.
  */
+/**
+ * Dışarıya açılan bağlantılar için son savunma katmanı.
+ *
+ * NEDEN render tarafında da süzüyoruz: `/api/venue` artık http/https zorunlu
+ * kılıyor, ama `venues` tablosuna PostgREST üzerinden DOĞRUDAN da yazılabiliyor
+ * (RLS sütun kısıtı yok — bkz. güvenlik raporu). Yani API'deki doğrulama
+ * atlanabilir; misafire basılan `href` burada bir kez daha süzülmeli.
+ */
+function safeHref(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const v = value.trim();
+  if (/^(tel:|mailto:)/i.test(v)) return v;
+  try {
+    const u = new URL(v);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Mekan kartındaki yuvarlak eylem düğmesi (ikon + altında etiket). */
+function VenueAction({
+  href,
+  onClick,
+  label,
+  children,
+  design,
+}: {
+  href?: string | null;
+  onClick?: () => void;
+  label: string;
+  children: React.ReactNode;
+  design: MenuDesignSettings;
+}) {
+  const inner = (
+    <>
+      <span
+        className="flex h-11 w-11 items-center justify-center rounded-full border"
+        style={{
+          borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 45)),
+          backgroundColor: hexToRgba(design.primaryColor, 10),
+          color: design.primaryColor,
+        }}
+      >
+        {children}
+      </span>
+      <span className="mt-1 text-[11px] font-medium leading-tight" style={{ color: design.mutedTextColor }}>
+        {label}
+      </span>
+    </>
+  );
+  const cls = 'flex w-16 shrink-0 flex-col items-center text-center';
+  if (href) {
+    return (
+      <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noreferrer" className={cls}>
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={cls}>
+      {inner}
+    </button>
+  );
+}
+
+const strokeProps = {
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.7,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+};
+
+/**
+ * MEKAN KARTI — müşteri talebi A2–A6.
+ *
+ * İlk açılış ekranında, kapak şeridinin hemen altında: tanıtım metni, mekanın
+ * telefonu (tıklayınca arar), konumu (Maps), sosyal medya hesapları, Google
+ * değerlendirme bağlantısı, mekan görselleri ve BUGÜNÜN çalışma saati.
+ * "Tüm hafta" ayrı bir panelde açılır — kart kalabalıklaşmasın.
+ */
+function VenueInfoCard({
+  venue,
+  design,
+  t,
+  onOpenWeek,
+  onOpenPhotos,
+}: {
+  venue: GuestVenue;
+  design: MenuDesignSettings;
+  t: UiStrings;
+  onOpenWeek: () => void;
+  onOpenPhotos: () => void;
+}) {
+  const tel = venue.phone ? `tel:${venue.phone.replace(/\s/g, '')}` : null;
+  const maps = safeHref(venue.googleMapsUrl);
+  const review = safeHref(venue.googleReviewUrl);
+  const igHandle = venue.instagram
+    ? venue.instagram
+        .replace(/^@/, '')
+        .replace(/^https?:\/\/(www\.)?instagram\.com\//i, '')
+        .replace(/\/$/, '')
+    : null;
+  const ig = igHandle ? `https://instagram.com/${encodeURIComponent(igHandle)}` : null;
+  const waDigits = venue.whatsapp?.replace(/[^\d]/g, '') || null;
+  const wa = waDigits ? `https://wa.me/${waDigits}` : null;
+
+  const today = venue.hours?.today ?? null;
+  const hasWeek = (venue.hours?.week?.length ?? 0) > 0;
+  const hoursText = today
+    ? today.closed
+      ? t.closedToday
+      : today.range
+    : venue.hours?.fallback ?? null;
+
+  const actions =
+    Boolean(tel) || Boolean(maps) || Boolean(ig) || Boolean(wa) || Boolean(review) || venue.photos.length > 0;
+
+  if (!venue.description && !hoursText && !actions) return null;
+
+  return (
+    <div className="px-5 pt-3 pb-4">
+      {venue.description && (
+        <p className="text-sm leading-relaxed" style={{ color: design.mutedTextColor }}>
+          {venue.description}
+        </p>
+      )}
+
+      {hoursText && (
+        <button
+          type="button"
+          onClick={hasWeek ? onOpenWeek : undefined}
+          disabled={!hasWeek}
+          className="mt-3 flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium disabled:cursor-default"
+          style={{
+            borderColor: hexToRgba(design.dividerColor, Math.max(design.dividerOpacity, 45)),
+            color: design.textColor,
+          }}
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden {...strokeProps}>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+          <span style={{ color: design.mutedTextColor }}>{t.today}</span>
+          <span>{hoursText}</span>
+          {today?.openNow !== null && today?.openNow !== undefined && !today.closed && (
+            <span
+              className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+              style={
+                today.openNow
+                  ? { backgroundColor: hexToRgba('#16a34a', 14), color: '#15803d' }
+                  : { backgroundColor: hexToRgba(design.mutedTextColor, 14), color: design.mutedTextColor }
+              }
+            >
+              {today.openNow ? t.openNow : t.closedNow}
+            </span>
+          )}
+          {hasWeek && (
+            <span className="ml-0.5 underline underline-offset-2" style={{ color: design.primaryColor }}>
+              {t.weekHours}
+            </span>
+          )}
+        </button>
+      )}
+
+      {actions && (
+        <div className="mt-4 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {tel && (
+            <VenueAction href={tel} label={t.callVenue} design={design}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden {...strokeProps}>
+                <path d="M4 5c0-.6.4-1 1-1h2.5c.5 0 .9.3 1 .8l.8 3c.1.4 0 .8-.4 1L7.5 10a12 12 0 0 0 6.5 6.5l1.2-1.4c.3-.3.7-.4 1-.3l3 .8c.5.1.8.5.8 1V19c0 .6-.4 1-1 1A15 15 0 0 1 4 5Z" />
+              </svg>
+            </VenueAction>
+          )}
+          {maps && (
+            <VenueAction href={maps} label={t.getDirections} design={design}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden {...strokeProps}>
+                <path d="M12 21s7-5.3 7-11a7 7 0 1 0-14 0c0 5.7 7 11 7 11Z" />
+                <circle cx="12" cy="10" r="2.5" />
+              </svg>
+            </VenueAction>
+          )}
+          {ig && (
+            <VenueAction href={ig} label="Instagram" design={design}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden {...strokeProps}>
+                <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+                <circle cx="12" cy="12" r="4" />
+                <circle cx="17" cy="7" r="1" fill="currentColor" stroke="none" />
+              </svg>
+            </VenueAction>
+          )}
+          {wa && (
+            <VenueAction href={wa} label="WhatsApp" design={design}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden {...strokeProps}>
+                <path d="M20 12a8 8 0 0 1-11.9 7L4 20l1.1-3.9A8 8 0 1 1 20 12Z" />
+                <path d="M9 9.5c0 3 2.5 5.5 5.5 5.5.6 0 1-.5 1-1l-1.4-.7-.9.9a5 5 0 0 1-2.4-2.4l.9-.9L11 9.5c0-.5-.4-1-1-1s-1 .4-1 1Z" />
+              </svg>
+            </VenueAction>
+          )}
+          {review && (
+            <VenueAction href={review} label={t.rateOnGoogle} design={design}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden {...strokeProps}>
+                <path d="m12 4 2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 9.7l5.4-.8L12 4Z" />
+              </svg>
+            </VenueAction>
+          )}
+          {venue.photos.length > 0 && (
+            <VenueAction onClick={onOpenPhotos} label={t.venuePhotos} design={design}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden {...strokeProps}>
+                <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" />
+                <circle cx="9" cy="10" r="1.6" />
+                <path d="m4.5 17 4.6-4.3 3.2 3 2.5-2.2 4.7 4.2" />
+              </svg>
+            </VenueAction>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Tüm hafta çalışma saatleri paneli (A3). */
+function WeekHoursSheet({
+  hours,
+  design,
+  t,
+  onClose,
+}: {
+  hours: GuestHours;
+  design: MenuDesignSettings;
+  t: UiStrings;
+  onClose: () => void;
+}) {
+  const todayIndexName = hours.today && !hours.today.closed ? null : null;
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      label={t.openingHours}
+      placement="bottom"
+      panelClassName="ros-draggable flex max-h-[80vh] w-full max-w-md flex-col rounded-t-3xl shadow-2xl sm:rounded-3xl"
+      panelStyle={{ backgroundColor: design.surfaceColor, color: design.textColor }}
+    >
+      <>
+        <div
+          className="flex items-center justify-between border-b px-5 py-4"
+          style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity) }}
+        >
+          <h2 className="text-base font-semibold" style={{ fontFamily: design.headingFont }}>
+            {t.openingHours}
+          </h2>
+          <button type="button" onClick={onClose} aria-label={t.close} style={{ color: design.mutedTextColor }}>
+            ✕
+          </button>
+        </div>
+        <ul className="overflow-y-auto px-5 py-3">
+          {hours.week.map((row) => (
+            <li
+              key={row.name}
+              className="flex items-center justify-between border-b py-2.5 text-sm last:border-b-0"
+              style={{ borderColor: hexToRgba(design.dividerColor, Math.round(design.dividerOpacity / 2)) }}
+            >
+              <span style={{ color: design.textColor }}>{row.name}</span>
+              <span style={{ color: row.closed ? design.mutedTextColor : design.textColor }}>{row.text}</span>
+            </li>
+          ))}
+        </ul>
+        {todayIndexName}
+      </>
+    </Sheet>
+  );
+}
+
+/** Mekan görselleri galerisi (B7). */
+function PhotoGallerySheet({
+  photos,
+  design,
+  t,
+  onClose,
+}: {
+  photos: GuestPhoto[];
+  design: MenuDesignSettings;
+  t: UiStrings;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      label={t.venuePhotos}
+      placement="bottom"
+      panelClassName="ros-draggable flex max-h-[85vh] w-full max-w-2xl flex-col rounded-t-3xl shadow-2xl sm:rounded-3xl"
+      panelStyle={{ backgroundColor: design.surfaceColor, color: design.textColor }}
+    >
+      <>
+        <div
+          className="flex items-center justify-between border-b px-5 py-4"
+          style={{ borderColor: hexToRgba(design.dividerColor, design.dividerOpacity) }}
+        >
+          <h2 className="text-base font-semibold" style={{ fontFamily: design.headingFont }}>
+            {t.venuePhotos}
+          </h2>
+          <button type="button" onClick={onClose} aria-label={t.close} style={{ color: design.mutedTextColor }}>
+            ✕
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 overflow-y-auto p-4 sm:grid-cols-3">
+          {photos.map((p) => (
+            <figure key={p.url} className="overflow-hidden rounded-2xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.url} alt={p.caption ?? ''} loading="lazy" className="h-40 w-full object-cover" />
+              {p.caption && (
+                <figcaption className="px-1 pt-1 text-[11px]" style={{ color: design.mutedTextColor }}>
+                  {p.caption}
+                </figcaption>
+              )}
+            </figure>
+          ))}
+        </div>
+      </>
+    </Sheet>
+  );
+}
+
+/**
+ * GÖRSELLİ KATEGORİ BUTONLARI — müşteri talebi A1 / A7.
+ *
+ * "Şefin Seçtikleri"nden sonra, yan yana İKİLİ ve aşağı doğru devam eden bir
+ * ızgara. Kategorinin kendi görseli (categories.background_url) varsa o
+ * kullanılır; yoksa markanın renklerinden türeyen bir gradyan + kategori
+ * baş harfi basılır — görsel yüklenmemiş mekanlarda ızgara boş kutulara
+ * dönüşmesin diye.
+ */
+function CategoryGrid({
+  categories,
+  design,
+  t,
+  onPick,
+  sectionRef,
+}: {
+  categories: GuestCategory[];
+  design: MenuDesignSettings;
+  t: UiStrings;
+  onPick: (id: string) => void;
+  sectionRef?: React.RefObject<HTMLElement>;
+}) {
+  if (categories.length === 0) return null;
+  return (
+    <section ref={sectionRef} className="relative z-10 scroll-mt-28 px-4 pt-8">
+      <h2
+        className="mb-3 text-xs font-semibold uppercase tracking-[0.18em]"
+        style={{ color: design.mutedTextColor }}
+      >
+        {t.browseCategories}
+      </h2>
+      <div className="grid grid-cols-2 gap-3">
+        {categories.map((c) => (
+          <Pressable
+            key={c.id}
+            onClick={() => onPick(c.id)}
+            className="group relative flex h-32 flex-col justify-end overflow-hidden rounded-2xl border text-left sm:h-36"
+            style={{
+              borderColor: hexToRgba(design.dividerColor, design.dividerOpacity),
+              backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
+            }}
+          >
+            {c.backgroundUrl ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={c.backgroundUrl}
+                  alt=""
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{ objectPosition: `center ${c.backgroundPositionY}%` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+              </>
+            ) : (
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(135deg, ${hexToRgba(design.primaryColor, 90)}, ${hexToRgba(
+                    design.accentColor,
+                    75
+                  )})`,
+                }}
+              >
+                <span
+                  className="absolute right-3 top-2 select-none text-5xl font-bold opacity-25"
+                  style={{ fontFamily: design.headingFont, color: design.surfaceColor }}
+                  aria-hidden
+                >
+                  {c.name.trim().charAt(0).toLocaleUpperCase('tr')}
+                </span>
+              </div>
+            )}
+            <div className="relative p-3">
+              <p
+                className="text-sm font-semibold leading-tight text-white drop-shadow"
+                style={{ fontFamily: design.headingFont }}
+              >
+                {c.name}
+              </p>
+              <p className="mt-0.5 text-[11px] text-white/85">{t.itemCount(c.items.length)}</p>
+            </div>
+          </Pressable>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CategoryListSheet({
   categories,
   design,
