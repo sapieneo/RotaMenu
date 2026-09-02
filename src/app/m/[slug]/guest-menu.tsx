@@ -2584,12 +2584,15 @@ function CategoryGrid({
       >
         {t.browseCategories}
       </h2>
-      <div className="grid grid-cols-2 gap-3">
+      {/* Buton yüksekliği bilinçli olarak TEK SATIR metne göre: görsel kartın
+          konusu değil, adın çerçevesi. Büyük kartlar 28 kategorili menüde
+          ekranı doldurup listeyi görünmez kılıyordu. */}
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
         {categories.map((c) => (
           <Pressable
             key={c.id}
             onClick={() => onPick(c.id)}
-            className="group relative flex h-32 flex-col justify-end overflow-hidden rounded-2xl border text-left sm:h-36"
+            className="group relative flex h-11 items-center overflow-hidden rounded-xl border text-left sm:h-12"
             style={{
               borderColor: hexToRgba(design.dividerColor, design.dividerOpacity),
               backgroundColor: hexToRgba(design.cardColor, design.cardOpacity),
@@ -2605,7 +2608,9 @@ function CategoryGrid({
                   className="absolute inset-0 h-full w-full object-cover"
                   style={{ objectPosition: `center ${c.backgroundPositionY}%` }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+                {/* Bu boyutta okunurluk için düz perde: dikey gradyan tek
+                    satırlık metinde yeterli kontrast bırakmıyor. */}
+                <div className="absolute inset-0 bg-black/45" />
               </>
             ) : (
               <div
@@ -2616,24 +2621,18 @@ function CategoryGrid({
                     75
                   )})`,
                 }}
-              >
-                <span
-                  className="absolute right-3 top-2 select-none text-5xl font-bold opacity-25"
-                  style={{ fontFamily: design.headingFont, color: design.surfaceColor }}
-                  aria-hidden
-                >
-                  {c.name.trim().charAt(0).toLocaleUpperCase('tr')}
-                </span>
-              </div>
+              />
             )}
-            <div className="relative p-3">
-              <p
-                className="text-sm font-semibold leading-tight text-white drop-shadow"
+            <div className="relative flex min-w-0 flex-1 items-baseline gap-1.5 px-3">
+              <span
+                className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-none text-white drop-shadow-sm"
                 style={{ fontFamily: design.headingFont }}
               >
                 {c.name}
-              </p>
-              <p className="mt-0.5 text-[11px] text-white/85">{t.itemCount(c.items.length)}</p>
+              </span>
+              <span className="shrink-0 text-[11px] font-medium tabular-nums text-white/75">
+                {c.items.length}
+              </span>
             </div>
           </Pressable>
         ))}

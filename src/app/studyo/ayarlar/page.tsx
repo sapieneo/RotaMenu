@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { resolveManagedVenue } from '@/lib/managed-venue';
 import { resolvePlanContext } from '@/lib/plans';
 import { VenueSettingsForm, type VenueSettings } from './venue-settings-form';
@@ -76,12 +76,16 @@ export default async function VenueSettingsPage({ searchParams }: { searchParams
 
   // Pano giriş şifresi yalnızca burada, VAR MI diye soruluyor — hash'in
   // kendisi asla forma/istemciye taşınmaz (bkz. lib/pano-auth.ts).
-  const { data: panoRow } = await supabase
-    .from('venues')
-    .select('pano_password_hash')
-    .eq('id', venue.id)
+  // Hash artık `venue_pano_secrets` içinde ve o tabloya YALNIZ service_role
+  // erişebiliyor (RLS açık, politika yok) — venues'te dursaydı yayındaki her
+  // işletme için anon anahtarla okunabilirdi. Buradaki `venue` zaten
+  // resolveManagedVenue tarafından yetkilendirildi; yalnız "var mı" soruluyor.
+  const { data: panoRow } = await createAdminClient()
+    .from('venue_pano_secrets')
+    .select('venue_id')
+    .eq('venue_id', venue.id)
     .maybeSingle();
-  const hasPanoPassword = Boolean(panoRow?.pano_password_hash);
+  const hasPanoPassword = Boolean(panoRow);
 
   const initial: VenueSettings = {
     id: venue.id,
