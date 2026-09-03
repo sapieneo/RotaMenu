@@ -18,6 +18,7 @@ import {
 import { normalizeMenuDesign } from '@/lib/themes';
 import { parseWeeklyHours, todayStatus, weekRows } from '@/lib/opening-hours';
 import { parsePreviewDesign } from '@/lib/schemas/design';
+import { pickAdForVenue } from '@/lib/ads';
 
 export const dynamic = 'force-dynamic';
 
@@ -405,6 +406,11 @@ export default async function GuestMenuPage({
     ...availableLocaleCodes.map((code) => MENU_LANGUAGE_BY_CODE.get(code)).filter(Boolean),
   ].map((language) => ({ code: language!.code, name: language!.nativeName }));
 
+  // Açılış ekranı reklamı (Rota paneli → /admin/reklam). Sahibin önizlemesinde
+  // ve tasarım maketinde reklam gösterilmez: hem gösterim sayacını şişirir hem
+  // de işletme kendi menüsünü düzenlerken her seferinde reklam beklerdi.
+  const ad = isOwnerViewing || isDesignPreview ? null : await pickAdForVenue(venue.id);
+
   return (
     <GuestMenu
       venue={guestVenue}
@@ -414,6 +420,7 @@ export default async function GuestMenuPage({
       availableLocales={availableLocales}
       currentLocale={currentLocale}
       translations={guestTranslations}
+      ad={ad}
     />
   );
 }

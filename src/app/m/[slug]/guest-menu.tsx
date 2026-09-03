@@ -75,6 +75,7 @@ type UiStrings = {
   getDirections: string;
   venuePhotos: string;
   browseCategories: string;
+  advertisement: string;
 };
 
 const UI_TR: UiStrings = {
@@ -134,6 +135,7 @@ const UI_TR: UiStrings = {
   getDirections: 'Yol tarifi',
   venuePhotos: 'Mekandan kareler',
   browseCategories: 'Kategoriler',
+  advertisement: 'Reklam',
 };
 
 const UI_EN: UiStrings = {
@@ -193,6 +195,7 @@ const UI_EN: UiStrings = {
   getDirections: 'Directions',
   venuePhotos: 'Photos',
   browseCategories: 'Categories',
+  advertisement: 'Ad',
 };
 
 /** Türkçe dışındaki her dil İngilizce arayüze düşer. */
@@ -256,6 +259,15 @@ export type GuestHours = {
 };
 
 export type GuestPhoto = { url: string; caption: string | null };
+
+/** Açılış ekranındaki reklam. Seçim sunucuda yapılır (bkz. lib/ads.ts). */
+export type GuestAd = {
+  id: string;
+  mediaUrl: string;
+  mediaType: 'image' | 'video';
+  durationSeconds: number;
+  clickUrl: string | null;
+};
 
 export type GuestVenue = {
   name: string;
@@ -961,6 +973,7 @@ export function GuestMenu({
   availableLocales,
   currentLocale,
   translations = {},
+  ad = null,
 }: {
   venue: GuestVenue;
   categories: GuestCategory[];
@@ -969,6 +982,8 @@ export function GuestMenu({
   availableLocales: { code: string; name: string }[];
   currentLocale: string;
   translations?: GuestTranslations;
+  /** Açılış ekranında gösterilecek reklam (Rota panelinden atanır). Yoksa null. */
+  ad?: GuestAd | null;
 }) {
   // Tasarım Stüdyosu'ndaki VE Görseller sayfasındaki maket bu bileşeni
   // YALNIZCA bir kez (ilk yüklemede) yükler; sonraki her değişiklik tam
@@ -1199,11 +1214,14 @@ export function GuestMenu({
     } catch {
       /* gizlilik modunda sessionStorage kapalıysa yine göster, sorun değil */
     }
-    const fade = window.setTimeout(() => setSplash('fading'), 3200);
+    // Reklam varsa süreyi REKLAM belirler (Rota panelinden ayarlanan saniye);
+    // yoksa eski marka açılışının 3,2 sn + 0,8 sn kaybolma ritmi korunur.
+    const holdMs = ad ? ad.durationSeconds * 1000 : 3200;
+    const fade = window.setTimeout(() => setSplash('fading'), holdMs);
     const done = window.setTimeout(() => {
       setSplash('hidden');
       if (venue.announcement) setShowAnnouncement(true);
-    }, 4000);
+    }, holdMs + 800);
     return () => {
       window.clearTimeout(fade);
       window.clearTimeout(done);
@@ -1390,7 +1408,14 @@ ${customFontFaceCss(design)}
           "en yakın scroll ata"sını buraya sabitler ve nav'ı kırar. Yuvarlak
           köşe kırpma bunun yerine header/footer'ın kendi üzerinde yapılır. */}
       {splash !== 'hidden' && (
-        <SplashScreen venue={venue} design={design} t={t} fading={splash === 'fading'} />
+        <SplashScreen
+          venue={venue}
+          design={design}
+          t={t}
+          fading={splash === 'fading'}
+          ad={ad}
+          venueId={venueId}
+        />
       )}
 
       {venue.announcement && showAnnouncement && (
@@ -2894,17 +2919,153 @@ function ItemModal({
  * için gereksiz gürültü yapmasın ve kaybolurken altındaki menüye yapılan
  * tıklamayı yutmasın.
  */
+/**
+ * REKLAM AÇILIŞI — Rota Menü'nün yönettiği reklam alanı.
+ *
+ * Açılış ekranı artık ya markanın/mekanın görseli ya da bu menüye atanmış bir
+ * reklamdır (bkz. lib/ads.ts). Reklam süresi panelden saniye olarak ayarlanır.
+ *
+ * GERİ SAYIM: sağ üstte içi boşalan bir halka ve ortasında kalan saniye.
+ * Misafir ne kadar bekleyeceğini ilk saniyede anlıyor — süreyi bilmeden
+ * bekletmek menüden çıkmaya yol açar. Halka `stroke-dashoffset` üzerinde tek
+ * bir lineer geçişle boşalıyor; saniye sayacı ondan bağımsız, bu yüzden
+ * yavaş cihazda sayı takılsa bile halka doğru hızda ilerliyor.
+ */
+function AdSplash({
+  ad,
+  venueId,
+  t,
+  fading,
+}: {
+  ad: GuestAd;
+  venueId: string;
+  t: UiStrings;
+  fading: boolean;
+}) {
+  const RADIUS = 16;
+  const CIRCUM = 2 * Math.PI * RADIUS;
+
+  const [started, setStarted] = useState(false);
+  const [left, setLeft] = useState(ad.durationSeconds);
+
+  useEffect(() => {
+    // Gösterim ölçümü — sessiz, misafire hiçbir şey göstermez.
+    void fetch('/api/ad-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adId: ad.id, venueId, kind: 'impression' }),
+      keepalive: true,
+    }).catch(() => {});
+
+    const frame = window.requestAnimationFrame(() => setStarted(true));
+    const tick = window.setInterval(() => setLeft((v) => Math.max(0, v - 1)), 1000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(tick);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleClick() {
+    if (!ad.clickUrl) return;
+    void fetch('/api/ad-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adId: ad.id, venueId, kind: 'click' }),
+      keepalive: true,
+    }).catch(() => {});
+  }
+
+  const media =
+    ad.mediaType === 'video' ? (
+      <video
+        src={ad.mediaUrl}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    ) : (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={ad.mediaUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+    );
+
+  return (
+    <div
+      className={`fixed inset-0 z-[60] bg-black transition-opacity duration-[800ms] ${
+        fading ? 'pointer-events-none opacity-0' : 'opacity-100'
+      }`}
+    >
+      {ad.clickUrl ? (
+        <a
+          href={ad.clickUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={handleClick}
+          className="absolute inset-0 block"
+          aria-label={t.advertisement}
+        >
+          {media}
+        </a>
+      ) : (
+        media
+      )}
+
+      {/* "Reklam" etiketi: misafir ne izlediğini bilmeli. */}
+      <span className="absolute left-4 top-4 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/90">
+        {t.advertisement}
+      </span>
+
+      {/* Geri sayım halkası */}
+      <div className="absolute right-4 top-4 h-11 w-11">
+        <svg viewBox="0 0 40 40" className="h-full w-full -rotate-90" aria-hidden>
+          <circle cx="20" cy="20" r={RADIUS} fill="rgba(0,0,0,0.45)" stroke="rgba(255,255,255,0.28)" strokeWidth="3" />
+          <circle
+            cx="20"
+            cy="20"
+            r={RADIUS}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={CIRCUM}
+            style={{
+              strokeDashoffset: started ? CIRCUM : 0,
+              transition: `stroke-dashoffset ${ad.durationSeconds}s linear`,
+            }}
+          />
+        </svg>
+        <span
+          className="absolute inset-0 flex items-center justify-center text-[13px] font-bold tabular-nums text-white"
+          aria-live="off"
+        >
+          {left}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function SplashScreen({
   venue,
   design,
   t,
   fading,
+  ad,
+  venueId,
 }: {
   venue: GuestVenue;
   design: MenuDesignSettings;
   t: UiStrings;
   fading: boolean;
+  ad?: GuestAd | null;
+  venueId: string;
 }) {
+  // Reklam atanmışsa açılış ekranı odur; yoksa aşağıdaki marka/kapak akışı.
+  if (ad) return <AdSplash ad={ad} venueId={venueId} t={t} fading={fading} />;
+
   /**
    * İKİ AYRI DURUM — karıştırılmamalı:
    *

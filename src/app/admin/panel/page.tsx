@@ -171,6 +171,13 @@ export default async function AdminPanelPage() {
           </p>
         </div>
         <div className="flex items-center gap-sm">
+          {/* Reklam yönetimi yalnız Rota Menü'ye ait; işletme panelinde izi yok. */}
+          <a
+            href="/admin/reklam"
+            className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-600 transition hover:bg-stone-50"
+          >
+            Reklamlar
+          </a>
           <CreateVenueButton />
           <LogoutButton />
         </div>
